@@ -1,0 +1,12 @@
+{
+  "viewport": [
+    1440,
+    900
+  ],
+  "page_overflow_x": false,
+  "main_overflow_x": false,
+  "theme": "system",
+  "bg": "rgb(255, 255, 255)",
+  "traceback": false,
+  "text_head": "ED\n\nEduDSS\n\nHỗ trợ quyết định học tập\n\nTổng quan\n\nNGƯỜI DÙNG & DỮ LIỆU\n\nNgười dùng\n\nKho dữ liệu\n\nKhám phá dữ liệu\n\nTRI THỨC & AI\n\nTài liệu & quy chế\n\nCấu hình AI\n\nTrợ lý AI\n\nVẬN HÀNH\n\nTích hợp LMS/CMS\n\nMô hình ML\n\nBáo cáo & giám sát\n\nCài đặt\n\nA\nadmin\nQuản trị viên\n\nGiao diện\n\nSáng\n\nTối\n\nHệ thống\n\nĐăng xuất\n\nModel Registry\n\nToàn bộ phiên bản mô hình đã huấn luyện trong hệ thống — chỉ xem, không thao tác ở đây.\n\nModel Registry quản lý các phiên bản mô hình đã huấn luyện, giúp theo dõi mô hình chờ duyệt, đang được sử dụng và đã lưu trữ.\n\nChờ duyệt (Candidate) → Đang sử dụng (Production) → Lưu trữ (Archived). Trang này chỉ dùng để theo dõi; thao tác chuyển phiên bản nằm trong Kho dữ liệu > AI Models.\n\nTổng số phiên bản\n\n2\n\nĐang Production\n\n0\n\nChờ duyệt (Candidate)\n\n2\n\nDataset có mô hình\n\n1\n\nĐể đổi bản Production hoặc rollback, vào Kho dữ liệu > AI Models (chỉ Admin thấy nút thao tác, theo đúng RBAC hiện có).\n\nkeyboard_arrow_right\n\n🔍 Kiểm tra Drift (theo yêu cầu — không phải giám sát tự động)"
+}

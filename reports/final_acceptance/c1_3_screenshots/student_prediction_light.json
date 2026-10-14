@@ -1,0 +1,12 @@
+{
+  "viewport": [
+    1440,
+    900
+  ],
+  "page_overflow_x": false,
+  "main_overflow_x": false,
+  "theme": "light",
+  "bg": "rgb(255, 255, 255)",
+  "traceback": false,
+  "text_head": "ED\n\nEduDSS\n\nHỗ trợ quyết định học tập\n\nTrang chủ\n\nHỌC TẬP & PHÂN TÍCH\n\nDự đoán kết quả\n\nNhóm học tập & gợi ý\n\nTRỢ LÝ AI\n\nTrợ lý AI\n\nLịch sử tư vấn\n\nS\nsv005\nSinh viên\n\nGiao diện\n\nSáng\n\nTối\n\nHệ thống\n\nĐăng xuất\n\nDự đoán kết quả học tập của bạn\n\nNhập thông tin học tập để xem dự đoán từ mô hình đang dùng cho lớp bạn.\n\nDự đoán — Nhập tay\n\nDự đoán — Dữ liệu đã có\n\nDự đoán — Nhập tay\n\nĐiền thông tin học tập của bạn để xem dự đoán từ mô hình đang dùng cho lớp.\n\nPhiếu nhập thông tin\nĐiền từng mục đúng với tình trạng học tập của bạn, rồi bấm Gửi & xem kết quả dự đoán. Kết quả chỉ suy ra từ mô hình đã huấn luyện — hệ thống không huấn luyện lại.\n\nChưa có mục tiêu dự đoán được cấu hình cho lớp của bạn. Vui lòng chờ Giảng viên thiết lập, hoặc liên hệ Giảng viên/Admin nếu việc này kéo dài."
+}

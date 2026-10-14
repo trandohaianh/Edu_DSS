@@ -1,0 +1,149 @@
+{
+  "actual_duration_seconds": 300.0,
+  "concurrency": 10,
+  "ended_utc": "2026-09-22T06:11:06.628729+00:00",
+  "error_rate": 0.0,
+  "organization_id": 41,
+  "p50_ms": 18.101,
+  "p95_ms": 55.038,
+  "requested_duration_seconds": 300,
+  "samples_over_time": [
+    {
+      "elapsed_seconds": 15.0,
+      "errors_so_far": 0,
+      "free_memory_mb": 1543.6,
+      "operations_so_far": 3698,
+      "recent_p95_ms": 20.186
+    },
+    {
+      "elapsed_seconds": 30.0,
+      "errors_so_far": 0,
+      "free_memory_mb": 1598.8,
+      "operations_so_far": 7239,
+      "recent_p95_ms": 66.873
+    },
+    {
+      "elapsed_seconds": 45.0,
+      "errors_so_far": 0,
+      "free_memory_mb": 1680.0,
+      "operations_so_far": 10518,
+      "recent_p95_ms": 44.389
+    },
+    {
+      "elapsed_seconds": 60.0,
+      "errors_so_far": 0,
+      "free_memory_mb": 1645.9,
+      "operations_so_far": 13760,
+      "recent_p95_ms": 59.542
+    },
+    {
+      "elapsed_seconds": 75.0,
+      "errors_so_far": 0,
+      "free_memory_mb": 1635.5,
+      "operations_so_far": 17124,
+      "recent_p95_ms": 49.743
+    },
+    {
+      "elapsed_seconds": 90.0,
+      "errors_so_far": 0,
+      "free_memory_mb": 1607.5,
+      "operations_so_far": 20656,
+      "recent_p95_ms": 55.653
+    },
+    {
+      "elapsed_seconds": 105.0,
+      "errors_so_far": 0,
+      "free_memory_mb": 1601.3,
+      "operations_so_far": 24188,
+      "recent_p95_ms": 57.227
+    },
+    {
+      "elapsed_seconds": 120.0,
+      "errors_so_far": 0,
+      "free_memory_mb": 1588.5,
+      "operations_so_far": 27664,
+      "recent_p95_ms": 52.456
+    },
+    {
+      "elapsed_seconds": 135.0,
+      "errors_so_far": 0,
+      "free_memory_mb": 1578.7,
+      "operations_so_far": 31264,
+      "recent_p95_ms": 49.473
+    },
+    {
+      "elapsed_seconds": 150.0,
+      "errors_so_far": 0,
+      "free_memory_mb": 1580.2,
+      "operations_so_far": 34455,
+      "recent_p95_ms": 117.907
+    },
+    {
+      "elapsed_seconds": 165.0,
+      "errors_so_far": 0,
+      "free_memory_mb": 1679.8,
+      "operations_so_far": 37861,
+      "recent_p95_ms": 52.771
+    },
+    {
+      "elapsed_seconds": 180.0,
+      "errors_so_far": 0,
+      "free_memory_mb": 1650.3,
+      "operations_so_far": 41239,
+      "recent_p95_ms": 58.728
+    },
+    {
+      "elapsed_seconds": 195.0,
+      "errors_so_far": 0,
+      "free_memory_mb": 1630.3,
+      "operations_so_far": 44698,
+      "recent_p95_ms": 49.781
+    },
+    {
+      "elapsed_seconds": 210.0,
+      "errors_so_far": 0,
+      "free_memory_mb": 1609.9,
+      "operations_so_far": 48337,
+      "recent_p95_ms": 56.601
+    },
+    {
+      "elapsed_seconds": 225.0,
+      "errors_so_far": 0,
+      "free_memory_mb": 1653.2,
+      "operations_so_far": 51733,
+      "recent_p95_ms": 50.141
+    },
+    {
+      "elapsed_seconds": 240.0,
+      "errors_so_far": 0,
+      "free_memory_mb": 1659.2,
+      "operations_so_far": 54826,
+      "recent_p95_ms": 49.258
+    },
+    {
+      "elapsed_seconds": 255.0,
+      "errors_so_far": 0,
+      "free_memory_mb": 1634.6,
+      "operations_so_far": 58281,
+      "recent_p95_ms": 48.807
+    },
+    {
+      "elapsed_seconds": 270.0,
+      "errors_so_far": 0,
+      "free_memory_mb": 1959.0,
+      "operations_so_far": 61738,
+      "recent_p95_ms": 53.102
+    },
+    {
+      "elapsed_seconds": 285.0,
+      "errors_so_far": 0,
+      "free_memory_mb": 1980.2,
+      "operations_so_far": 65057,
+      "recent_p95_ms": 57.616
+    }
+  ],
+  "started_utc": "2026-09-22T06:06:06.613866+00:00",
+  "test": "short_soak",
+  "total_errors": 0,
+  "total_operations": 68329
+}

@@ -1,0 +1,85 @@
+{
+  "steps": [
+    {
+      "key": "E1",
+      "title": "Progressive concurrency ladder 1/5/10/25/50, stop at first SLO violation",
+      "status": "PASS",
+      "detail": {
+        "slo": {
+          "max_error_rate": 0.01,
+          "max_p95_latency_ms": 500.0
+        },
+        "levels": [
+          {
+            "concurrency": 1,
+            "total_operations": 5,
+            "duration_seconds": 0.0558,
+            "throughput_ops_per_sec": 89.54,
+            "p50_ms": 9.274,
+            "p95_ms": 16.293,
+            "p99_ms": 17.61,
+            "error_count": 0,
+            "error_rate": 0.0,
+            "errors_sample": [],
+            "pg_connections_observed": null
+          },
+          {
+            "concurrency": 5,
+            "total_operations": 25,
+            "duration_seconds": 0.2453,
+            "throughput_ops_per_sec": 101.93,
+            "p50_ms": 15.403,
+            "p95_ms": 166.53,
+            "p99_ms": 181.922,
+            "error_count": 0,
+            "error_rate": 0.0,
+            "errors_sample": [],
+            "pg_connections_observed": null
+          },
+          {
+            "concurrency": 10,
+            "total_operations": 50,
+            "duration_seconds": 0.1836,
+            "throughput_ops_per_sec": 272.32,
+            "p50_ms": 28.661,
+            "p95_ms": 66.021,
+            "p99_ms": 69.801,
+            "error_count": 0,
+            "error_rate": 0.0,
+            "errors_sample": [],
+            "pg_connections_observed": null
+          },
+          {
+            "concurrency": 25,
+            "total_operations": 125,
+            "duration_seconds": 0.4499,
+            "throughput_ops_per_sec": 277.82,
+            "p50_ms": 48.529,
+            "p95_ms": 327.744,
+            "p99_ms": 365.301,
+            "error_count": 0,
+            "error_rate": 0.0,
+            "errors_sample": [],
+            "pg_connections_observed": null
+          },
+          {
+            "concurrency": 50,
+            "total_operations": 250,
+            "duration_seconds": 0.7884,
+            "throughput_ops_per_sec": 317.12,
+            "p50_ms": 47.107,
+            "p95_ms": 358.025,
+            "p99_ms": 436.046,
+            "error_count": 0,
+            "error_rate": 0.0,
+            "errors_sample": [],
+            "pg_connections_observed": null
+          }
+        ],
+        "highest_concurrency_meeting_slo": 50,
+        "first_concurrency_violating_slo": null
+      },
+      "duration_s": 1.729
+    }
+  ]
+}

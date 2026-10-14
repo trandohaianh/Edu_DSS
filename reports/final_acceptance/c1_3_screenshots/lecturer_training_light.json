@@ -1,0 +1,12 @@
+{
+  "viewport": [
+    1440,
+    900
+  ],
+  "page_overflow_x": false,
+  "main_overflow_x": false,
+  "theme": "light",
+  "bg": "rgb(255, 255, 255)",
+  "traceback": false,
+  "text_head": "ED\n\nEduDSS\n\nHỗ trợ quyết định học tập\n\nTỔNG QUAN\n\nTrang chủ\n\nDashboard\n\nPHÂN TÍCH LỚP HỌC\n\nKhám phá dữ liệu\n\nHuấn luyện & dự đoán\n\nPhân cụm & gợi ý\n\nHỖ TRỢ & TÀI LIỆU\n\nTrợ lý AI\n\nDuyệt tài liệu\n\nKho dữ liệu\n\nG\ngiangvien\nGiảng viên / Cố vấn học tập\n\nGiao diện\n\nSáng\n\nTối\n\nHệ thống\n\nĐăng xuất\n\nHuấn luyện & Dự đoán\n\nSử dụng học máy để dự đoán kết quả học tập.\n\nℹ️ Chưa có dữ liệu làm sạch sẵn — hệ thống dùng dữ liệu gốc, tiền xử lý sau khi chia train/test trong pipeline CV.\n\nkeyboard_arrow_right\n\nQuy trình thực hiện & từ điển thuật ngữ\n\nHuấn luyện mô hình: chọn Target, Features, tham số và chạy train một lần. Dự đoán: chỉ dùng mô hình đã train — Nhập tay / Từ file / Hàng loạt.\n\nHuấn luyện mô hình\n\nDự đoán\n\n1️⃣ Chọn Target & Features\n\nTarget = cột cần dự đoán. Features = các cột đầu vào. Đổi Target xong danh sách Features tự làm mới — chỉ cần chọn một lần ở đây, dùng chung cho cả Nhập tay / Từ file / Hàng loạt.\n\nkeyboard_arrow_down\n\nCấu hình dữ liệu\n\nℹ️ Chế độ dữ liệu: Dữ liệu mô phỏng (Synthetic/Demo) — chỉ dùng để minh hoạ quy trình ML, không phải kết quả học tập thật.\n\nĐầu ra (target/cột cần dự đoán):\n\ndiem_ky_sau\n\nLoại bài toán (đang dùng): Hồi quy\n\nℹ️ Đã tự bỏ chọn gpa_previous khỏi lựa chọn mặc định (tương quan rất cao với 1 cột đã chọn khác — gần như trùng lặp thông tin). Vẫn có thể tự chọn lại bên dưới.\n\n⚠️ Đã tự động bỏ chọn 3 cột có tương quan rất cao (≥0.95) với Target — nghi ngờ là bản sao/suy ra trực tiếp từ Target (vd. cùng là điểm số dưới tên khác). Dùng làm feature "
+}

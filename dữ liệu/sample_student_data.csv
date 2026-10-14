@@ -1,0 +1,11 @@
+student_id,prior_gpa,attendance,assignment_rate,practice_score,A1,A2,A3,final_score,grade,pass_fail,study_w1,study_w2,study_w3,study_w4,study_w5,study_w6,study_w7,study_w8,assign_sub_w1,assign_sub_w2,assign_sub_w3,assign_sub_w4,assign_sub_w5,assign_sub_w6,assign_sub_w7,assign_sub_w8,age,gender,study_hours_per_day,lms_time_spent,lms_clicks,social_media_hours,sleep_hours,exercise_frequency,mental_health_rating,part_time_job,diet_quality,internet_quality,parental_education_level,extracurricular_participation,major,GPA,exam_score
+SV001,3.2,0.85,0.8,7.5,8.5,7.8,8.2,8.2,A,1,6.5,7.2,6.8,8.1,7.5,8.3,7.9,8.5,1,1,1,1,1,1,1,1,20,Male,7.5,45.2,850,2.5,7.8,3,8,Yes,Good,Good,Bachelor's,Yes,Computer Science,3.28,8.2
+SV002,2.8,0.75,0.7,6.2,7.2,6.5,6.8,6.8,B,1,5.8,6.1,5.5,6.8,6.2,7.1,6.5,6.9,1,0,1,1,1,1,0,1,21,Female,6.2,38.7,720,3.2,6.9,2,7,No,Average,Average,Bachelor's,No,Engineering,2.72,6.8
+SV003,3.5,0.92,0.9,8.1,9.1,8.8,8.9,8.9,A,1,8.2,8.5,8.1,9.2,8.8,9.1,8.9,9.3,1,1,1,1,1,1,1,1,19,Male,8.5,52.1,950,1.8,8.2,4,9,No,Good,Good,Master's,Yes,Computer Science,3.56,8.9
+SV004,2.1,0.65,0.6,5.5,5.8,5.2,5.5,5.5,C,1,4.5,4.8,4.2,5.1,4.9,5.3,4.7,5.2,0,1,0,1,0,1,0,1,22,Female,4.8,28.4,580,4.1,6.1,1,5,Yes,Average,Poor,High School,No,Arts,2.2,5.5
+SV005,3.8,0.88,0.85,7.8,8.8,8.5,8.7,8.7,A,1,7.8,8.1,7.5,8.9,8.2,8.8,8.3,8.7,1,1,1,1,1,1,1,1,20,Male,8.1,48.6,890,2.2,7.9,3,8,No,Good,Good,PhD,Yes,Science,3.48,8.7
+SV006,2.5,0.72,0.75,6.8,6.9,6.2,6.5,6.5,C,1,5.2,5.8,5.1,6.3,5.9,6.1,5.7,6.2,1,1,0,1,1,0,1,1,21,Female,5.7,35.8,680,3.5,6.8,2,6,Yes,Average,Good,Bachelor's,No,Business,2.6,6.5
+SV007,1.8,0.58,0.5,4.9,4.5,4.1,4.2,4.2,D,1,3.8,4.2,3.5,4.1,3.9,4.3,3.8,4.0,0,0,0,1,0,0,0,1,23,Male,3.9,22.1,450,5.2,5.5,0,4,No,Poor,Poor,High School,No,Arts,1.68,4.2
+SV008,3.1,0.82,0.78,7.2,7.8,7.5,7.6,7.6,B,1,6.9,7.2,6.8,7.8,7.1,7.9,7.3,7.7,1,1,1,1,1,1,1,0,20,Female,7.2,42.3,780,2.8,7.5,3,7,No,Good,Average,Master's,Yes,Engineering,3.04,7.6
+SV009,2.9,0.79,0.82,6.9,7.5,7.1,7.3,7.3,B,1,6.1,6.8,5.9,7.2,6.5,7.1,6.7,7.0,1,1,1,1,1,0,1,1,21,Male,6.5,39.7,750,3.1,7.2,2,7,Yes,Average,Good,Bachelor's,No,Computer Science,2.92,7.3
+SV010,3.6,0.91,0.88,8.3,9.2,8.9,9.0,9.0,A,1,8.5,8.8,8.3,9.5,8.9,9.3,9.1,9.4,1,1,1,1,1,1,1,1,19,Female,8.8,55.2,980,1.5,8.5,4,9,No,Good,Good,PhD,Yes,Science,3.6,9.0

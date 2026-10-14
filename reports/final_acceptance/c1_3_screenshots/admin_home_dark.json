@@ -1,0 +1,12 @@
+{
+  "viewport": [
+    1440,
+    900
+  ],
+  "page_overflow_x": false,
+  "main_overflow_x": false,
+  "theme": "dark",
+  "bg": "rgb(15, 23, 42)",
+  "traceback": false,
+  "text_head": "ED\n\nEduDSS\n\nHỗ trợ quyết định học tập\n\nTổng quan\n\nNGƯỜI DÙNG & DỮ LIỆU\n\nNgười dùng\n\nKho dữ liệu\n\nKhám phá dữ liệu\n\nTRI THỨC & AI\n\nTài liệu & quy chế\n\nCấu hình AI\n\nTrợ lý AI\n\nVẬN HÀNH\n\nTích hợp LMS/CMS\n\nMô hình ML\n\nBáo cáo & giám sát\n\nCài đặt\n\nA\nadmin\nQuản trị viên\n\nGiao diện\n\nSáng\n\nTối\n\nHệ thống\n\nĐăng xuất\n\nTổng quan hệ thống\n\nNgười dùng, dữ liệu, mô hình và những việc cần xử lý.\n\nNgười dùng\n\n3\n\nSinh viên trong dữ liệu\n\n1,000\n\nMô hình Production\n\n0\n\nLượt tư vấn AI\n\n0\nCần xử lý\nĐang dùng dữ liệu mô phỏng\nSố liệu trên hệ thống chưa phản ánh sinh viên thật.\nCần chú ý\nChưa có mô hình Production\nDự đoán và cảnh báo rủi ro chưa khả dụng cho Giảng viên/Sinh viên.\nCần chú ý\nLMS/CMS chưa kết nối\nChưa có kết nối tới hệ thống quản lý học tập thật của Trường.\nChưa có\nChưa kiểm tra kết nối AI\nTrạng thái nhà cung cấp AI chưa được kiểm tra trong phiên này (trang Cấu hình AI).\nChưa kiểm tra\nTrạng thái thành phần\nAI · Gemini\nChưa kiểm tra\nAI · Groq\nChưa kiểm tra\nAI · OpenAI\nChưa kiểm tra\nTìm kiếm tài liệu (embedding)\nĐã cài, chưa nạp\nTích hợp LMS/CMS\nChưa kết nối\nMô hình dự đoán\nChưa có\n\nTrạng thái AI lấy từ lần \"Kiểm tra kết nối\" gần nhất ở trang Cấu hình AI.\n\nHoạt động gần đây"
+}

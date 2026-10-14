@@ -1,0 +1,26 @@
+Chạy trên code GỐC (commit 72877d1, TRƯỚC khi sửa) — xuất bằng `git archive 72877d1`
+ra thư mục tạm riêng, chạy `python ml_benchmark.py` (nội dung giống app/tools/ml_benchmark.py)
+tại đó, KHÔNG đụng tới working tree thật (an toàn với giả lập 72h). Kết quả khớp
+CHÍNH XÁC với bảng tham chiếu trong đề bài (Mục 4).
+
+{'Khá': 461, 'Giỏi': 420, 'Trung bình': 66, 'Xuất sắc': 51, 'Yếu': 2}
+features used: ['diem_ky_nay', 'ty_le_diem_danh', 'so_gio_hoc_tuan', 'diem_giua_ky', 'diem_du_an', 'diem_thong_ke', 'diem_xu_ly_du_lieu', 'diem_truc_quan_hoa', 'diem_machine_learning', 'diem_lap_trinh', 'gpa_previous']
+Logistic Regression (Softmax)    acc=0.9250 f1m=0.7149 f1w=0.9217 train=0.9625
+Random Forest Classifier         acc=0.8900 f1m=0.8745 f1w=0.8893 train=0.9988
+XGBoost Classifier               acc=0.9150 f1m=0.7008 f1w=0.9126 train=1.0000
+LightGBM Classifier              acc=0.9200 f1m=0.7086 f1w=0.9173 train=1.0000
+Linear Regression                RMSE=0.0758 MAE=0.0623 R2=0.9929
+Random Forest Regressor          RMSE=0.1572 MAE=0.1270 R2=0.9695
+XGBoost Regressor                RMSE=0.1212 MAE=0.0968 R2=0.9818
+LightGBM Regressor               RMSE=0.1256 MAE=0.0926 R2=0.9805
+
+Ghi chú quan trọng (đọc trước khi so sánh với số liệu SAU khi sửa):
+- Đây là dữ liệu MÔ PHỎNG (synthetic) — công thức tuyến tính gần như sạch nhiễu
+  (xem Mục 6 trong đề bài) khiến Linear Regression đạt R2~0.99. KHÔNG chứng minh
+  hệ thống dự đoán tốt trên sinh viên thật.
+- default_cluster_features KHÔNG áp dụng ở đây (script này không train phân cụm).
+- "features used" ở baseline gồm cả 'gpa_previous' (gần trùng lặp diem_ky_nay,
+  r~0.9999) vì lúc này ml_benchmark.py không lọc gì thêm ngoài filter_leakage_features
+  mặc định của trainer — G-2 chỉ ảnh hưởng danh sách MẶC ĐỊNH hiển thị trên UI/
+  bootstrap, không ảnh hưởng lời gọi train_and_evaluate() trực tiếp như benchmark
+  này (benchmark truyền thẳng toàn bộ `feats`, không đi qua UI/bootstrap).

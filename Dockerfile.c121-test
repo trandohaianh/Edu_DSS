@@ -1,0 +1,9 @@
+﻿FROM edudss:c121-dependency-test
+
+USER root
+
+RUN python -m pip install --no-cache-dir \
+    "setuptools==84.0.0" \
+    "wheel==0.48.0"
+
+USER edudss

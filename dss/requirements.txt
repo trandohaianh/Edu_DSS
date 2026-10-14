@@ -1,0 +1,44 @@
+# LEGACY DUPLICATE — audit 2026-09-15 (Issue FUNC-ML-001): the canonical,
+# pinned, actually-installed dependency manifest is app/requirements.txt
+# (one level up), which Dockerfile now installs from. This file is kept
+# only so nothing that might still reference it by path breaks; do not add
+# new packages here without also adding them to app/requirements.txt.
+streamlit>=1.28
+pandas>=2.0
+numpy>=1.24
+scikit-learn>=1.3
+plotly>=5.18
+matplotlib>=3.7
+scipy>=1.11
+joblib>=1.3
+python-dotenv>=1.0.1
+openpyxl>=3.1
+xlsxwriter>=3.1
+imbalanced-learn>=0.12
+# Optional AI / boosting
+xgboost>=2.0
+lightgbm>=4.0
+google-genai>=1.0.0
+groq>=0.4
+openai>=1.0
+sentence-transformers>=2.2
+transformers>=4.36
+# Ghim <1.0: sentence-transformers/transformers hiện tại yêu cầu huggingface-hub
+# <1.0 — bản 1.x mới hơn làm cả 2 thư viện lỗi import ngay, khiến toàn bộ nhánh
+# RAG embedding âm thầm rơi về TF-IDF (phát hiện khi debug ngưỡng RAG, 2026-09-08).
+huggingface-hub>=0.34.0,<1.0
+torch>=2.0
+requests>=2.31
+shap>=0.44
+streamlit-shap>=0.2
+tenacity>=8.0
+# Trích xuất tài liệu Production RAG (dss/services/document_ingestion.py) — mỗi gói
+# đều có fallback (parser XML/zip thủ công) nếu chưa cài, nhưng chất lượng trích
+# xuất PDF/DOCX/PPTX kém hơn hẳn nếu thiếu các gói chuẩn dưới đây.
+pypdf>=4.0
+python-docx>=1.1
+python-pptx>=0.6
+# Production Vector Store (dss/services/vector_store.py: PgVectorStore) — chỉ cần khi
+# đặt biến môi trường PGVECTOR_URL/DATABASE_URL; nếu không có, hệ thống tự dùng
+# LocalVectorStore (NumPy + JSON) nên gói này không bắt buộc cho môi trường Demo/Dev.
+psycopg2-binary>=2.9

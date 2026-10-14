@@ -1,0 +1,44 @@
+{
+  "manifest_version": 1,
+  "generated_at": "2026-09-27T15:19:53+00:00",
+  "release": {
+    "product": "EduDSS",
+    "version": "1.0.0-rc.1",
+    "release_channel": "release-candidate",
+    "git_sha": "e2241bfd7a1e4f7363047230eddf68e68cb802e7",
+    "build_time": "unknown",
+    "image": null,
+    "alembic_head": [
+      "9f3a1c7d2e46"
+    ],
+    "dependency_lock": "sha256:e44622e5e57d59c2f5fdf466a8c65bcb51787552edae49c6a891740711d080dd",
+    "config_schema_version": "2",
+    "rag_config_version": "ragcfg-ee67a93a3d87",
+    "ml": {
+      "bundled_models": "none — models are trained per deployment and tracked in the model registry"
+    }
+  },
+  "artifact": {
+    "image": "edudss:c121-dependency-test",
+    "image_id": "sha256:e74519de241be7fb0b9234813a4adefc163e495633eaaa861bccaf9af3425c4a",
+    "repo_digests": [
+      "edudss@sha256:e74519de241be7fb0b9234813a4adefc163e495633eaaa861bccaf9af3425c4a"
+    ],
+    "labels": {
+      "org.opencontainers.image.base.name": "python:3.11.16-slim-trixie",
+      "org.opencontainers.image.created": "unknown",
+      "org.opencontainers.image.revision": "e2241bfd7a1e4f7363047230eddf68e68cb802e7",
+      "org.opencontainers.image.title": "EduDSS"
+    }
+  },
+  "test_evidence": [
+    {
+      "path": "requirements.lock.txt",
+      "sha256": "e44622e5e57d59c2f5fdf466a8c65bcb51787552edae49c6a891740711d080dd"
+    },
+    {
+      "path": "THIRD_PARTY_NOTICES.md",
+      "sha256": "eaa8d3a5109abddce07196ffae052c88cf6350f208bd6d961cf1e7fb3c4dbfd3"
+    }
+  ]
+}

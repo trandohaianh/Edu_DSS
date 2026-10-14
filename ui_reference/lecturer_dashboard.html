@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>EduDSS — Dashboard lớp học</title>
+  <link rel="stylesheet" href="lecturer_dashboard.css" />
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">ED</div>
+      <div><div class="brand-name">EduDSS</div><div class="brand-sub">Decision Support System</div></div>
+    </div>
+    <div class="nav-title">DÀNH CHO GIẢNG VIÊN</div>
+    <nav class="nav">
+      <a href="#"><span class="nav-icon">🏠</span><span>Trang chủ</span></a>
+      <a class="active" href="#"><span class="nav-icon">📊</span><span>Dashboard</span></a>
+      <a href="#"><span class="nav-icon">📁</span><span>Sinh viên & dữ liệu</span></a>
+      <a href="#"><span class="nav-icon">⚠️</span><span>Phân tích rủi ro</span></a>
+      <a href="#"><span class="nav-icon">🧪</span><span>Huấn luyện & Dự đoán</span></a>
+      <a href="#"><span class="nav-icon">🔬</span><span>Phân cụm & Gợi ý</span></a>
+      <a href="#"><span class="nav-icon">🤖</span><span>Tư vấn AI (LLM)</span></a>
+      <a href="#"><span class="nav-icon">📈</span><span>Báo cáo</span></a>
+      <a href="#"><span class="nav-icon">📝</span><span>Lịch sử tư vấn</span></a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="mini-user"><div class="avatar">G</div><div><strong>giangvien</strong><span>Giảng viên / CVHT</span></div></div>
+      <button class="logout">⏻ Đăng xuất</button>
+    </div>
+  </aside>
+
+  <section class="workspace">
+    <header class="topbar">
+      <div class="breadcrumb"><span>EduDSS</span><b>/</b><span>Giảng viên</span><b>/</b><strong>Dashboard</strong></div>
+      <div class="top-actions">
+        <div class="search"><span>🔎</span><input placeholder="Tìm sinh viên theo mã, tên, lớp..." /></div>
+        <div class="notify">🔔<span>20</span></div>
+        <div class="top-user"><div class="avatar">G</div><div><strong>giangvien</strong><span>Giảng viên / CVHT</span></div><button>▾</button></div>
+      </div>
+    </header>
+
+    <main class="content">
+      <div class="page-head">
+        <div><h1>Dashboard lớp học</h1><p>Phân tích chuyên sâu dữ liệu học tập và hiệu quả mô hình.</p></div>
+        <button class="edit-btn">✏️ Chỉnh sửa dữ liệu</button>
+      </div>
+
+      <section class="kpis">
+        <article class="kpi-card"><span>Total Students</span><strong>1,000</strong></article>
+        <article class="kpi-card success"><span>Average Projected GPA</span><strong>6.87</strong></article>
+        <article class="kpi-card danger"><span>High Academic Risk</span><strong>248</strong></article>
+        <article class="kpi-card purple"><span>Model R2 Score</span><strong>97.7%</strong></article>
+      </section>
+
+      <section class="analytics-grid">
+        <article class="panel"><h2>Phân bố mức độ rủi ro hiện tại</h2><div class="chart-placeholder"></div></article>
+        <article class="panel"><h2>Phân khúc sinh viên (K-Means)</h2><div class="chart-placeholder"></div></article>
+      </section>
+
+      <section class="analytics-grid" style="grid-template-columns:1fr 1fr;">
+        <article class="panel"><h2>Phân bố GPA dự đoán</h2><div class="chart-placeholder"></div></article>
+        <article class="panel"><h2>Yếu tố quan trọng nhất</h2><div class="chart-placeholder"></div></article>
+      </section>
+
+      <section class="status-row">
+        <div class="status-card"><span>Mô hình Production</span><strong>RandomForestRegressor v5</strong></div>
+        <div class="status-card"><span>Hoạt động gần nhất</span><strong>2026-09-10 08:24:12</strong></div>
+        <div class="status-card"><span>Dữ liệu thiếu (trung bình)</span><strong>0.0%</strong></div>
+      </section>
+
+      <section class="table-panel">
+        <div class="table-panel-head"><h2>Sinh viên rủi ro cao</h2><span style="font-size:11px;color:#64748b;">Tìm kiếm · Export · Xem chi tiết</span></div>
+        <table class="risk-table">
+          <thead><tr><th>Mã SV</th><th>Điểm hiện tại</th><th>Điểm dự báo</th><th>Mức rủi ro</th><th>Yếu tố chính</th></tr></thead>
+          <tbody>
+            <tr><td>SV344</td><td>4.11</td><td>4.15</td><td><em class="badge">Cao</em></td><td>diem_ky_nay</td></tr>
+            <tr><td>SV338</td><td>4.14</td><td>4.16</td><td><em class="badge">Cao</em></td><td>gpa_previous</td></tr>
+            <tr><td>SV307</td><td>4.38</td><td>4.43</td><td><em class="badge">Cao</em></td><td>diem_ky_nay</td></tr>
+          </tbody>
+        </table>
+      </section>
+    </main>
+  </section>
+</div>
+</body>
+</html>

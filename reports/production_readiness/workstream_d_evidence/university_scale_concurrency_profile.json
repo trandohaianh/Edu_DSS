@@ -1,0 +1,39 @@
+{
+  "first_concurrency_violating_slo": 25,
+  "highest_concurrency_meeting_slo": 10,
+  "levels": [
+    {
+      "concurrency": 10,
+      "duration_seconds": 0.4379,
+      "error_count": 0,
+      "error_rate": 0.0,
+      "errors_sample": [],
+      "p50_ms": 56.875,
+      "p95_ms": 207.812,
+      "p99_ms": 211.846,
+      "pg_connections_observed": 12,
+      "throughput_ops_per_sec": 114.17,
+      "total_operations": 50
+    },
+    {
+      "concurrency": 25,
+      "duration_seconds": 0.7735,
+      "error_count": 0,
+      "error_rate": 0.0,
+      "errors_sample": [],
+      "p50_ms": 95.852,
+      "p95_ms": 595.326,
+      "p99_ms": 642.163,
+      "pg_connections_observed": 17,
+      "throughput_ops_per_sec": 161.6,
+      "total_operations": 125
+    }
+  ],
+  "organization_id": 56,
+  "slo": {
+    "max_error_rate": 0.01,
+    "max_p95_latency_ms": 500.0
+  },
+  "test": "university_scale_concurrency_profile",
+  "timestamp_utc": "2026-09-22T04:00:19.514508+00:00"
+}

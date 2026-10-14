@@ -1,0 +1,12 @@
+{
+  "viewport": [
+    1440,
+    900
+  ],
+  "page_overflow_x": false,
+  "main_overflow_x": false,
+  "theme": "system",
+  "bg": "rgb(255, 255, 255)",
+  "traceback": false,
+  "text_head": "ED\n\nEduDSS\n\nHỗ trợ quyết định học tập\n\nTổng quan\n\nNGƯỜI DÙNG & DỮ LIỆU\n\nNgười dùng\n\nKho dữ liệu\n\nKhám phá dữ liệu\n\nTRI THỨC & AI\n\nTài liệu & quy chế\n\nCấu hình AI\n\nTrợ lý AI\n\nVẬN HÀNH\n\nTích hợp LMS/CMS\n\nMô hình ML\n\nBáo cáo & giám sát\n\nCài đặt\n\nA\nadmin\nQuản trị viên\n\nGiao diện\n\nSáng\n\nTối\n\nHệ thống\n\nĐăng xuất\n\nTài liệu\n\nQuản lý các không gian tri thức phân quyền cho sinh viên, giảng viên và quản trị hệ thống.\n\nTài liệu môn học\n\n0\n\nNguồn tham khảo bổ sung\n\n4\n\nDữ liệu demo\n\n15\n\nLearning Explainer (AI giải thích bài học cho Sinh viên) CHỈ truy xuất từ Tài liệu môn học đúng môn/bài đang học — không bao giờ dùng Dữ liệu demo để trả lời câu hỏi về bài giảng.\n\n🎓 Tài liệu môn học (CMS)\n\n📖 Nguồn tham khảo & Demo\n\n🗂️ Không Gian Tri Thức (Namespaces)\n\n📤 Nạp Tài Liệu Mới (Ingestion Pipeline)\n\nĐây là nội dung môn học DO GIẢNG VIÊN CUNG CẤP thật (không phải kết nối CMS ngoài) — nguồn chính cho AI Giải thích Bài giảng. Quản lý chi tiết (nạp bài mới, chính sách AI theo bài học...) nằm ở trang \"AI Giải thích Bài giảng\" của Giảng viên.\n\nChưa có tài liệu môn học nào được Giảng viên tải lên.\nGiảng viên nạp bài giảng ở trang \"AI Giải thích Bài giảng\" > \"Nạp & Quản lý\"."
+}

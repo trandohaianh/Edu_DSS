@@ -1,0 +1,38 @@
+capability,status,evidence,notes
+Multi-tenant SaaS (one codebase multi-university),VERIFIED,"final_candidate_v2 steps 4-16 (Stage 5 narrative) + Parts A-F (2 fresh orgs, independent provisioning)","Two live tenants provisioned end-to-end on one running instance"
+Dedicated deployment (same codebase/image),PARTIALLY_VERIFIED,"Organization.deployment_mode field confirmed at schema level","Not separately load-tested as its own topology"
+University onboarding lifecycle,VERIFIED,"university_onboarding.py exercised live; activation gate (admin+connector+mapping+sync) all green",N/A
+Simulated LMS/CMS integration,SIMULATED_AND_VERIFIED,"Real HTTP against the accepted dedicated simulator throughout",Never a live external LMS
+Live external LMS integration,NOT_APPLICABLE,N/A,No real university LMS was ever connected in this engagement
+PostgreSQL-backed LMS/CMS domain data,VERIFIED,"students/courses/enrollments/assignments/submissions/grades/attendance/learning_activities/cms_content all synced and queried live",N/A
+Row-Level Security (RLS) tenant isolation,VERIFIED,"83/83 RLS+security tests via genuine non-superuser app role; final_candidate_v2 step 16; recovery drill RLS re-confirmed on RESTORED db",N/A
+pgvector semantic retrieval,VERIFIED,"Real reindex+retrieval (step 22); Part C invalidation lifecycle; restored-db retrieval re-confirmed",N/A
+CMS->RAG->pgvector lifecycle including deletion-equivalent,VERIFIED,"Part C (C1-C3): index confirmed, invalidate_content() called for real, stale content confirmed unretrievable","No true DELETE event path exists in this codebase - invalidate_content() is the only real, accepted primitive (disclosed)"
+ML provenance (fingerprinting/versioning),VERIFIED,"Part A4: real save_model_training + ml_provenance.record_training_provenance mirror",N/A
+Model registry (candidate->promote->production),VERIFIED,"Part A4: real Admin-gated promote() call, genuine audit-log write after MODELREG-002 fix",Model registry is process-wide (env-var scoped), not per-tenant-request scoped - disclosed architectural note
+Data drift detection,VERIFIED (methodology),"Part A5 (negative control, no drift) + A6 (positive control, controlled synthetic shift correctly detected)",Detects distributional shift; does not guarantee future model correctness
+Performance drift detection,VERIFIED (methodology, not exercised this round),"model_registry.evaluate_drift() supports it when ground-truth y arrays are supplied for both windows",Not exercised in this round's test (data drift was); available capability, not independently re-verified here
+AI Gateway (multi-provider routing+fallback+quota),VERIFIED,"Part B1-B3: real stream_generate call, real quota/token read-back",Demo-mode response; no paid provider credentials configured - labeled SIMULATED per instruction
+Consultation storage,VERIFIED,"Part B2: real consultation_repository.save_consultation + list_consultations",Does not persist retrieved RAG context chunks to Postgres (only question/answer/provider/model) - disclosed
+Cross-tenant consultation isolation,VERIFIED,"Part B4",N/A
+Quota/token accounting read-back,VERIFIED,"Part B3: quota_repository.get_usage + token_tracker.get_usage_summary",N/A
+CPU-only deployment,VERIFIED,"torch 2.9.1+cpu confirmed inside the built container; zero NVIDIA/CUDA packages",N/A
+20K batch inference,PASS,"2.5498s / 7843.8 predictions/sec, re-measured fresh this round",Batch inference only, never conflated with concurrent users
+Concurrent user capacity (progressive ladder 1/5/10/25/50),VERIFIED,"Fresh re-measurement: SLO held through concurrency=50 this run (0% errors, p95 <= 500ms at every level)","Differs from Workstream D's earlier finding (violation at 25) - real run-to-run variance on a shared dev machine, both measurements disclosed side by side, see FINAL_REALISTIC_STAGING_SIMULATION.md"
+Multi-university concurrent load,VERIFIED,"Workstream D (4 tenants, fair distribution, zero leakage) - not re-run this round, cited",N/A
+National-scale deployment,NOT_VERIFIED,"docs/architecture/NATIONAL_SCALE_ARCHITECTURE_PROJECTION.md",Explicitly documented as an unverified architectural projection
+Database backup/recovery,VERIFIED,"Part F: real backup, checksum verify, restore-to-fresh-db, FULL inventory on restored db",N/A
+Non-DB artifact recovery,PARTIALLY_VERIFIED,"ops/non_db_recovery.py manifest build/verify (Workstream D, cited) - not re-exercised this round",Manifest-based; no restore orchestration exists
+Full disaster recovery (combined DB+non-DB),PARTIALLY_VERIFIED,"See FINAL_RECOVERY_MATRIX.csv for the full per-asset inventory","DB restore now thoroughly proven with a full inventory; non-DB restore and a combined drill remain unexercised"
+Live failure injection (401/403/429/500/timeout/malformed),VERIFIED,"Part D1-D6, real HTTP against the live simulator",404 not modeled by the accepted simulator (disclosed, D7)
+Webhook HMAC + duplicate/idempotency + restart persistence,VERIFIED,"final_candidate_v2 steps 21,25-28; recovery drill F1",N/A
+Soak stability,VERIFIED,"300s @ concurrency=10, 68329 ops, 0 errors, stable memory, re-measured this round",5-minute duration, not a multi-hour production soak
+SQL injection resistance,VERIFIED,"test_sql_injection_resistance.py: 5 live exploit payloads against UserRepository, zero matches, zero side effects",Live-tested against one repository method, not an exhaustive scan
+Password storage (hashing/salting),VERIFIED,"PBKDF2-HMAC-SHA256, per-user random salt, constant-time comparison (dss/services/auth_service.py)",Code-reviewed and confirmed by reading the actual implementation
+Authentication rate limiting / lockout,VERIFIED,"5 failed attempts -> 15-minute lockout (dss/services/auth_service.py, confirmed by code review)","In-process state (module-level dict) - does not survive an app restart or scale across multiple instances - disclosed"
+Secret handling (logs/git),VERIFIED,"grep of container technical.log found zero password/token/secret occurrences; .gitignore covers .env/*.key/secrets.toml/credentials.json",Spot-checked, not an exhaustive secret-scanning tool run
+Docker containerized full stack,VERIFIED,"Fresh build this round; readiness={application,postgresql,pgvector: all ready}; non-root uid 999; image 3.65GB",N/A
+Fresh checkout viability,VERIFIED,"See FINAL_RELEASE_CANDIDATE.md for the dedicated fresh-checkout gate performed on the final commit",N/A
+Hosted CI execution,NOT_APPLICABLE,N/A,No hosted/cloud CI pipeline was executed this engagement
+Classification/regression/clustering ML quality thresholds,PARTIALLY_VERIFIED,"Part A1-A3: a deliberately minimal independent verification pipeline (not the production ClassificationTrainer/RegressionTrainer, which are UI-coupled with no headless entry point)","See METRICS_THESIS_VS_CURRENT.md and FINAL_REALISTIC_STAGING_SIMULATION.md section H for the full honest discussion - these results must not be read as an assessment of the actual thesis model's quality"
+AI/RAG quality (grounded-answer evaluation set),PARTIALLY_VERIFIED,"Part B: retrieval-adjacent behavior verified via pgvector search in Part C; a dedicated known-answer QA evaluation set was not built this round",See FINAL_REALISTIC_STAGING_SIMULATION.md section I

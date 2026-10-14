@@ -1,0 +1,32 @@
+{
+  "steps": [
+    {
+      "key": "C1",
+      "title": "Confirm CMS content genuinely indexed (real pgvector retrieval) before lifecycle test",
+      "status": "PASS",
+      "detail": {
+        "top_result_document_id": "content-A-01:v1"
+      },
+      "duration_s": 0.048
+    },
+    {
+      "key": "C2",
+      "title": "Invalidate content via the real, only-implemented delete-equivalent primitive",
+      "status": "PASS",
+      "detail": {
+        "invalidated_external_id": "content-A-01",
+        "result": true
+      },
+      "duration_s": 0.021
+    },
+    {
+      "key": "C3",
+      "title": "Confirm invalidated content is no longer retrieved (0 stale results)",
+      "status": "PASS",
+      "detail": {
+        "stale_results_after_invalidation": 0
+      },
+      "duration_s": 0.054
+    }
+  ]
+}

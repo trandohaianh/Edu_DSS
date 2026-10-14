@@ -1,0 +1,68 @@
+# Secrets and environment files
+.env
+# C1.1: filled production env files (templates end in .example and stay tracked)
+deploy/**/*.env
+.env.local
+.env.*.local
+*.pem
+*.key
+*.cert
+secrets.toml
+credentials.json
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Testing and coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Temporary and local runtime data — the whole tree is app-generated at
+# runtime (models, datasets, embeddings, JSON histories, logs); none of it
+# is source code. Ignoring the whole directory instead of a few subpaths
+# because ~1300 previously-untracked runtime files were found accumulating
+# here unignored (Phase 1B baseline audit).
+data_warehouse/
+*.log
+
+# Phase 13 PostgreSQL backup artifacts and safe metadata manifests
+backups/
+*.dump
+*.backup.json
+
+# C1.1: runtime security state (dev pseudonym key, login throttle) — never commit
+data_warehouse/security/

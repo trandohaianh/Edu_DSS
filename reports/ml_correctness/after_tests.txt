@@ -1,0 +1,46 @@
+.....................ssssssssssssssssssssssssss...............sssssss... [  9%]
+..........................................s............................. [ 18%]
+.......ssssssssssss...........sssssssssssssss....sssssss................ [ 27%]
+...ssssssss............................................................. [ 36%]
+.................................s...................................... [ 45%]
+........................................................................ [ 54%]
+..................................ss.......................sssssssssssss [ 63%]
+ssss..s..........sssssssssss............................................ [ 72%]
+.....................ssss............................................... [ 81%]
+...........................s........................ssss................ [ 90%]
+.................ssssssssssssssssss.........sssssssssssssssssssssss..... [100%]
+============================== warnings summary ===============================
+tests/test_ml_hub_ranking_consistency.py::test_accuracy_and_f1_macro_rank_models_differently_on_sample_data
+  D:\KLTN\code\.venv\Lib\site-packages\xgboost\training.py:199: UserWarning: [19:05:35] WARNING: C:\actions-runner\_work\xgboost\xgboost\src\learner.cc:790: 
+  Parameters: { "use_label_encoder" } are not used.
+  
+    bst.update(dtrain, iteration=i, fobj=obj)
+
+tests/test_ml_hub_ranking_consistency.py::test_accuracy_and_f1_macro_rank_models_differently_on_sample_data
+tests/test_ml_hub_ranking_consistency.py::test_accuracy_and_f1_macro_rank_models_differently_on_sample_data
+tests/test_ml_hub_ranking_consistency.py::test_pick_best_model_name_matches_resolve_ranking_col
+tests/test_ml_hub_ranking_consistency.py::test_pick_best_model_name_matches_resolve_ranking_col
+  D:\KLTN\code\.venv\Lib\site-packages\sklearn\utils\validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+    warnings.warn(
+
+tests/test_ml_hub_ranking_consistency.py::test_pick_best_model_name_matches_resolve_ranking_col
+  D:\KLTN\code\.venv\Lib\site-packages\xgboost\training.py:199: UserWarning: [19:05:44] WARNING: C:\actions-runner\_work\xgboost\xgboost\src\learner.cc:790: 
+  Parameters: { "use_label_encoder" } are not used.
+  
+    bst.update(dtrain, iteration=i, fobj=obj)
+
+tests/test_xgboost_gridsearch_when_safe.py::test_xgboost_still_skips_gridsearch_on_rare_class_sample_data
+  D:\KLTN\code\.venv\Lib\site-packages\xgboost\training.py:199: UserWarning: [19:07:00] WARNING: C:\actions-runner\_work\xgboost\xgboost\src\learner.cc:790: 
+  Parameters: { "use_label_encoder" } are not used.
+  
+    bst.update(dtrain, iteration=i, fobj=obj)
+
+tests/test_xgboost_gridsearch_when_safe.py::test_xgboost_uses_gridsearch_when_enough_minority_samples
+  D:\KLTN\code\.venv\Lib\site-packages\xgboost\training.py:199: UserWarning: [19:07:02] WARNING: C:\actions-runner\_work\xgboost\xgboost\src\learner.cc:790: 
+  Parameters: { "use_label_encoder" } are not used.
+  
+    bst.update(dtrain, iteration=i, fobj=obj)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+634 passed, 158 skipped, 8 warnings in 183.44s (0:03:03)
+PYTEST_EXIT_CODE=0

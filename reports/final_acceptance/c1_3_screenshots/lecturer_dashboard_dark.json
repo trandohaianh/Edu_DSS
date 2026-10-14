@@ -1,0 +1,12 @@
+{
+  "viewport": [
+    1440,
+    900
+  ],
+  "page_overflow_x": false,
+  "main_overflow_x": false,
+  "theme": "dark",
+  "bg": "rgb(15, 23, 42)",
+  "traceback": false,
+  "text_head": "ED\n\nEduDSS\n\nHỗ trợ quyết định học tập\n\nTỔNG QUAN\n\nTrang chủ\n\nDashboard\n\nPHÂN TÍCH LỚP HỌC\n\nKhám phá dữ liệu\n\nHuấn luyện & dự đoán\n\nPhân cụm & gợi ý\n\nHỖ TRỢ & TÀI LIỆU\n\nTrợ lý AI\n\nDuyệt tài liệu\n\nKho dữ liệu\n\nG\ngiangvien\nGiảng viên / Cố vấn học tập\n\nGiao diện\n\nSáng\n\nTối\n\nHệ thống\n\nĐăng xuất\n\nChế độ dữ liệu: Dữ liệu mô phỏng (Synthetic/Demo) — số liệu, biểu đồ và tư vấn trên trang này KHÔNG phản ánh sinh viên thật.\n\nDashboard lớp học\n\nPhân tích chuyên sâu dữ liệu học tập và hiệu quả mô hình.\n\n✏️ Chỉnh sửa dữ liệu\n\nTổng số sinh viên\n\n1,000\n\nGPA dự đoán trung bình\n\n—\n\nNguy cơ học tập cao\n\n—\n\nChỉ số mô hình\n\n—\nChưa có mô hình Production để dự đoán rủi ro cho lớp học này.\nHuấn luyện mô hình ở tab \"Huấn luyện — Dự đoán\" — mô hình tốt nhất sẽ được lưu ở trạng thái Candidate, chờ Admin duyệt lên Production.\nPhân bố mức độ rủi ro hiện tại\nChưa có dữ liệu rủi ro.\nCần một mô hình Production hồi quy cho lớp này.\nPhân khúc sinh viên (K-Means)\n27.7%\n26.7%\n24.2%\n21.4%\nCụm 3\nCụm 1\nCụm 2\nCụm 0\n\n4 cụm · dữ liệu từ tab \"Phân cụm — Gợi ý\".\n\nPhân bố GPA dự đoán\nChưa có dữ liệu để phân bố.\nCần một mô hình Production hồi quy cho lớp này.\nYếu tố quan trọng nhất\nMô hình Production hiện tại không hỗ trợ mức độ quan trọng đặc trưng.\nChỉ các mô hình dạng cây (Random Forest, XGBoost, LightGBM...) mới có chỉ số này.\nTrạng thái mô hình & dữ liệu\n\nMô hình Production\n\n—\n\nHoạt động gần nhất\n\n2026-09-28 00:46:16\n\nDữ liệu thiếu (trung bình)\n\n0.0%\nSinh viên rủi ro cao\n\nMức rủi ro so sánh tương đối trong lớp/tập d"
+}

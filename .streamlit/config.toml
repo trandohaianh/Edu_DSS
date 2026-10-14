@@ -1,0 +1,62 @@
+# EduDSS — Streamlit native theme baseline (C1.3 design system).
+# Only the base colours of Streamlit's own widgets are pinned here so the
+# canvas-based data grid and Base Web controls render deterministically.
+# All product styling (including dark mode) lives in dss/styles/main.css.
+
+[server]
+# Phục vụ app/static/ (phông chữ Be Vietnam Pro tự lưu trong app — chạy được
+# cả khi không có Internet, xem chế độ LOCAL_OFFLINE).
+enableStaticServing = true
+# Tắt bộ theo dõi file (chỉ dùng khi lập trình để tự tải lại khi sửa code).
+# Đo thật 2026-10-12: thư mục app/ có hàng nghìn file và app liên tục ghi dữ
+# liệu -> MỖI thao tác của người dùng làm server đứng 7-8 giây (chuyển tab lần
+# đầu 7.9s -> 0.5s khi tắt). Khi lập trình: streamlit run run_dss.py
+# --server.fileWatcherType auto --server.runOnSave true
+fileWatcherType = "none"
+
+[theme]
+base = "light"
+primaryColor = "#1A73E8"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F8F9FA"
+textColor = "#202124"
+
+# MỘT phông duy nhất cho toàn bộ chữ (nội dung, tiêu đề, nút, ô nhập, bảng).
+# Be Vietnam Pro: thiết kế riêng cho dấu tiếng Việt, giấy phép SIL OFL 1.1
+# (app/static/fonts/OFL.txt).
+font = "Be Vietnam Pro, sans-serif"
+headingFont = "Be Vietnam Pro, sans-serif"
+codeFont = "monospace"
+baseFontSize = 15
+headingFontWeights = [700, 700, 600, 600, 600, 600]
+headingFontSizes = ["2rem", "1.625rem", "1.375rem", "1.125rem", "1.0625rem", "1rem"]
+
+[[theme.fontFaces]]
+family = "Be Vietnam Pro"
+url = "app/static/fonts/BeVietnamPro-Regular.ttf"
+weight = 400
+
+[[theme.fontFaces]]
+family = "Be Vietnam Pro"
+url = "app/static/fonts/BeVietnamPro-Medium.ttf"
+weight = 500
+
+[[theme.fontFaces]]
+family = "Be Vietnam Pro"
+url = "app/static/fonts/BeVietnamPro-SemiBold.ttf"
+weight = 600
+
+[[theme.fontFaces]]
+family = "Be Vietnam Pro"
+url = "app/static/fonts/BeVietnamPro-Bold.ttf"
+weight = 700
+
+[browser]
+# Không gửi thống kê sử dụng của Streamlit ra bên thứ ba (webhooks.fivetran.com):
+# app xử lý dữ liệu sinh viên, và request này treo khi mạng chặn, làm chậm lần
+# đầu mở các trang cần tải thêm thành phần giao diện.
+gatherUsageStats = false
+
+[client]
+# Ẩn nút "Deploy"/menu nhà phát triển của Streamlit khỏi giao diện người dùng.
+toolbarMode = "minimal"

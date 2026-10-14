@@ -1,0 +1,130 @@
+# EduDSS — Canonical Dependency Manifest
+# Audit 2026-09-15 (ARCH/FUNC audit, Issue FUNC-ML-001 / DEPLOY-001): this file
+# previously listed only 12 packages and did NOT include xgboost/lightgbm/
+# imbalanced-learn/tenacity/AI provider SDKs/document parsers — all of which
+# are genuinely imported and used by dss/core/trainers.py, dss/services/*.py,
+# dss/tabs/*.py (see import-guard flags in dss/config.py: XGBOOST_AVAILABLE,
+# LIGHTGBM_AVAILABLE, IMB_LEARN_AVAILABLE, GEMINI_AVAILABLE, GROQ_AVAILABLE,
+# OPENAI_AVAILABLE). A "canonical" file missing them meant a clean install
+# from THIS file alone would silently disable those features with no error
+# (the code degrades gracefully by design — see "OPTIONAL" section below —
+# but the omission from requirements.txt was still dishonest about what a
+# standard install actually supports). This file now matches the ACTUAL
+# venv this codebase is developed and tested against (exact versions below,
+# captured via `pip list --format=freeze` on 2026-09-15) and is the ONE
+# file Dockerfile installs from (see Dockerfile fix, Issue DEPLOY-001).
+# dss/requirements.txt is kept only as a legacy duplicate — see the note at
+# its top; do not edit dependencies there, edit here.
+
+# --- Core Web & UI ---
+streamlit==1.54.0
+plotly==6.5.0
+
+# --- Data Manipulation & Scientific Computing ---
+numpy==2.4.0
+pandas==2.3.3
+scipy==1.16.3
+matplotlib==3.10.8
+openpyxl==3.1.5
+xlsxwriter==3.2.9
+
+# --- Machine Learning & Explainability (core, always required) ---
+scikit-learn==1.8.0
+joblib==1.5.3
+shap==0.51.0
+streamlit-shap==1.0.2
+
+# --- Machine Learning — OPTIONAL boosting/imbalance algorithms ---
+# ACTIVE and used by dss/core/trainers.py (XGBoost/LightGBM Classifier+Regressor)
+# and dss/core/trainers.py + tabs/ml_hub.py (SMOTE/BorderlineSMOTE/ADASYN class
+# balancing) whenever installed. Code is defensively import-guarded
+# (XGBOOST_AVAILABLE/LIGHTGBM_AVAILABLE/IMB_LEARN_AVAILABLE in dss/config.py) —
+# the app runs without them (those models/options simply don't appear in the
+# UI's model multiselect, sourced live from trainer.models.keys()), but they
+# are part of the INTENDED, advertised capability set and must be installed
+# for a standard/complete deployment.
+#
+# xgboost is intentionally NOT listed here (Docker optimization 2026-09-21,
+# Issue DOCKER-CPU-001): the xgboost==3.1.2 wheel unconditionally declares
+# nvidia-nccl-cu12 (~450MB installed) as a direct dependency, for multi-GPU
+# distributed training only — never used by this app's CPU
+# tree_method="hist" training/inference path (confirmed: XGBClassifier
+# fit/predict/predict_proba all work with zero nvidia-* packages installed).
+# It is installed by the Dockerfile in a separate `pip install --no-deps`
+# step, after this file's numpy/scipy/scikit-learn/joblib are already
+# installed (which are xgboost's only actually-used runtime dependencies),
+# so nvidia-nccl-cu12 is never pulled in. See
+# reports/production_readiness/DOCKER_CPU_ONLY_PYTORCH_OPTIMIZATION.md.
+lightgbm==4.6.0
+imbalanced-learn==0.14.1
+
+# --- NLP & RAG Embeddings ---
+# C1.2 (2026-09-28): torch 2.9.1+cpu -> 2.10.0+cpu — remediates CVE-2026-24747 (fixed in
+# 2.10.0) with no new HIGH/CRITICAL in Docker Scout; still CPU-only (+cpu wheel, no
+# nvidia-*/triton). CVE-2026-4538 (affects <=2.10.0, no upstream fix) remains a documented risk.
+# torch: CPU-only build, pinned by exact local version identifier (+cpu).
+# Docker optimization 2026-09-21 (Issue DOCKER-CPU-001): plain `torch==2.9.1`
+# resolved from default PyPI on manylinux (this image's python:3.11-slim base)
+# to the CUDA 12.8 build (torch 2.9.1+cu128), pulling in the full
+# nvidia-*-cu12 stack + triton as direct deps of that wheel (~8.9GB alone;
+# confirmed via `pip show torch` inside the built image: Requires includes
+# nvidia-cublas-cu12, nvidia-cudnn-cu12, nvidia-nccl-cu12, triton, etc.) even
+# though torch.cuda.is_available() is always False in this deployment target
+# (no GPU) — dss/core/models.py already only *conditionally* uses CUDA when
+# available (`if dss_config.torch.cuda.is_available(): ... else: ...`), so
+# nothing in the application requires the GPU build. Pinning the LOCAL
+# version identifier itself (`==2.9.1+cpu`), resolved from the official
+# CPU wheel index below, is what actually prevents this from silently
+# reverting to the GPU build on a future `pip install -r requirements.txt`
+# (even with --upgrade, as long as this pin stays) — a plain `torch==2.9.1`
+# would still match the GPU wheel's public version and pip would happily
+# re-resolve it from default PyPI. See
+# reports/production_readiness/DOCKER_CPU_ONLY_PYTORCH_OPTIMIZATION.md.
+--extra-index-url https://download.pytorch.org/whl/cpu
+# C1.2 (2026-10-04): 5.3.0 -> 5.6.0 remediates CRITICAL CVE-2026-68770 (code injection).
+sentence-transformers==5.6.0
+transformers==5.10.4
+torch==2.10.0+cpu
+huggingface-hub==1.5.0
+
+# --- AI Provider SDKs (Gemini/Groq/OpenAI — cloud LLM Gateway) ---
+google-genai==2.19.0
+groq==1.0.0
+openai==2.14.0
+
+# --- Networking, Security & Environment ---
+requests==2.33.0
+python-dotenv==1.2.2
+tenacity==9.1.2
+
+# --- Document ingestion (Production RAG, dss/services/document_ingestion.py) ---
+# Each has a built-in fallback parser if not installed (lower extraction
+# quality) — genuinely optional, not required for Demo/Dev.
+pypdf>=4.0
+python-docx==1.2.0
+python-pptx>=0.6
+
+# --- Career Passport PDF export (dss/services/pdf_certificate_service.py) ---
+# Found missing during this audit's full-suite run (Issue FUNC-ML-001's exact
+# pattern repeated: hard, unguarded `from reportlab...` import with zero
+# try/except, not listed in either requirements file) — added here as a
+# required (not optional) dependency since the import has no fallback.
+reportlab==5.0.1
+
+# --- Production Vector Store (only used if PGVECTOR_URL/DATABASE_URL is set;
+# LocalVectorStore — NumPy + JSON — is the default and needs nothing here) ---
+psycopg2-binary>=2.9
+
+# --- PostgreSQL persistence layer (Phase 1, production-readiness engagement,
+# dss/db/) — ADDITIVE: the app runs fine without a configured DATABASE_URL,
+# using the existing JSON/joblib storage (dss/core/warehouse.py) unchanged.
+# See reports/production_readiness/PHASE1_REPORT.md. ---
+sqlalchemy>=2.0
+alembic>=1.13
+pgvector>=0.3
+
+# --- Testing & Verification ---
+pytest==9.0.3
+anyio==4.14.2
+pyflakes==3.4.0
+playwright==1.62.0

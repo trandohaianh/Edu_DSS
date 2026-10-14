@@ -1,0 +1,91 @@
+2026-09-25 20:02:41.387 WARNING streamlit.runtime.caching.cache_data_api: No runtime found, using MemoryCacheStorageManager
+2026-09-25 20:02:41.399 WARNING streamlit.runtime.scriptrunner_utils.script_run_context: Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-09-25 20:02:42.941 
+  [33m[1mWarning:[0m to view this Streamlit app on a browser, run it with the following
+  command:
+
+    streamlit run tools/embedding_benchmark_vi.py [ARGUMENTS]
+2026-09-25 20:02:42.941 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-09-25 20:02:42.941 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-09-25 20:02:42.941 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-09-25 20:02:43.451 Thread 'Thread-1': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-09-25 20:02:43.451 Thread 'Thread-1': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-09-25 20:02:43.452 Thread 'Thread-1': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-09-25 20:03:09.706 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-09-25 20:03:09.707 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-09-25 20:03:09.707 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-09-25 20:03:11.771 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-09-25 20:03:11.771 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-09-25 20:03:11.771 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-09-25 20:03:11.771 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-09-25 20:03:12.279 Thread 'Thread-3': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-09-25 20:03:12.279 Thread 'Thread-3': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-09-25 20:03:12.279 Thread 'Thread-3': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-09-25 20:03:34.846 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-09-25 20:03:34.847 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-09-25 20:03:34.847 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+Tổng số tài liệu: 19 | Tổng số truy vấn benchmark: 23
+
+=== Model: sentence-transformers/all-MiniLM-L6-v2 ===
+Đã tính embedding cho 19/19 tài liệu trong 29.9s (bao gồm thời gian tải model lần đầu nếu cần).
+
+=== Model: sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2 ===
+Đã tính embedding cho 19/19 tài liệu trong 27.0s (bao gồm thời gian tải model lần đầu nếu cần).
+
+
+=== TỔNG HỢP (K=5) ===
+Model                                                          Recall@5  Precision@5      MRR   nDCG@5  Avg latency(ms)
+sentence-transformers/all-MiniLM-L6-v2                           0.9130       0.1826   0.8348   0.8543            19.04
+sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2      0.9565       0.1913   0.9565   0.9565            36.65
+
+=== CHI TIẾT THEO TRUY VẤN ===
+
+--- sentence-transformers/all-MiniLM-L6-v2 ---
+[OK] q01_math                     recall=1.00 mrr=1.00 retrieved_top1=doc_001 expected=['doc_001']
+[OK] q02_coding                   recall=1.00 mrr=1.00 retrieved_top1=doc_002 expected=['doc_002']
+[OK] q03_time                     recall=1.00 mrr=1.00 retrieved_top1=doc_003 expected=['doc_003']
+[OK] q04_methods                  recall=1.00 mrr=1.00 retrieved_top1=doc_004 expected=['doc_004']
+[OK] q05_stats                    recall=1.00 mrr=1.00 retrieved_top1=doc_014 expected=['doc_014']
+[OK] q06_exam                     recall=1.00 mrr=1.00 retrieved_top1=doc_011 expected=['doc_011']
+[OK] q07_ml                       recall=1.00 mrr=1.00 retrieved_top1=doc_019 expected=['doc_019']
+[OK] q08_stress                   recall=1.00 mrr=1.00 retrieved_top1=doc_012 expected=['doc_012']
+[OK] q09_physics                  recall=1.00 mrr=1.00 retrieved_top1=doc_005 expected=['doc_005']
+[OK] q10_chemistry                recall=1.00 mrr=1.00 retrieved_top1=doc_006 expected=['doc_006']
+[OK] q11_reading                  recall=1.00 mrr=1.00 retrieved_top1=doc_007 expected=['doc_007']
+[OK] q12_history                  recall=1.00 mrr=1.00 retrieved_top1=doc_008 expected=['doc_008']
+[OK] q13_english                  recall=1.00 mrr=1.00 retrieved_top1=doc_009 expected=['doc_009']
+[OK] q14_biology                  recall=1.00 mrr=1.00 retrieved_top1=doc_010 expected=['doc_010']
+[OK] q15_presentation             recall=1.00 mrr=1.00 retrieved_top1=doc_013 expected=['doc_013']
+[OK] q16_writing                  recall=1.00 mrr=1.00 retrieved_top1=doc_015 expected=['doc_015']
+[OK] q17_selfstudy                recall=1.00 mrr=0.20 retrieved_top1=doc_003 expected=['doc_016']
+[OK] q18_database                 recall=1.00 mrr=1.00 retrieved_top1=doc_017 expected=['doc_017']
+[OK] q19_visualization            recall=1.00 mrr=1.00 retrieved_top1=doc_018 expected=['doc_018']
+[MISS] q20_paraphrase_time          recall=0.00 mrr=0.00 retrieved_top1=doc_013 expected=['doc_003']
+[OK] q21_paraphrase_coding        recall=1.00 mrr=0.50 retrieved_top1=doc_011 expected=['doc_002']
+[OK] q22_paraphrase_stress        recall=1.00 mrr=0.50 retrieved_top1=doc_016 expected=['doc_012']
+[MISS] q23_paraphrase_ml            recall=0.00 mrr=0.00 retrieved_top1=doc_016 expected=['doc_019']
+
+--- sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2 ---
+[OK] q01_math                     recall=1.00 mrr=1.00 retrieved_top1=doc_001 expected=['doc_001']
+[OK] q02_coding                   recall=1.00 mrr=1.00 retrieved_top1=doc_002 expected=['doc_002']
+[OK] q03_time                     recall=1.00 mrr=1.00 retrieved_top1=doc_003 expected=['doc_003']
+[OK] q04_methods                  recall=1.00 mrr=1.00 retrieved_top1=doc_004 expected=['doc_004']
+[OK] q05_stats                    recall=1.00 mrr=1.00 retrieved_top1=doc_014 expected=['doc_014']
+[OK] q06_exam                     recall=1.00 mrr=1.00 retrieved_top1=doc_011 expected=['doc_011']
+[OK] q07_ml                       recall=1.00 mrr=1.00 retrieved_top1=doc_019 expected=['doc_019']
+[OK] q08_stress                   recall=1.00 mrr=1.00 retrieved_top1=doc_012 expected=['doc_012']
+[OK] q09_physics                  recall=1.00 mrr=1.00 retrieved_top1=doc_005 expected=['doc_005']
+[OK] q10_chemistry                recall=1.00 mrr=1.00 retrieved_top1=doc_006 expected=['doc_006']
+[OK] q11_reading                  recall=1.00 mrr=1.00 retrieved_top1=doc_007 expected=['doc_007']
+[OK] q12_history                  recall=1.00 mrr=1.00 retrieved_top1=doc_008 expected=['doc_008']
+[OK] q13_english                  recall=1.00 mrr=1.00 retrieved_top1=doc_009 expected=['doc_009']
+[OK] q14_biology                  recall=1.00 mrr=1.00 retrieved_top1=doc_010 expected=['doc_010']
+[OK] q15_presentation             recall=1.00 mrr=1.00 retrieved_top1=doc_013 expected=['doc_013']
+[OK] q16_writing                  recall=1.00 mrr=1.00 retrieved_top1=doc_015 expected=['doc_015']
+[OK] q17_selfstudy                recall=1.00 mrr=1.00 retrieved_top1=doc_016 expected=['doc_016']
+[OK] q18_database                 recall=1.00 mrr=1.00 retrieved_top1=doc_017 expected=['doc_017']
+[OK] q19_visualization            recall=1.00 mrr=1.00 retrieved_top1=doc_018 expected=['doc_018']
+[MISS] q20_paraphrase_time          recall=0.00 mrr=0.00 retrieved_top1=doc_011 expected=['doc_003']
+[OK] q21_paraphrase_coding        recall=1.00 mrr=1.00 retrieved_top1=doc_002 expected=['doc_002']
+[OK] q22_paraphrase_stress        recall=1.00 mrr=1.00 retrieved_top1=doc_012 expected=['doc_012']
+[OK] q23_paraphrase_ml            recall=1.00 mrr=1.00 retrieved_top1=doc_019 expected=['doc_019']

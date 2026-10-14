@@ -1,0 +1,12 @@
+{
+  "viewport": [
+    1440,
+    900
+  ],
+  "page_overflow_x": false,
+  "main_overflow_x": false,
+  "theme": "dark",
+  "bg": "rgb(15, 23, 42)",
+  "traceback": false,
+  "text_head": "ED\n\nEduDSS\n\nHỗ trợ quyết định học tập\n\nTổng quan\n\nNGƯỜI DÙNG & DỮ LIỆU\n\nNgười dùng\n\nKho dữ liệu\n\nKhám phá dữ liệu\n\nTRI THỨC & AI\n\nTài liệu & quy chế\n\nCấu hình AI\n\nTrợ lý AI\n\nVẬN HÀNH\n\nTích hợp LMS/CMS\n\nMô hình ML\n\nBáo cáo & giám sát\n\nCài đặt\n\nA\nadmin\nQuản trị viên\n\nGiao diện\n\nSáng\n\nTối\n\nHệ thống\n\nĐăng xuất\n\nCấu hình AI\n\nNguồn AI dùng để diễn giải và cá nhân hoá câu trả lời. Khoá API không bao giờ được hiển thị.\n\nChế độ hoạt động khi thiếu AI\nEduDSS vẫn hoạt động khi không có nguồn AI trực tuyến: tính toán điểm, quy tắc học vụ, dự đoán và tra cứu tài liệu không phụ thuộc vào nhà cung cấp AI. AI chỉ dùng để diễn giải và cá nhân hoá — không ra quyết định học vụ.\nTrạng thái provider\n\n\"Cấu hình\" chỉ đọc biến môi trường/secrets (không gửi request). \"Kiểm tra kết nối\" gửi 1 request tối thiểu tới từng provider — bấm thủ công để không tốn hạn mức mỗi lần tải trang.\n\nKiểm tra kết nối tất cả provider\n\nGoogle Gemini\nCấu hình\nChưa cấu hình\nKết nối\nChưa kiểm tra\n\nChưa kiểm tra trong phiên này.\n\nGroq\nCấu hình\nChưa cấu hình\nKết nối\nChưa kiểm tra\n\nChưa kiểm tra trong phiên này.\n\nOpenAI\nCấu hình\nChưa cấu hình\nKết nối\nChưa kiểm tra\n\nChưa kiểm tra trong phiên này.\n\nOllama (máy chủ cục bộ)\nCấu hình\nKhông dùng khoá API\nKết nối\nChưa kiểm tra\n\nChưa kiểm tra trong phiên này.\n\nProvider mặc định của hệ thống\n\nÁp dụng cho mọi phiên Trợ lý AI khi người dùng không tự chọn provider. Chọn model cụ thể ở trang Trợ lý AI (mục \"Đặt làm mặc định hệ thống\"); trang này để xem và xoá mặc định.\n\nChưa đặt mặc định —"
+}

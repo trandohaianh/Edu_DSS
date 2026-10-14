@@ -1,0 +1,35 @@
+capability,status,evidence_citation,notes
+Multi-tenant SaaS (one codebase multi-university),VERIFIED,UNIVERSITY_ONBOARDING_ACCEPTANCE.md; FINAL_STAGING_SIMULATION.md steps 4-15,Two real universities provisioned/onboarded/activated in one live run
+Dedicated-deployment mode (same codebase/image),VERIFIED (config-level),dss/db/models.py Organization.deployment_mode field; NATIONAL_SCALE_ARCHITECTURE_PROJECTION.md,Same Docker image; deployment_mode is a data flag not a build variant
+University onboarding lifecycle,VERIFIED,UNIVERSITY_ONBOARDING_ACCEPTANCE.md; FINAL_STAGING_SIMULATION.md steps 4-15,Full lifecycle gate (admin+connector+mapping+sync) exercised live
+Simulated LMS/CMS integration,VERIFIED,WORKSTREAM_AB_INTEGRATION.md; FINAL_STAGING_SIMULATION.md,Real HTTP connector against a dedicated simulator process/container
+Live external LMS integration,NOT DONE,N/A,No real university LMS was ever connected; only the accepted simulator
+PostgreSQL persistence,VERIFIED,ABC_INTEGRATION_ACCEPTANCE.md; FINAL_STAGING_SIMULATION.md,Real Postgres 16 + pgvector throughout
+Row-Level Security (RLS) tenant isolation,VERIFIED,test_db_row_level_security.py; WORKSTREAM_D_SCALE_RECOVERY.md section 4; FINAL_STAGING_SIMULATION.md step 16,Verified via non-superuser app role under load and in live integration
+pgvector semantic retrieval,VERIFIED,WORKSTREAM_AB_INTEGRATION.md; FINAL_STAGING_SIMULATION.md steps 20-22,Real reindex + retrieval after a live CMS content update
+ML provenance (fingerprinting/versioning),VERIFIED,closure/workstream-c-ml-ai-governance d1b17a4,SHA-256 deterministic fingerprinting for feature schemas/datasets
+Data drift detection,VERIFIED (methodology),closure/workstream-c-ml-ai-governance d1b17a4,PSI + KS statistic; detects distributional drift, does not guarantee future model correctness
+Performance drift detection,VERIFIED (methodology),closure/workstream-c-ml-ai-governance d1b17a4,Tracks metric degradation over time; not a correctness guarantee
+AI Gateway (multi-provider routing + fallback + quota),VERIFIED,dss/services/llm_gateway.py; FINAL_STAGING_SIMULATION.md step 23,Production Demo Policy path exercised live without a paid key
+CPU-only deployment,VERIFIED,optimization/docker-cpu-only-pytorch 1254adb,CPU-only PyTorch wheel pinned and built
+20K batch inference,VERIFIED,WORKSTREAM_D_SCALE_RECOVERY.md section 8,"2.62s, 7629.6 predictions/sec — batch inference only, NOT concurrent users"
+Concurrent user capacity (single university scale),VERIFIED (boundary found),WORKSTREAM_D_SCALE_RECOVERY.md section 3,"SLO met at concurrency=10, violated at 25 (p95=595ms) — real boundary, not forced higher"
+Multi-university concurrent load,VERIFIED,WORKSTREAM_D_SCALE_RECOVERY.md section 4,4 tenants concurrently loaded; fair distribution; zero cross-tenant leakage confirmed under load
+National-scale load,NOT VERIFIED,NATIONAL_SCALE_ARCHITECTURE_PROJECTION.md,Explicitly documented as an unverified architectural projection
+Database backup/recovery,VERIFIED,ops/backup_recovery.py (Phase 13, accepted); FINAL_STAGING_SIMULATION.md steps 29-30,"Real backup, checksum verify, AND a genuine restore-to-fresh-database test performed in Stage 5"
+Non-DB artifact recovery (manifest/checksum),VERIFIED,ops/non_db_recovery.py; WORKSTREAM_D_SCALE_RECOVERY.md section 1,"Manifest build/verify real and tested; no restore ORCHESTRATION implemented"
+Full disaster recovery (DB + non-DB combined restore),PARTIAL,FINAL_STAGING_SIMULATION.md section 4,DB restore genuinely verified; non-DB restore and a combined restore drill were never performed
+Concurrency race-condition safety (ModelVersion resolution),VERIFIED (bug found and fixed),prediction_repository.py Issue CONCUR-001; WORKSTREAM_D_SCALE_RECOVERY.md section 2,Genuine production bug found via capacity testing and fixed with a regression test
+End-to-end (E2E) UI testing,VERIFIED,Playwright suite (accepted across Stages 1-3),"39/39 passing at last full run; one pre-existing unrelated flaky test documented, not blocking"
+Non-E2E automated test suite,VERIFIED,WORKSTREAM_D_SCALE_RECOVERY.md section 9; this stage's regression run,"716 passed / 2 skipped / 0 failed (Stage 4); 570 passed / 0 failed re-confirmed in Stage 5's worktree"
+Docker containerized full stack,VERIFIED,FINAL_STAGING_SIMULATION.md,Real docker compose build+up of postgres+simulator+migrate+streamlit-integration; two real bugs found and fixed while proving this
+Fresh checkout viability,PARTIAL,FINAL_STAGING_SIMULATION.md section 3,"This stage's worktree IS a fresh git checkout that surfaced and fixed 2 real bugs (CRLF script, unseeded roles); Stage 7 performs the dedicated, final fresh-checkout gate"
+Hosted CI execution,NOT DONE,N/A,No hosted/cloud CI pipeline was executed this engagement; all verification was run locally by this engineering session
+Classification/regression accuracy (thesis figures),THESIS-REPORTED ONLY,METRICS_THESIS_VS_CURRENT.md,Not independently re-verified against real data this session
+K-Means clustering quality (k=4/Silhouette/DBI),THESIS-REPORTED ONLY,METRICS_THESIS_VS_CURRENT.md,Not independently re-verified against real data this session
+RMSE/R2 regression metrics,VERIFIED (consistent),METRICS_THESIS_VS_CURRENT.md,Current persisted training artifacts in data_warehouse/metadata/ round to the same figures as thesis-reported
+Embedding dimension (384) and RAG top-k (5),VERIFIED (current code default),METRICS_THESIS_VS_CURRENT.md,Confirmed live in current source code
+Ready for thesis demo,YES (with disclosed caveats),this document,"Golden-path onboarding-to-usage journey is real and repeatable; caveats in SUBMISSION_MUST_NOT_SAY.md must be respected during defense"
+Ready for submission,YES (with disclosed caveats),this document,Evidence trail is real and reproducible; known gaps are documented rather than hidden
+Full production ready,NO,this document; NATIONAL_SCALE_ARCHITECTURE_PROJECTION.md,"National scale, live LMS integration, hosted CI, and full disaster recovery remain unverified or not implemented"
+Ready for final main merge,DECISION DEFERRED TO USER,RELEASE_FREEZE.md,This roadmap explicitly never merges into main; the user makes that call

@@ -1,0 +1,12 @@
+{
+  "viewport": [
+    1440,
+    900
+  ],
+  "page_overflow_x": false,
+  "main_overflow_x": false,
+  "theme": "light",
+  "bg": "rgb(255, 255, 255)",
+  "traceback": false,
+  "text_head": "ED\n\nEduDSS\n\nHỗ trợ quyết định học tập\n\nTỔNG QUAN\n\nTrang chủ\n\nDashboard\n\nPHÂN TÍCH LỚP HỌC\n\nKhám phá dữ liệu\n\nHuấn luyện & dự đoán\n\nPhân cụm & gợi ý\n\nHỖ TRỢ & TÀI LIỆU\n\nTrợ lý AI\n\nDuyệt tài liệu\n\nKho dữ liệu\n\nG\ngiangvien\nGiảng viên / Cố vấn học tập\n\nGiao diện\n\nSáng\n\nTối\n\nHệ thống\n\nĐăng xuất\n\nKhám phá — Xử lý dữ liệu\n\nQuy trình: phát hiện → xử lý → so sánh → chọn features.\n\nkeyboard_arrow_right\n\nTừ điển nhanh thuật ngữ (Anh → Việt)\n\nSố dòng\n\n1,000\n\nSố cột\n\n16\n\nGiá trị thiếu\n\n0\n\nDòng trùng lặp\n\n0\nNguồn dữ liệu\n\nĐang dùng: sample_data_v1\n\nTải dữ liệu khác hoặc đồng bộ LMS ở tab Kho dữ liệu.\n\nKiểu dữ liệu\n\n🔢 Cột số: 13\n\n🔤 Cột phân loại: 3\n\nXem trước dữ liệu\n10\n\nHiển thị 10/1000 dòng.\n\nChất lượng dữ liệu\nKhông có giá trị thiếu.\n\n✓ Không có dòng trùng lặp.\n\nBước 2: Xử lý dữ liệu\n\nChọn các bước cần làm, rồi nhấn nút xử lý một lần duy nhất:\n\nChọn bước xử lý:\n\nLoại bỏ trùng lặp\nXử lý giá trị thiếu\n\n🚀 Xử lý\n\nBước 3: So sánh trước & sau\n\nℹ️ Bước này sẽ hiển thị sau khi dữ liệu được xử lý ở Bước 2.\n\nBước 4: Chọn features\n\nℹ️ Bước này sẽ hiển thị sau khi dữ liệu được xử lý ở Bước 2.\n\nPhân tích Chi tiết Từng Thuộc tính\n\nChọn một thuộc tính để xem phân tích chi tiết, thống kê mô tả, phân phối và mối quan hệ với các biến khác.\n\nChọn thuộc tính để phân tích chi tiết:\n\nstudent_id\n📊 Phân tích Chi tiết: student_id\n\nKiểu dữ liệu\n\nobject\n\nSố giá trị duy nhất\n\n1000\n\nGiá trị thiếu\n\n0 (0.0%)\n\nGiá trị phổ biến nhất\n\nSV001\n\n📈 Thống kê Mô tả:\n\nKiểu dữ liệu: object\n\nSố giá trị duy nhất: 1000\n\nGiá trị thiế"
+}

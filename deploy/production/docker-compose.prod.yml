@@ -1,0 +1,124 @@
+# EduDSS — dedicated deployment for ONE university (C1.1 reference configuration).
+#
+#   Internet ──443/80──▶ proxy (Caddy: TLS, security headers, WebSocket)
+#                           │  network: edge
+#                           ▼
+#                        app (Streamlit, EDUDSS_ENV=production, no published port)
+#                           │  network: backend (internal: true — no route to the outside)
+#                           ▼
+#                        postgres (pgvector) — NO published port, reachable only from backend
+#
+# The app is also on `edge` because it needs OUTBOUND access (LMS/SIS, optional AI
+# providers). Nothing but the proxy publishes a host port.
+#
+# Usage (from app/) — the server NEVER builds: it runs the exact image the release
+# pipeline built, tested and published (EDUDSS_IMAGE = registry/name@sha256:<digest>).
+#   cp deploy/production/production.env.example deploy/production/production.env   # fill secrets
+#   docker compose -f deploy/production/docker-compose.prod.yml --env-file deploy/production/production.env pull
+#   docker compose -f deploy/production/docker-compose.prod.yml --env-file deploy/production/production.env up -d
+# Release / migration / rollback procedure: docs/operations/RELEASE_PROCESS.md (C1.2).
+#
+# Status: CONFIGURATION_IMPLEMENTED. Live TLS with a public certificate requires a real
+# domain whose DNS points at this host (see C1_1_SECURITY_PRIVACY_HARDENING.md).
+
+name: edudss-prod
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: always
+    environment:
+      POSTGRES_DB: ${DB_NAME:?set DB_NAME}
+      POSTGRES_USER: ${DB_OWNER_USER:?set DB_OWNER_USER}
+      POSTGRES_PASSWORD: ${DB_OWNER_PASSWORD:?set DB_OWNER_PASSWORD}
+      POSTGRES_APP_USER: ${DB_APP_USER:?set DB_APP_USER}
+      POSTGRES_APP_PASSWORD: ${DB_APP_PASSWORD:?set DB_APP_PASSWORD}
+    # Intentionally NO `ports:` — the database is never reachable from the host network.
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ../../postgres-init:/docker-entrypoint-initdb.d:ro
+    networks: [backend]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  migrate:
+    # One-shot schema migration with the OWNER role; the app itself connects as the
+    # non-superuser app role so PostgreSQL RLS is enforced.
+    # Same artifact as `app`; precheck refuses an unknown/newer DB revision before upgrading.
+    image: ${EDUDSS_IMAGE:?set EDUDSS_IMAGE (immutable reference, e.g. ghcr.io/org/edudss@sha256:...)}
+    command: ["sh", "-c", "python -m ops.migration_check precheck && python -m alembic upgrade head && python -m ops.migration_check verify"]
+    environment:
+      DATABASE_URL: postgresql+psycopg2://${DB_OWNER_USER}:${DB_OWNER_PASSWORD}@postgres:5432/${DB_NAME}
+      EDUDSS_ENV: production
+    networks: [backend]
+    depends_on:
+      postgres: {condition: service_healthy}
+    restart: "no"
+
+  app:
+    image: ${EDUDSS_IMAGE:?set EDUDSS_IMAGE}
+    restart: always
+    environment:
+      EDUDSS_ENV: production
+      EDUDSS_MODE: ${EDUDSS_MODE:-REAL_LMS}
+      EDUDSS_ORGANIZATION_ID: ${EDUDSS_ORGANIZATION_ID:?set EDUDSS_ORGANIZATION_ID}
+      DATABASE_URL: postgresql+psycopg2://${DB_APP_USER}:${DB_APP_PASSWORD}@postgres:5432/${DB_NAME}
+      EDUDSS_REQUIRE_PGVECTOR: "1"
+      EDUDSS_IDENTITY_STORE: postgres
+      EDUDSS_PSEUDONYM_KEY: ${EDUDSS_PSEUDONYM_KEY:?set EDUDSS_PSEUDONYM_KEY (>= 32 random bytes)}
+      EDUDSS_PSEUDONYM_KEY_VERSION: ${EDUDSS_PSEUDONYM_KEY_VERSION:-1}
+      EDUDSS_DATA_ROOT: /app/data_warehouse
+      # No Streamlit telemetry to third parties; no developer toolbar ("Deploy", rerun menu).
+      STREAMLIT_BROWSER_GATHER_USAGE_STATS: "false"
+      STREAMLIT_CLIENT_TOOLBAR_MODE: viewer
+      STREAMLIT_SERVER_ENABLE_XSRF_PROTECTION: "true"
+      # Optional external AI — leave empty for "no external AI" operation.
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-}
+    # Intentionally NO `ports:` — only reachable through the proxy.
+    volumes:
+      - appdata:/app/data_warehouse
+    networks: [backend, edge]
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+    healthcheck:
+      # Liveness only (never external dependencies). Readiness (/readyz: DB, schema head,
+      # privacy key) is checked by the deploy procedure:
+      #   docker compose exec app python -m dss.core.health_server probe readyz
+      test: ["CMD", "python", "-m", "dss.core.health_server", "probe", "livez"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+
+  proxy:
+    image: caddy:2
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      EDUDSS_DOMAIN: ${EDUDSS_DOMAIN:?set EDUDSS_DOMAIN (DNS must point to this host)}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks: [edge]
+    depends_on:
+      app: {condition: service_healthy}
+
+networks:
+  backend:
+    internal: true
+  edge: {}
+
+volumes:
+  pgdata:
+  appdata:
+  caddy_data:
+  caddy_config:

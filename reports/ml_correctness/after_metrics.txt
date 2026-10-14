@@ -1,0 +1,40 @@
+Chạy tools/ml_benchmark.py SAU KHI sửa (tất cả commit trên fix/ml-correctness),
+trên cùng dữ liệu mẫu, cùng tham số mặc định của trainer.
+
+{'Khá': 461, 'Giỏi': 420, 'Trung bình': 66, 'Xuất sắc': 51, 'Yếu': 2}
+features used: ['diem_ky_nay', 'ty_le_diem_danh', 'so_gio_hoc_tuan', 'diem_giua_ky', 'diem_du_an', 'diem_thong_ke', 'diem_xu_ly_du_lieu', 'diem_truc_quan_hoa', 'diem_machine_learning', 'diem_lap_trinh', 'gpa_previous']
+__baseline__ {'Accuracy': 0.46, 'F1 Score (Macro)': 0.12602739726027395, 'F1 Score (Weighted)': 0.2898630136986301, 'strategy': 'most_frequent'}
+Logistic Regression (Softmax)    acc=0.9250 f1m=0.7149 f1w=0.9217 train=0.9625
+Random Forest Classifier         acc=0.8900 f1m=0.8745 f1w=0.8893 train=0.9988
+XGBoost Classifier               acc=0.9150 f1m=0.7008 f1w=0.9126 train=1.0000
+LightGBM Classifier              acc=0.9200 f1m=0.7086 f1w=0.9173 train=1.0000
+__baseline__ {'RMSE': 0.9009768047270974, 'MAE': 0.707748875, 'R2 Score': -0.0030137954365159203, 'strategy': 'mean'}
+Linear Regression                RMSE=0.0758 MAE=0.0623 R2=0.9929
+Random Forest Regressor          RMSE=0.1572 MAE=0.1270 R2=0.9695
+XGBoost Regressor                RMSE=0.1212 MAE=0.0968 R2=0.9818
+LightGBM Regressor               RMSE=0.1256 MAE=0.0926 R2=0.9805
+
+SO SÁNH VỚI baseline_metrics.txt: Accuracy/F1/RMSE/R2 của TỪNG mô hình GIỐNG HỆT
+số liệu gốc (không đổi 1 chữ số nào). Đây là kết quả ĐÚNG NHƯ MONG ĐỢI, không
+phải dấu hiệu sửa lỗi "không có tác dụng" — giải thích ở Mục "Số liệu" của
+REPORT.md: hầu hết các lỗi đã sửa (R-1 outlier, R-2 scaler, R-3 chọn ensemble,
+P-1 XGBoost GridSearch, P-3 SMOTE k, C-1/G-2 danh sách feature mặc định, S-1/S-2
+đồng bộ UI/Kho...) CHỈ thay đổi hành vi khi bật các tùy chọn KHÔNG PHẢI mặc định
+của trainer (outlier_method="iqr", scaler_type khác StandardScaler,
+training_strategy="Kết hợp", balance_method="smote", hoặc đi qua đường UI/
+bootstrap thay vì gọi thẳng train_and_evaluate() như ml_benchmark.py đang làm).
+ml_benchmark.py dùng THAM SỐ MẶC ĐỊNH cho tất cả các tùy chọn đó nên không đi
+qua các nhánh code đã sửa — bằng chứng số liệu THAY ĐỔI cho từng lỗi cụ thể nằm
+trong test tương ứng (xem bảng ở REPORT.md), không nằm ở benchmark tổng này.
+
+Điểm THỰC SỰ mới so với baseline: có thêm 2 dòng "__baseline__" (P-4) — mốc so
+sánh DummyClassifier/DummyRegressor. Đây là bằng chứng định lượng cho thấy các
+mô hình thật SỰ học được điều gì đó hơn "đoán bừa":
+- Phân loại: F1-macro mô hình tốt nhất (Random Forest) = 0.8745 so với mốc
+  DummyClassifier (luôn đoán lớp "Khá", lớp đa số) = 0.1260 — chênh lệch lớn,
+  chứng tỏ mô hình học được tín hiệu thật, không chỉ ăn theo phân bố lớp.
+- Hồi quy: R2 mô hình tốt nhất (Linear Regression) = 0.9929 so với mốc
+  DummyRegressor (luôn đoán trung bình) = -0.0030 (~0, đúng định nghĩa R2 của
+  baseline "đoán trung bình") — khoảng cách rất lớn.
+Mốc "__baseline__" không xuất hiện trong bảng xếp hạng/is_best (đã có test xác
+nhận pick_best_model_name không bao giờ trả về "__baseline__").

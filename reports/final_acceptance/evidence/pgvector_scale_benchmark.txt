@@ -1,0 +1,9 @@
+8
+ rows(org=1)   mode   p50 ms   p95 ms   max ms
+      10,000  exact     12.9     18.5     20.2
+      50,000  exact     33.7     47.8     64.6
+     100,000  exact     58.0     81.5    142.9
+     250,000  exact    137.3    149.6    278.4
+     250,000   hnsw     26.4     35.8     38.4   (build 278s, ef_search=100)
+
+[exited with code 0]

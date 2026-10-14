@@ -1,0 +1,633 @@
+{
+  "steps": [
+    {
+      "step": 1,
+      "title": "Live stack sanity (Postgres/simulator/streamlit-integration reachable)",
+      "status": "PASS",
+      "detail": {
+        "postgres": "reachable",
+        "simulator": "healthy",
+        "streamlit_integration": "healthy"
+      },
+      "duration_s": 0.08
+    },
+    {
+      "step": 2,
+      "title": "Alembic single-head confirmation",
+      "status": "PASS",
+      "detail": {
+        "alembic_head": "35d62f0c6002"
+      },
+      "duration_s": 0.0
+    },
+    {
+      "step": 3,
+      "title": "RLS tenant_isolation policy present",
+      "status": "PASS",
+      "detail": {
+        "rls_policy_confirmed_on": "students"
+      },
+      "duration_s": 0.0
+    },
+    {
+      "step": 4,
+      "title": "Provision University A (Organization row, lifecycle=SETUP)",
+      "status": "PASS",
+      "detail": {
+        "organization_id": 25
+      },
+      "duration_s": 0.02
+    },
+    {
+      "step": 5,
+      "title": "Provision University B",
+      "status": "PASS",
+      "detail": {
+        "organization_id": 26
+      },
+      "duration_s": 0.007
+    },
+    {
+      "step": 6,
+      "title": "Create University A admin user",
+      "status": "PASS",
+      "detail": {
+        "username": "admin_a_78231238",
+        "role": "Admin",
+        "organization_id": 25
+      },
+      "duration_s": 0.224
+    },
+    {
+      "step": 7,
+      "title": "Create University B admin user",
+      "status": "PASS",
+      "detail": {
+        "username": "admin_b_78231238",
+        "role": "Admin",
+        "organization_id": 26
+      },
+      "duration_s": 0.194
+    },
+    {
+      "step": 8,
+      "title": "Configure LMS/CMS connector for University A (credential-reference only)",
+      "status": "PASS",
+      "detail": {
+        "connector_id": 9
+      },
+      "duration_s": 0.017
+    },
+    {
+      "step": 9,
+      "title": "Configure LMS/CMS connector for University B",
+      "status": "PASS",
+      "detail": {
+        "connector_id": 10
+      },
+      "duration_s": 0.01
+    },
+    {
+      "step": 10,
+      "title": "Live connector test \u2014 University A (real HTTP to simulator)",
+      "status": "PASS",
+      "detail": {
+        "status": "SUCCESS",
+        "detail": "Connected: fetched a sample record.",
+        "http_status": 200
+      },
+      "duration_s": 0.099
+    },
+    {
+      "step": 11,
+      "title": "Live connector test \u2014 University B",
+      "status": "PASS",
+      "detail": {
+        "status": "SUCCESS",
+        "detail": "Connected: fetched a sample record.",
+        "http_status": 200
+      },
+      "duration_s": 0.11
+    },
+    {
+      "step": 12,
+      "title": "Validate LMS field mapping \u2014 University A",
+      "status": "PASS",
+      "detail": {
+        "status": "VALID",
+        "resource_mappings": {
+          "users": {
+            "status": "valid",
+            "required_fields": [
+              "user_external_id"
+            ],
+            "missing_fields": []
+          },
+          "students": {
+            "status": "valid",
+            "required_fields": [
+              "student_external_id"
+            ],
+            "missing_fields": []
+          },
+          "lecturers": {
+            "status": "valid",
+            "required_fields": [
+              "lecturer_external_id"
+            ],
+            "missing_fields": []
+          },
+          "courses": {
+            "status": "valid",
+            "required_fields": [
+              "course_external_id"
+            ],
+            "missing_fields": []
+          },
+          "enrollments": {
+            "status": "valid",
+            "required_fields": [
+              "enrollment_external_id"
+            ],
+            "missing_fields": []
+          },
+          "assignments": {
+            "status": "valid",
+            "required_fields": [
+              "assignment_external_id"
+            ],
+            "missing_fields": []
+          },
+          "submissions": {
+            "status": "valid",
+            "required_fields": [
+              "submission_external_id"
+            ],
+            "missing_fields": []
+          },
+          "grades": {
+            "status": "valid",
+            "required_fields": [
+              "grade_external_id"
+            ],
+            "missing_fields": []
+          },
+          "attendance": {
+            "status": "valid",
+            "required_fields": [
+              "attendance_external_id"
+            ],
+            "missing_fields": []
+          },
+          "activities": {
+            "status": "valid",
+            "required_fields": [
+              "activity_external_id"
+            ],
+            "missing_fields": []
+          },
+          "content": {
+            "status": "valid",
+            "required_fields": [
+              "content_external_id"
+            ],
+            "missing_fields": []
+          }
+        },
+        "mapping_profile_id": 9
+      },
+      "duration_s": 0.838
+    },
+    {
+      "step": 13,
+      "title": "Initial LMS sync \u2014 University A (real students/courses ingested)",
+      "status": "PASS",
+      "detail": {
+        "status": "SUCCESS",
+        "results": {
+          "users": {
+            "resource": "users",
+            "fetched": 6,
+            "changed": 6,
+            "cursor": "2026-01-15T08:13:00+00:00"
+          },
+          "students": {
+            "resource": "students",
+            "fetched": 4,
+            "changed": 4,
+            "cursor": "2026-01-15T08:13:00+00:00"
+          },
+          "lecturers": {
+            "resource": "lecturers",
+            "fetched": 2,
+            "changed": 2,
+            "cursor": "2026-01-15T08:01:00+00:00"
+          },
+          "courses": {
+            "resource": "courses",
+            "fetched": 2,
+            "changed": 2,
+            "cursor": "2026-01-15T08:21:00+00:00"
+          },
+          "enrollments": {
+            "resource": "enrollments",
+            "fetched": 8,
+            "changed": 8,
+            "cursor": "2026-01-15T08:43:00+00:00"
+          },
+          "assignments": {
+            "resource": "assignments",
+            "fetched": 2,
+            "changed": 2,
+            "cursor": "2026-01-15T08:31:00+00:00"
+          },
+          "submissions": {
+            "resource": "submissions",
+            "fetched": 8,
+            "changed": 8,
+            "cursor": "2026-01-15T08:53:00+00:00"
+          },
+          "grades": {
+            "resource": "grades",
+            "fetched": 8,
+            "changed": 8,
+            "cursor": "2026-01-15T09:03:00+00:00"
+          },
+          "attendance": {
+            "resource": "attendance",
+            "fetched": 8,
+            "changed": 8,
+            "cursor": "2026-01-15T09:08:00+00:00"
+          },
+          "activities": {
+            "resource": "activities",
+            "fetched": 8,
+            "changed": 8,
+            "cursor": "2026-01-15T09:13:00+00:00"
+          },
+          "content": {
+            "resource": "content",
+            "fetched": 2,
+            "changed": 2,
+            "cursor": "2026-01-15T08:36:00+00:00"
+          }
+        }
+      },
+      "duration_s": 2.582
+    },
+    {
+      "step": 14,
+      "title": "Initial LMS sync \u2014 University B",
+      "status": "PASS",
+      "detail": {
+        "status": "SUCCESS",
+        "results": {
+          "users": {
+            "resource": "users",
+            "fetched": 6,
+            "changed": 6,
+            "cursor": "2026-01-15T09:53:00+00:00"
+          },
+          "students": {
+            "resource": "students",
+            "fetched": 4,
+            "changed": 4,
+            "cursor": "2026-01-15T09:53:00+00:00"
+          },
+          "lecturers": {
+            "resource": "lecturers",
+            "fetched": 2,
+            "changed": 2,
+            "cursor": "2026-01-15T09:41:00+00:00"
+          },
+          "courses": {
+            "resource": "courses",
+            "fetched": 2,
+            "changed": 2,
+            "cursor": "2026-01-15T10:01:00+00:00"
+          },
+          "enrollments": {
+            "resource": "enrollments",
+            "fetched": 8,
+            "changed": 8,
+            "cursor": "2026-01-15T10:23:00+00:00"
+          },
+          "assignments": {
+            "resource": "assignments",
+            "fetched": 2,
+            "changed": 2,
+            "cursor": "2026-01-15T10:11:00+00:00"
+          },
+          "submissions": {
+            "resource": "submissions",
+            "fetched": 8,
+            "changed": 8,
+            "cursor": "2026-01-15T10:33:00+00:00"
+          },
+          "grades": {
+            "resource": "grades",
+            "fetched": 8,
+            "changed": 8,
+            "cursor": "2026-01-15T10:43:00+00:00"
+          },
+          "attendance": {
+            "resource": "attendance",
+            "fetched": 8,
+            "changed": 8,
+            "cursor": "2026-01-15T10:48:00+00:00"
+          },
+          "activities": {
+            "resource": "activities",
+            "fetched": 8,
+            "changed": 8,
+            "cursor": "2026-01-15T10:53:00+00:00"
+          },
+          "content": {
+            "resource": "content",
+            "fetched": 2,
+            "changed": 2,
+            "cursor": "2026-01-15T10:16:00+00:00"
+          }
+        }
+      },
+      "duration_s": 2.434
+    },
+    {
+      "step": 15,
+      "title": "Activate University A (lifecycle gate: admin+connector+mapping+sync all green)",
+      "status": "PASS",
+      "detail": {
+        "activated": true,
+        "reasons": []
+      },
+      "duration_s": 0.037
+    },
+    {
+      "step": 16,
+      "title": "Tenant isolation: University A app-role connection sees zero University B rows",
+      "status": "PASS",
+      "detail": {
+        "cross_tenant_visible_rows": 0
+      },
+      "duration_s": 0.041
+    },
+    {
+      "step": 17,
+      "title": "Lecturer-context read: fetch a real synced student (RLS-scoped)",
+      "status": "PASS",
+      "detail": {
+        "student_code": "stu-A-01",
+        "full_name": "stu-A-01"
+      },
+      "duration_s": 0.006
+    },
+    {
+      "step": 18,
+      "title": "ML prediction (real RandomForest) + real SHAP local explanation, persisted",
+      "status": "PASS",
+      "detail": {
+        "prediction_id": 1,
+        "prediction_value": 0.9,
+        "shap_computed": true
+      },
+      "duration_s": 0.066
+    },
+    {
+      "step": 19,
+      "title": "Student-view read: prediction visible via list_predictions (RLS-scoped)",
+      "status": "PASS",
+      "detail": {
+        "predictions_visible": 1
+      },
+      "duration_s": 0.0
+    },
+    {
+      "step": 20,
+      "title": "CMS content update on the live simulator (real HTTP mutation)",
+      "status": "PASS",
+      "detail": {
+        "mutation_status": 200
+      },
+      "duration_s": 0.056
+    },
+    {
+      "step": 21,
+      "title": "Real HTTP webhook delivery, HMAC-verified, durable inbox processed",
+      "status": "PASS",
+      "detail": {
+        "deliveries": [
+          {
+            "event_id": "evt-A-submission-1",
+            "status": 200,
+            "attempts": 1
+          },
+          {
+            "event_id": "evt-A-grade-1",
+            "status": 200,
+            "attempts": 1
+          },
+          {
+            "event_id": "evt-A-content-1",
+            "status": 200,
+            "attempts": 1
+          }
+        ]
+      },
+      "duration_s": 1.894
+    },
+    {
+      "step": 22,
+      "title": "Content re-indexed into pgvector; retrieval reflects the update",
+      "status": "PASS",
+      "detail": {
+        "cms_content_version": 2,
+        "rag_document_id": "content-A-01:v2",
+        "top_retrieval": "content-A-01:v2"
+      },
+      "duration_s": 0.051
+    },
+    {
+      "step": 23,
+      "title": "AI Gateway request via LLMGateway.stream_generate (Production Demo Policy path)",
+      "status": "PASS",
+      "detail": {
+        "response_length_chars": 392
+      },
+      "duration_s": 0.017
+    },
+    {
+      "step": 24,
+      "title": "Audit log write+read capability confirmed against the live stack",
+      "status": "PASS",
+      "detail": {
+        "audit_rows_found": 1
+      },
+      "duration_s": 0.018
+    },
+    {
+      "step": 25,
+      "title": "Real PostgreSQL container restart",
+      "status": "PASS",
+      "detail": {
+        "container": "edudss-postgres",
+        "restarted": true
+      },
+      "duration_s": 1.852
+    },
+    {
+      "step": 26,
+      "title": "Data persisted correctly after Postgres restart (no loss)",
+      "status": "PASS",
+      "detail": {
+        "students_after_restart": 4,
+        "prediction_persisted": true
+      },
+      "duration_s": 0.032
+    },
+    {
+      "step": 27,
+      "title": "Real LMS/CMS simulator container restart",
+      "status": "PASS",
+      "detail": {
+        "container": "edudss-lms-cms-simulator",
+        "restarted": true
+      },
+      "duration_s": 4.696
+    },
+    {
+      "step": 28,
+      "title": "Post-restart incremental resync is idempotent (zero duplicate changes)",
+      "status": "PASS",
+      "detail": {
+        "status": "SUCCESS",
+        "results": {
+          "users": {
+            "resource": "users",
+            "fetched": 0,
+            "changed": 0,
+            "cursor": "2026-01-15T08:13:00+00:00"
+          },
+          "students": {
+            "resource": "students",
+            "fetched": 0,
+            "changed": 0,
+            "cursor": "2026-01-15T08:13:00+00:00"
+          },
+          "lecturers": {
+            "resource": "lecturers",
+            "fetched": 0,
+            "changed": 0,
+            "cursor": "2026-01-15T08:01:00+00:00"
+          },
+          "courses": {
+            "resource": "courses",
+            "fetched": 0,
+            "changed": 0,
+            "cursor": "2026-01-15T08:21:00+00:00"
+          },
+          "enrollments": {
+            "resource": "enrollments",
+            "fetched": 0,
+            "changed": 0,
+            "cursor": "2026-01-15T08:43:00+00:00"
+          },
+          "assignments": {
+            "resource": "assignments",
+            "fetched": 0,
+            "changed": 0,
+            "cursor": "2026-01-15T08:31:00+00:00"
+          },
+          "submissions": {
+            "resource": "submissions",
+            "fetched": 0,
+            "changed": 0,
+            "cursor": "2026-01-15T08:53:00+00:00"
+          },
+          "grades": {
+            "resource": "grades",
+            "fetched": 0,
+            "changed": 0,
+            "cursor": "2026-01-15T09:03:00+00:00"
+          },
+          "attendance": {
+            "resource": "attendance",
+            "fetched": 0,
+            "changed": 0,
+            "cursor": "2026-01-15T09:08:00+00:00"
+          },
+          "activities": {
+            "resource": "activities",
+            "fetched": 0,
+            "changed": 0,
+            "cursor": "2026-01-15T09:13:00+00:00"
+          },
+          "content": {
+            "resource": "content",
+            "fetched": 0,
+            "changed": 0,
+            "cursor": "2026-01-15T08:36:00+00:00"
+          }
+        }
+      },
+      "duration_s": 0.468
+    },
+    {
+      "step": 29,
+      "title": "Coordinated real DB backup (owner role) + independent checksum verify",
+      "status": "PASS",
+      "detail": {
+        "archive": "edudss_db-20260922T060121Z-cc2b261f.dump",
+        "size_bytes": 239112,
+        "sha256": "2a041894fb6ebaae1dc1bbe429c05ffc4118e3043dd4c6a1c7e34518e00d8e86"
+      },
+      "duration_s": 0.38
+    },
+    {
+      "step": 30,
+      "title": "GENUINE restore-to-fresh-database test (not just checksum verify) \u2014 real data confirmed present",
+      "status": "PASS",
+      "detail": {
+        "restored_database": "edudss_restore_test_78231238",
+        "organizations_restored": 16,
+        "students_restored_for_org_a": 4
+      },
+      "duration_s": 1.72
+    },
+    {
+      "step": 31,
+      "title": "Short concurrency burst (concurrency=10) on freshly restarted+restored containers meets SLO",
+      "status": "PASS",
+      "detail": {
+        "concurrency": 10,
+        "error_rate": 0.0,
+        "p95_ms": 103.665
+      },
+      "duration_s": 0.24
+    },
+    {
+      "step": 32,
+      "title": "Final smoke journey: University B activation + AI Gateway responsiveness",
+      "status": "PASS",
+      "detail": {
+        "university_b_activated": true,
+        "university_b_students": 4,
+        "ai_gateway_responsive": true
+      },
+      "duration_s": 0.036
+    },
+    {
+      "step": 33,
+      "title": "No unhandled tracebacks in Postgres/simulator container logs for this run",
+      "status": "PASS",
+      "detail": {
+        "edudss-postgres": {
+          "tracebacks": 0
+        },
+        "edudss-lms-cms-simulator": {
+          "tracebacks": 0
+        }
+      },
+      "duration_s": 0.209
+    }
+  ]
+}

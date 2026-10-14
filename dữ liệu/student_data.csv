@@ -1,0 +1,11 @@
+﻿student_id,name,GPA,major,weak_subjects,strong_subjects
+1,Trần Đỗ Hải Anh,2.7,Công nghệ thông tin,Toán rời rạc; Lập trình C,Tiếng Anh; Mạng máy tính
+2,Nguyễn Minh Tuấn,3.5,Khoa học dữ liệu,Python; Machine Learning,Toán; Xác suất thống kê
+3,Lê Lan Hương,2.3,Phân tích kinh doanh,Excel; SQL,Giao tiếp; Quản trị dự án
+4,Phạm Đức Duy,3.1,Kỹ thuật phần mềm,Cấu trúc dữ liệu; Thiết kế giao diện,Lập trình hướng đối tượng; Git
+5,Ngô Thanh Trúc,2.8,Trí tuệ nhân tạo,Giải thuật; Đại số tuyến tính,Python; Thống kê
+6,Hoàng Hải Long,3.7,Hệ thống thông tin,Phân tích yêu cầu,Thiết kế UML; ERD
+7,Nguyễn Hương Giang,2.5,Công nghệ thông tin,Tiếng Anh chuyên ngành; Lập trình C++,Mạng máy tính; HTML
+8,Trần Anh Quân,3.9,An toàn thông tin,Mã hóa cơ bản,Kiểm thử bảo mật; Quản trị mạng
+9,Phạm Quỳnh Nhi,2.4,Phân tích kinh doanh,SQL; Thống kê,Excel; Trình bày; Giao tiếp
+10,Đỗ Trung Kiên,3.2,Khoa học dữ liệu,Machine Learning; Xử lý dữ liệu lớn,Python; Power BI

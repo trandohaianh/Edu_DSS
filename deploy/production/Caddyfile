@@ -1,0 +1,33 @@
+# EduDSS reverse proxy — TLS termination, security headers, WebSocket forwarding.
+# Caddy obtains and renews a certificate automatically (ACME) for {$EDUDSS_DOMAIN}
+# once DNS points at this host and ports 80/443 are reachable. No global options:
+# - no ACME e-mail is required (add a global `email` option only with a real address);
+# - Caddy is the EDGE, so it must NOT trust incoming X-Forwarded-* headers from any
+#   client range (an earlier draft trusted private ranges, i.e. any campus LAN client).
+
+{$EDUDSS_DOMAIN} {
+	encode zstd gzip
+
+	# Uploads: keep in line with Streamlit's server.maxUploadSize (default 200 MB).
+	request_body {
+		max_size 200MB
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
+		# Streamlit renders with inline scripts/styles and same-origin iframes for components;
+		# the WebSocket (/_stcore/stream) is same-origin (wss:). Tighten further only after testing.
+		Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' wss:; frame-src 'self'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'"
+		-Server
+	}
+
+	# Caddy forwards WebSocket upgrades (Streamlit /_stcore/stream) automatically.
+	reverse_proxy app:8501 {
+		health_uri /_stcore/health
+		health_interval 30s
+	}
+}

@@ -1,0 +1,59 @@
+{
+  "levels": [
+    {
+      "concurrency": 10,
+      "duration_seconds": 0.5405,
+      "error_count": 0,
+      "error_rate": 0.0,
+      "errors_sample": [],
+      "p50_ms": 39.08,
+      "p95_ms": 398.65,
+      "p99_ms": 403.968,
+      "pg_connections_observed": 2,
+      "throughput_ops_per_sec": 92.5,
+      "total_operations": 50
+    },
+    {
+      "concurrency": 25,
+      "duration_seconds": 0.5211,
+      "error_count": 0,
+      "error_rate": 0.0,
+      "errors_sample": [],
+      "p50_ms": 59.477,
+      "p95_ms": 308.614,
+      "p99_ms": 329.931,
+      "pg_connections_observed": 17,
+      "throughput_ops_per_sec": 239.88,
+      "total_operations": 125
+    },
+    {
+      "concurrency": 50,
+      "duration_seconds": 1.0095,
+      "error_count": 0,
+      "error_rate": 0.0,
+      "errors_sample": [],
+      "p50_ms": 63.896,
+      "p95_ms": 600.662,
+      "p99_ms": 654.374,
+      "pg_connections_observed": 17,
+      "throughput_ops_per_sec": 247.66,
+      "total_operations": 250
+    }
+  ],
+  "organization_ids": [
+    57,
+    58,
+    59,
+    60
+  ],
+  "per_org_prediction_counts": {
+    "57": 100,
+    "58": 105,
+    "59": 103,
+    "60": 117
+  },
+  "rls_correct_under_load": true,
+  "tenant_fairness_note": "each tenant received writes proportional to random assignment; no starvation observed (see per_org_prediction_counts)",
+  "test": "multi_university_concurrency_profile",
+  "timestamp_utc": "2026-09-22T04:00:48.908221+00:00"
+}

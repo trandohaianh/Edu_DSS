@@ -1,0 +1,12 @@
+{
+  "viewport": [
+    1440,
+    900
+  ],
+  "page_overflow_x": false,
+  "main_overflow_x": false,
+  "theme": "dark",
+  "bg": "rgb(15, 23, 42)",
+  "traceback": false,
+  "text_head": "ED\n\nEduDSS\n\nHỗ trợ quyết định học tập\n\nTỔNG QUAN\n\nTrang chủ\n\nDashboard\n\nPHÂN TÍCH LỚP HỌC\n\nKhám phá dữ liệu\n\nHuấn luyện & dự đoán\n\nPhân cụm & gợi ý\n\nHỖ TRỢ & TÀI LIỆU\n\nTrợ lý AI\n\nDuyệt tài liệu\n\nKho dữ liệu\n\nG\ngiangvien\nGiảng viên / Cố vấn học tập\n\nGiao diện\n\nSáng\n\nTối\n\nHệ thống\n\nĐăng xuất\n\nChế độ dữ liệu: Dữ liệu mô phỏng (Synthetic/Demo) — số liệu, biểu đồ và tư vấn trên trang này KHÔNG phản ánh sinh viên thật.\n\nPhân cụm & Gợi ý\n\nPhân cụm sinh viên (K-Means) và gợi ý học tập. Cụm là phân khúc theo độ tương đồng dữ liệu — công cụ khám phá, không phải phân loại sinh viên chính thức.\n\nkeyboard_arrow_right\n\nHướng dẫn chi tiết từng bước (bấm để xem)\n\nDataset\n\n1,000 SV\n\nĐặc trưng đã chọn\n\n10\n\nSố cụm (k)\n\n4\n\nSilhouette\n\n0.109\n\nDavies-Bouldin\n\n2.249\nCấu hình phân cụm\n\nĐặc trưng dùng để phân cụm:\n\ndiem_ky_nay\nty_le_diem_danh\nso_gio_hoc_tuan\ndiem_giua_ky\ndiem_du_an\ndiem_thong_ke\ndiem_xu_ly_du_lieu\ndiem_truc_quan_hoa\ndiem_machine_learning\ndiem_lap_trinh\n\n✅ Đã chọn 10 đặc trưng.\n\nTìm K tối ưu (Elbow + Silhouette)\n\nK bắt đầu:\n\nK kết thúc:\n\n📊 Vẽ Elbow + Silhouette\n\nChạy phân cụm\n\nSố cụm (K):\n\n🚀 Chạy Phân cụm K-Means\n\nĐánh giá mô hình\nChưa có kết quả Elbow/Silhouette.\nBấm \"Vẽ Elbow + Silhouette\" ở panel Cấu hình bên trái.\n214\n267\n242\n277\n0\n1\n2\n3\n0\n100\n200\nPhân bố sinh viên theo cụm (K=4)\nCụm\nSố SV\nDiễn giải cụm\n\nCụm 0 · 214 SV\n\n✅ Mạnh: Điểm kỳ này, Thống kê\n\nCụm 1 · 267 SV\n\n⚠️ Yếu: Điểm kỳ này, Thống kê\n\nCụm 2 · 242 SV\n\n⚠️ Yếu: Tỷ lệ điểm danh\n\nCụm 3 · 277 SV\n\n✅ Mạnh: Tỷ lệ điểm danh\n\n💾 L"
+}

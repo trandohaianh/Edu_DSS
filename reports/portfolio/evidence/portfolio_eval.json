@@ -1,0 +1,440 @@
+{
+  "data": {
+    "origin": "SYNTHETIC",
+    "generator": "dss.core.data_helpers.generate_data(random_state=42)",
+    "rows": 1000,
+    "feature_selection": "training-screen defaults (leakage + near-duplicate removal)",
+    "features_classification": [
+      "diem_ky_nay",
+      "ty_le_diem_danh",
+      "so_gio_hoc_tuan",
+      "diem_giua_ky",
+      "diem_du_an",
+      "diem_thong_ke",
+      "diem_xu_ly_du_lieu",
+      "diem_truc_quan_hoa",
+      "diem_machine_learning",
+      "diem_lap_trinh"
+    ],
+    "features_regression": [
+      "diem_ky_nay",
+      "ty_le_diem_danh",
+      "so_gio_hoc_tuan",
+      "diem_giua_ky",
+      "diem_du_an",
+      "diem_thong_ke",
+      "diem_xu_ly_du_lieu",
+      "diem_truc_quan_hoa",
+      "diem_machine_learning",
+      "diem_lap_trinh"
+    ]
+  },
+  "classification": {
+    "target": "xep_loai",
+    "features_used": [
+      "diem_ky_nay",
+      "ty_le_diem_danh",
+      "so_gio_hoc_tuan",
+      "diem_giua_ky",
+      "diem_du_an",
+      "diem_thong_ke",
+      "diem_xu_ly_du_lieu",
+      "diem_truc_quan_hoa",
+      "diem_machine_learning",
+      "diem_lap_trinh"
+    ],
+    "class_labels": [
+      "Giỏi",
+      "Khá",
+      "Trung bình",
+      "Xuất sắc",
+      "Yếu"
+    ],
+    "train_size": 800,
+    "test_size": 200,
+    "class_distribution_full": {
+      "Khá": 461,
+      "Giỏi": 420,
+      "Trung bình": 66,
+      "Xuất sắc": 51,
+      "Yếu": 2
+    },
+    "models": {
+      "Logistic Regression (Softmax)": {
+        "accuracy": 0.92,
+        "precision_macro": 0.7502053884257581,
+        "recall_macro": 0.6688373944895684,
+        "f1_macro": 0.6990792063740041,
+        "accuracy_train": 0.96125,
+        "confusion_matrix": [
+          [
+            80,
+            4,
+            0,
+            0,
+            0
+          ],
+          [
+            5,
+            87,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            2,
+            11,
+            0,
+            0
+          ],
+          [
+            4,
+            0,
+            0,
+            6,
+            0
+          ],
+          [
+            0,
+            0,
+            1,
+            0,
+            0
+          ]
+        ]
+      },
+      "Random Forest Classifier": {
+        "accuracy": 0.86,
+        "precision_macro": 0.6548035872173804,
+        "recall_macro": 0.6461235865583692,
+        "f1_macro": 0.6501485955325472,
+        "accuracy_train": 0.995,
+        "confusion_matrix": [
+          [
+            74,
+            7,
+            0,
+            3,
+            0
+          ],
+          [
+            10,
+            81,
+            1,
+            0,
+            0
+          ],
+          [
+            0,
+            3,
+            10,
+            0,
+            0
+          ],
+          [
+            3,
+            0,
+            0,
+            7,
+            0
+          ],
+          [
+            0,
+            0,
+            1,
+            0,
+            0
+          ]
+        ]
+      },
+      "XGBoost Classifier": {
+        "accuracy": 0.905,
+        "precision_macro": 0.70625,
+        "recall_macro": 0.6663099219620958,
+        "f1_macro": 0.6839952718676123,
+        "accuracy_train": 1.0,
+        "confusion_matrix": [
+          [
+            77,
+            6,
+            0,
+            1,
+            0
+          ],
+          [
+            4,
+            87,
+            1,
+            0,
+            0
+          ],
+          [
+            0,
+            3,
+            10,
+            0,
+            0
+          ],
+          [
+            3,
+            0,
+            0,
+            7,
+            0
+          ],
+          [
+            0,
+            0,
+            1,
+            0,
+            0
+          ]
+        ]
+      },
+      "LightGBM Classifier": {
+        "accuracy": 0.91,
+        "precision_macro": 0.7099618174875907,
+        "recall_macro": 0.6991065456282849,
+        "f1_macro": 0.704061568061568,
+        "accuracy_train": 1.0,
+        "confusion_matrix": [
+          [
+            75,
+            7,
+            0,
+            2,
+            0
+          ],
+          [
+            4,
+            88,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            2,
+            11,
+            0,
+            0
+          ],
+          [
+            2,
+            0,
+            0,
+            8,
+            0
+          ],
+          [
+            0,
+            0,
+            1,
+            0,
+            0
+          ]
+        ]
+      }
+    },
+    "best_model_by_app_ranking": "LightGBM Classifier"
+  },
+  "regression": {
+    "target": "diem_ky_sau",
+    "features_used": [
+      "diem_ky_nay",
+      "ty_le_diem_danh",
+      "so_gio_hoc_tuan",
+      "diem_giua_ky",
+      "diem_du_an",
+      "diem_thong_ke",
+      "diem_xu_ly_du_lieu",
+      "diem_truc_quan_hoa",
+      "diem_machine_learning",
+      "diem_lap_trinh"
+    ],
+    "models": {
+      "Linear Regression": {
+        "mae": 0.061483319482154,
+        "rmse": 0.07498883577219612,
+        "r2": 0.9930517904512638,
+        "r2_train": 0.9920252363822711
+      },
+      "Random Forest Regressor": {
+        "mae": 0.1262797499999998,
+        "rmse": 0.1569771786359404,
+        "r2": 0.9695524239450245,
+        "r2_train": 0.9960536383422466
+      },
+      "XGBoost Regressor": {
+        "mae": 0.09691238136291505,
+        "rmse": 0.1185321091212832,
+        "r2": 0.9826399204921,
+        "r2_train": 0.9968179005850811
+      },
+      "LightGBM Regressor": {
+        "mae": 0.09679247483955923,
+        "rmse": 0.1313445556622173,
+        "r2": 0.9786840920153679,
+        "r2_train": 0.994214594423298
+      }
+    },
+    "best_model_by_app_ranking": "Linear Regression",
+    "train_size": 800,
+    "test_size": 200
+  },
+  "leakage_check": {
+    "pearson_r_with_diem_ky_sau": {
+      "diem_ky_nay": 0.9475,
+      "diem_thong_ke": 0.6411,
+      "diem_lap_trinh": 0.6326,
+      "diem_xu_ly_du_lieu": 0.6125,
+      "diem_truc_quan_hoa": 0.6032,
+      "diem_machine_learning": 0.5835,
+      "diem_giua_ky": 0.264,
+      "ty_le_diem_danh": 0.1524,
+      "so_gio_hoc_tuan": 0.1369,
+      "diem_du_an": 0.1164
+    },
+    "target_formula": "diem_ky_sau = 0.60*diem_ky_nay + 0.15*diem_giua_ky + 0.10*diem_du_an + 0.10*(ty_le_diem_danh*10) + 0.05*(so_gio_hoc_tuan/3.5) + N(0, 0.08), then clipped to +/-1.5 of diem_ky_nay; xep_loai = score_to_xep_loai(diem_ky_sau)"
+  },
+  "explainability": {
+    "regression": {
+      "model": "Linear Regression",
+      "method": "estimator.feature_importances_ (app: get_production_feature_importance)",
+      "top": []
+    },
+    "classification": {
+      "model": "LightGBM Classifier",
+      "method": "estimator.feature_importances_ (app: get_production_feature_importance)",
+      "top": [
+        {
+          "feature": "diem_ky_nay",
+          "importance_pct": 124200.0
+        },
+        {
+          "feature": "diem_giua_ky",
+          "importance_pct": 84800.0
+        },
+        {
+          "feature": "ty_le_diem_danh",
+          "importance_pct": 48500.0
+        },
+        {
+          "feature": "so_gio_hoc_tuan",
+          "importance_pct": 43600.0
+        },
+        {
+          "feature": "diem_du_an",
+          "importance_pct": 43400.0
+        },
+        {
+          "feature": "diem_truc_quan_hoa",
+          "importance_pct": 35000.0
+        },
+        {
+          "feature": "diem_xu_ly_du_lieu",
+          "importance_pct": 33900.0
+        },
+        {
+          "feature": "diem_thong_ke",
+          "importance_pct": 32000.0
+        },
+        {
+          "feature": "diem_lap_trinh",
+          "importance_pct": 30800.0
+        },
+        {
+          "feature": "diem_machine_learning",
+          "importance_pct": 30400.0
+        }
+      ]
+    },
+    "regression_shap": {
+      "model": "Linear Regression",
+      "method": "mean |SHAP value| over 300 rows (shap.Explainer)",
+      "top": [
+        {
+          "feature": "diem_ky_nay",
+          "mean_abs_shap": 0.6966916693278573
+        },
+        {
+          "feature": "diem_giua_ky",
+          "mean_abs_shap": 0.1794023261938442
+        },
+        {
+          "feature": "ty_le_diem_danh",
+          "mean_abs_shap": 0.09325219002656264
+        },
+        {
+          "feature": "diem_du_an",
+          "mean_abs_shap": 0.07408942387331324
+        },
+        {
+          "feature": "so_gio_hoc_tuan",
+          "mean_abs_shap": 0.05351364299423596
+        },
+        {
+          "feature": "diem_thong_ke",
+          "mean_abs_shap": 0.00494001719918859
+        },
+        {
+          "feature": "diem_lap_trinh",
+          "mean_abs_shap": 0.0024786540775251138
+        },
+        {
+          "feature": "diem_xu_ly_du_lieu",
+          "mean_abs_shap": 0.002333387994134317
+        },
+        {
+          "feature": "diem_machine_learning",
+          "mean_abs_shap": 0.0016972604021627466
+        },
+        {
+          "feature": "diem_truc_quan_hoa",
+          "mean_abs_shap": 0.000896153528349539
+        }
+      ]
+    }
+  },
+  "clustering": {
+    "features": [
+      "diem_ky_nay",
+      "ty_le_diem_danh",
+      "so_gio_hoc_tuan",
+      "diem_giua_ky",
+      "diem_du_an",
+      "diem_thong_ke",
+      "diem_xu_ly_du_lieu",
+      "diem_truc_quan_hoa",
+      "diem_machine_learning",
+      "diem_lap_trinh"
+    ],
+    "k_selected": 4,
+    "k_rule": "bootstrap default: min(4, max(2, n//10))",
+    "silhouette": 0.10866664019864875,
+    "davies_bouldin": 2.2492529133502277,
+    "cluster_sizes": {
+      "0": 214,
+      "1": 267,
+      "2": 242,
+      "3": 277
+    },
+    "cluster_pct": {
+      "0": 21.4,
+      "1": 26.7,
+      "2": 24.2,
+      "3": 27.7
+    },
+    "silhouette_sweep_k2_8": {
+      "2": 0.19241919311773,
+      "3": 0.11134895064935466,
+      "4": 0.10866664019864875,
+      "5": 0.09598292467306054,
+      "6": 0.09246248794126728,
+      "7": 0.09100678674624857,
+      "8": 0.08777849686863791
+    }
+  },
+  "runtime_seconds": 1471.6
+}

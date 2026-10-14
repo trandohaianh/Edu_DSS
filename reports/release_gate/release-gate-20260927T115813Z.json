@@ -1,0 +1,82 @@
+{
+  "stamp": "20260927T115813Z",
+  "image": "edudss:1.0.0-rc.1-e2241bfd7a1e-dirty",
+  "failed_mandatory": [
+    "regression",
+    "licenses",
+    "container_smoke"
+  ],
+  "gates": {
+    "secret_scan": {
+      "status": "PASS",
+      "mandatory": true,
+      "seconds": 31.8
+    },
+    "migrations": {
+      "status": "PASS",
+      "mandatory": true,
+      "seconds": 7.9,
+      "precheck_empty": 0,
+      "upgrade": 0,
+      "verify": 0,
+      "roundtrip": 0
+    },
+    "regression": {
+      "status": "FAIL",
+      "mandatory": true,
+      "seconds": 245.7,
+      "summary": "1 failed, 1153 passed, 43 skipped, 209 warnings in 236.43s (0:03:56)"
+    },
+    "backup_restore": {
+      "status": "PASS",
+      "mandatory": true,
+      "seconds": 11.4
+    },
+    "docker_build": {
+      "status": "SKIPPED"
+    },
+    "licenses": {
+      "status": "FAIL",
+      "mandatory": true,
+      "seconds": 4.8
+    },
+    "container_smoke": {
+      "status": "FAIL",
+      "mandatory": true,
+      "seconds": 31.9,
+      "livez": 200,
+      "readyz": 200,
+      "readyz_checks": {
+        "application": "ready",
+        "configuration": "ready",
+        "postgresql": "ready",
+        "pgvector": "ready",
+        "migrations": "ready",
+        "ai_configuration": "not_configured",
+        "model_artifacts": "not_available",
+        "privacy_key": "ready"
+      },
+      "ai_required": false,
+      "version": null,
+      "uid": "999",
+      "ai_keys_in_env": "0",
+      "forbidden_paths": "0",
+      "employee_header_files": "1",
+      "production_without_key_readyz": 503,
+      "production_without_key_privacy": "not_configured",
+      "production_with_key_readyz": 200
+    },
+    "manifest": {
+      "status": "PASS",
+      "mandatory": true,
+      "seconds": 8.6,
+      "manifest": "reports\\release_gate\\release-manifest-20260927T115813Z.json"
+    },
+    "dependency_audit": {
+      "status": "SKIPPED"
+    },
+    "container_scan": {
+      "status": "SKIPPED"
+    }
+  }
+}

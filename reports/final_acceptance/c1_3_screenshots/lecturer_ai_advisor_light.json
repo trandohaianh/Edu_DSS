@@ -1,0 +1,12 @@
+{
+  "viewport": [
+    1440,
+    900
+  ],
+  "page_overflow_x": false,
+  "main_overflow_x": false,
+  "theme": "light",
+  "bg": "rgb(255, 255, 255)",
+  "traceback": false,
+  "text_head": "ED\n\nEduDSS\n\nHỗ trợ quyết định học tập\n\nTỔNG QUAN\n\nTrang chủ\n\nDashboard\n\nPHÂN TÍCH LỚP HỌC\n\nKhám phá dữ liệu\n\nHuấn luyện & dự đoán\n\nPhân cụm & gợi ý\n\nHỖ TRỢ & TÀI LIỆU\n\nTrợ lý AI\n\nDuyệt tài liệu\n\nKho dữ liệu\n\nG\ngiangvien\nGiảng viên / Cố vấn học tập\n\nGiao diện\n\nSáng\n\nTối\n\nHệ thống\n\nĐăng xuất\n\nTrợ lý AI\n\nTư vấn — Định hướng\n\nGiải thích Bài giảng (CMS)\n\nChế độ dữ liệu: Dữ liệu mô phỏng (Synthetic/Demo) — số liệu, biểu đồ và tư vấn trên trang này KHÔNG phản ánh sinh viên thật.\n\nTư vấn\n\nKế hoạch học tập cá nhân hóa, dựa trên dự đoán và tài liệu tham khảo.\n\nkeyboard_arrow_right\n\nTrạng thái hệ thống AI/RAG\n\nChọn sinh viên\n\nChọn Sinh viên để tư vấn:\n\nSV001\nPhân tích điểm yếu\n\nĐiểm yếu phát hiện (3):\n\nSố giờ học mỗi tuần (SV: 13.45, TB lớp: 15.08)\n- Điểm giữa kỳ (SV: 5.35, TB lớp: 6.48)\n- Tỷ lệ điểm danh (SV: 0.67, TB lớp: 0.80)\n\n📊 Điểm theo từng chủ đề\n\nTrực quan hóa phân cụm (PCA)\n\nPCA giảm chiều dữ liệu để nhìn nhóm sinh viên trực quan. Cần ít nhất 2 cột số để vẽ mặt phẳng 2D.\n\n📈 PCA giải thích 45.8% phương sai (PC1: 35.1%, PC2: 10.6%).\n\n−6\n−4\n−2\n0\n2\n4\n−3\n−2\n−1\n0\n1\n2\n3\n4\nCụm\n2\n3\n0\n1\nPhân bố cụm sinh viên (PCA 2D)\nPC1 (35.1%)\nPC2 (10.6%)\nChân dung các nhóm học tập\n\nGiá trị trung bình của các đặc trưng trong từng cụm.\n\nĐiểm kỳ này\nTỷ lệ điểm danh\nSố giờ học mỗi tuần\nĐiểm giữa kỳ\nĐiểm dự án\nThống kê\nXử lý dữ liệu\nTrực quan hóa dữ liệu\nMachine Learning cơ bản\nLập trình Python\n0.00\n0.25\n0.50\n0.75\n1.00\nCụm 0\nCụm 1\nCụm 2\nCụm 3\nSo sánh chân dung cụm (Radar — đã chuẩn hóa theo trục [0, 1])\n📖"
+}

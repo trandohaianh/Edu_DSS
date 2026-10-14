@@ -1,0 +1,12 @@
+{
+  "viewport": [
+    1440,
+    900
+  ],
+  "page_overflow_x": false,
+  "main_overflow_x": false,
+  "theme": "dark",
+  "bg": "rgb(15, 23, 42)",
+  "traceback": false,
+  "text_head": "ED\n\nEduDSS\n\nHỗ trợ quyết định học tập\n\nTỔNG QUAN\n\nTrang chủ\n\nDashboard\n\nPHÂN TÍCH LỚP HỌC\n\nKhám phá dữ liệu\n\nHuấn luyện & dự đoán\n\nPhân cụm & gợi ý\n\nHỖ TRỢ & TÀI LIỆU\n\nTrợ lý AI\n\nDuyệt tài liệu\n\nKho dữ liệu\n\nG\ngiangvien\nGiảng viên / Cố vấn học tập\n\nGiao diện\n\nSáng\n\nTối\n\nHệ thống\n\nĐăng xuất\n\nChào mừng trở lại, giangvien\nTổng quan lớp học\n\nNhững sinh viên và chỉ số cần bạn chú ý trong dữ liệu lớp hiện tại.\n\nChế độ dữ liệu: Dữ liệu mô phỏng (Synthetic/Demo) — số liệu, biểu đồ và tư vấn trên trang này KHÔNG phản ánh sinh viên thật.\n\nSinh viên trong dữ liệu\n1,000\nToàn bộ bộ dữ liệu đang chọn\nSinh viên cần chú ý\n—\nChưa có mô hình dự đoán\nĐiểm trung bình dự đoán\n—\nTheo mô hình đang dùng (Production)\nChỉ số mô hình\n—\nĐo trên dữ liệu MÔ PHỎNG — không phải độ chính xác đã kiểm chứng trên sinh viên thật\nSinh viên cần chú ý\nChưa xác định được sinh viên cần chú ý.\nCần một mô hình dự đoán điểm (Production) cho bộ dữ liệu này — huấn luyện ở trang Huấn luyện & dự đoán.\nGợi ý hôm nay\n\nChưa có mô hình Production để phân tích rủi ro lớp học — huấn luyện mô hình để xem gợi ý tại đây.\n\nMở Dashboard\n\nTruy cập nhanh\nPhân cụm & gợi ý\n\nNhóm sinh viên theo kết quả và hành vi học tập.\n\nMở phân cụm\n\nHuấn luyện & dự đoán\n\nHuấn luyện, đánh giá và chạy mô hình dự đoán kết quả học tập.\n\nMở huấn luyện\n\nTrợ lý AI\n\nLập kế hoạch hỗ trợ cá nhân hoá cho từng sinh viên, có dẫn nguồn.\n\nMở Trợ lý AI"
+}

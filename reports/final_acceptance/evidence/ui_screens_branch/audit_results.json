@@ -1,0 +1,607 @@
+{
+  "auth": {
+    "login_light": {
+      "overflow_px": 0,
+      "exceptions": 0,
+      "error_alerts": [],
+      "forbidden_copy": [],
+      "data_theme": null,
+      "app_bg": "rgb(244, 247, 251)",
+      "text_len": 792
+    },
+    "login_form_cases": {
+      "empty_username": {
+        "message": "Sai tên đăng nhập hoặc mật khẩu. | Sai tên đăng nhập hoặc mật khẩu.",
+        "logged_in": false
+      },
+      "empty_password": {
+        "message": "Sai tên đăng nhập hoặc mật khẩu. | Sai tên đăng nhập hoặc mật khẩu.",
+        "logged_in": false
+      },
+      "wrong_credentials": {
+        "message": "Sai tên đăng nhập hoặc mật khẩu. | Sai tên đăng nhập hoặc mật khẩu.",
+        "logged_in": false
+      }
+    },
+    "login_light_tablet": {
+      "overflow_px": 0,
+      "exceptions": 0,
+      "error_alerts": [
+        "Sai tên đăng nhập hoặc mật khẩu."
+      ],
+      "forbidden_copy": [],
+      "data_theme": null,
+      "app_bg": "rgb(244, 247, 251)",
+      "text_len": 826
+    },
+    "login_light_mobile": {
+      "overflow_px": 0,
+      "exceptions": 0,
+      "error_alerts": [
+        "Sai tên đăng nhập hoặc mật khẩu."
+      ],
+      "forbidden_copy": [],
+      "data_theme": null,
+      "app_bg": "rgb(244, 247, 251)",
+      "text_len": 356
+    },
+    "dark_toggle_on_login": false,
+    "login_dark": {
+      "overflow_px": 0,
+      "exceptions": 0,
+      "error_alerts": [],
+      "forbidden_copy": [],
+      "data_theme": null,
+      "app_bg": "rgb(244, 247, 251)",
+      "text_len": 792
+    }
+  },
+  "roles": {
+    "student": {
+      "trang_chu_light": {
+        "overflow_px": 0,
+        "exceptions": 0,
+        "error_alerts": [],
+        "forbidden_copy": [],
+        "data_theme": null,
+        "app_bg": "rgb(244, 247, 251)",
+        "text_len": 852,
+        "render_seconds": 3.1
+      },
+      "du_doan_ml_light": {
+        "overflow_px": 0,
+        "exceptions": 0,
+        "error_alerts": [],
+        "forbidden_copy": [],
+        "data_theme": null,
+        "app_bg": "rgb(244, 247, 251)",
+        "text_len": 841,
+        "render_seconds": 3.3
+      },
+      "phan_cum_light": {
+        "overflow_px": 0,
+        "exceptions": 0,
+        "error_alerts": [],
+        "forbidden_copy": [],
+        "data_theme": null,
+        "app_bg": "rgb(244, 247, 251)",
+        "text_len": 2881,
+        "render_seconds": 11.6
+      },
+      "tro_ly_ai_light": {
+        "overflow_px": 0,
+        "exceptions": 0,
+        "error_alerts": [],
+        "forbidden_copy": [],
+        "data_theme": null,
+        "app_bg": "rgb(244, 247, 251)",
+        "text_len": 1915,
+        "render_seconds": 12.3
+      },
+      "lich_su_light": {
+        "overflow_px": 0,
+        "exceptions": 0,
+        "error_alerts": [],
+        "forbidden_copy": [],
+        "data_theme": null,
+        "app_bg": "rgb(244, 247, 251)",
+        "text_len": 459,
+        "render_seconds": 3.2
+      },
+      "_dark_toggle": {
+        "found": true,
+        "seconds": 3.1
+      },
+      "trang_chu_dark": {
+        "overflow_px": 0,
+        "exceptions": 0,
+        "error_alerts": [],
+        "forbidden_copy": [],
+        "data_theme": null,
+        "app_bg": "rgb(248, 250, 252)",
+        "text_len": 852,
+        "render_seconds": 3.1
+      },
+      "du_doan_ml_dark": {
+        "overflow_px": 0,
+        "exceptions": 0,
+        "error_alerts": [],
+        "forbidden_copy": [],
+        "data_theme": null,
+        "app_bg": "rgb(248, 250, 252)",
+        "text_len": 841,
+        "render_seconds": 3.2
+      },
+      "phan_cum_dark": {
+        "overflow_px": 0,
+        "exceptions": 0,
+        "error_alerts": [],
+        "forbidden_copy": [],
+        "data_theme": null,
+        "app_bg": "rgb(248, 250, 252)",
+        "text_len": 2881,
+        "render_seconds": 3.5
+      },
+      "tro_ly_ai_dark": {
+        "overflow_px": 0,
+        "exceptions": 0,
+        "error_alerts": [],
+        "forbidden_copy": [],
+        "data_theme": null,
+        "app_bg": "rgb(248, 250, 252)",
+        "text_len": 1915,
+        "render_seconds": 3.7
+      },
+      "lich_su_dark": {
+        "overflow_px": 0,
+        "exceptions": 0,
+        "error_alerts": [],
+        "forbidden_copy": [],
+        "data_theme": null,
+        "app_bg": "rgb(248, 250, 252)",
+        "text_len": 459,
+        "render_seconds": 2.5
+      },
+      "trang_chu_light_tablet": {
+        "overflow_px": 0,
+        "exceptions": 0,
+        "error_alerts": [],
+        "forbidden_copy": [],
+        "data_theme": null,
+        "app_bg": "rgb(248, 250, 252)",
+        "text_len": 852
+      },
+      "trang_chu_light_mobile": {
+        "overflow_px": 0,
+        "exceptions": 0,
+        "error_alerts": [],
+        "forbidden_copy": [],
+        "data_theme": null,
+        "app_bg": "rgb(248, 250, 252)",
+        "text_len": 880
+      },
+      "tro_ly_ai_light_tablet": {
+        "overflow_px": 0,
+        "exceptions": 0,
+        "error_alerts": [],
+        "forbidden_copy": [],
+        "data_theme": null,
+        "app_bg": "rgb(248, 250, 252)",
+        "text_len": 1915
+      },
+      "tro_ly_ai_light_mobile": {
+        "overflow_px": 0,
+        "exceptions": 0,
+        "error_alerts": [],
+        "forbidden_copy": [],
+        "data_theme": null,
+        "app_bg": "rgb(248, 250, 252)",
+        "text_len": 1943
+      },
+      "_logout": true
+    },
+    "lecturer": {
+      "trang_chu_light": {
+        "overflow_px": 0,
+        "exceptions": 0,
+        "error_alerts": [],
+        "forbidden_copy": [],
+        "data_theme": null,
+        "app_bg": "rgb(244, 247, 251)",
+        "text_len": 1048,
+        "render_seconds": 2.5
+      },
+      "dashboard_light": {
+        "overflow_px": 0,
+        "exceptions": 0,
+        "error_alerts": [],
+        "forbidden_copy": [],
+        "data_theme": null,
+        "app_bg": "rgb(244, 247, 251)",
+        "text_len": 2291,
+        "render_seconds": 16.2
+      },
+      "kham_pha_light": {
+        "overflow_px": 0,
+        "exceptions": 0,
+        "error_alerts": [],
+        "forbidden_copy": [],
+        "data_theme": null,
+        "app_bg": "rgb(244, 247, 251)",
+        "text_len": 3324,
+        "render_seconds": 11.8
+      },
+      "du_doan_ml_light": {
+        "overflow_px": 0,
+        "exceptions": 0,
+        "error_alerts": [],
+        "forbidden_copy": [],
+        "data_theme": null,
+        "app_bg": "rgb(244, 247, 251)",
+        "text_len": 2464,
+        "render_seconds": 3.8
+      },
+      "phan_cum_light": {
+        "overflow_px": 0,
+        "exceptions": 0,
+        "error_alerts": [],
+        "forbidden_copy": [],
+        "data_theme": null,
+        "app_bg": "rgb(244, 247, 251)",
+        "text_len": 4179,
+        "render_seconds": 12.0
+      },
+      "tro_ly_ai_light": {
+        "overflow_px": 0,
+        "exceptions": 0,
+        "error_alerts": [],
+        "forbidden_copy": [],
+        "data_theme": null,
+        "app_bg": "rgb(244, 247, 251)",
+        "text_len": 2400,
+        "render_seconds": 8.3
+      },
+      "kho_du_lieu_light": {
+        "overflow_px": 0,
+        "exceptions": 0,
+        "error_alerts": [],
+        "forbidden_copy": [],
+        "data_theme": null,
+        "app_bg": "rgb(244, 247, 251)",
+        "text_len": 1028,
+        "render_seconds": 8.7
+      },
+      "duyet_tai_lieu_light": {
+        "overflow_px": 0,
+        "exceptions": 0,
+        "error_alerts": [],
+        "forbidden_copy": [],
+        "data_theme": null,
+        "app_bg": "rgb(244, 247, 251)",
+        "text_len": 496,
+        "render_seconds": 3.2
+      },
+      "_dark_toggle": {
+        "found": true,
+        "seconds": 3.2
+      },
+      "trang_chu_dark": {
+        "overflow_px": 0,
+        "exceptions": 0,
+        "error_alerts": [],
+        "forbidden_copy": [],
+        "data_theme": null,
+        "app_bg": "rgb(248, 250, 252)",
+        "text_len": 1050,
+        "render_seconds": 3.0
+      },
+      "dashboard_dark": {
+        "overflow_px": 0,
+        "exceptions": 0,
+        "error_alerts": [],
+        "forbidden_copy": [],
+        "data_theme": null,
+        "app_bg": "rgb(248, 250, 252)",
+        "text_len": 2855,
+        "render_seconds": 5.8
+      },
+      "kham_pha_dark": {
+        "overflow_px": 0,
+        "exceptions": 0,
+        "error_alerts": [],
+        "forbidden_copy": [],
+        "data_theme": null,
+        "app_bg": "rgb(248, 250, 252)",
+        "text_len": 3328,
+        "render_seconds": 4.9
+      },
+      "du_doan_ml_dark": {
+        "overflow_px": 0,
+        "exceptions": 0,
+        "error_alerts": [],
+        "forbidden_copy": [],
+        "data_theme": null,
+        "app_bg": "rgb(248, 250, 252)",
+        "text_len": 2464,
+        "render_seconds": 3.6
+      },
+      "phan_cum_dark": {
+        "overflow_px": 0,
+        "exceptions": 0,
+        "error_alerts": [],
+        "forbidden_copy": [],
+        "data_theme": null,
+        "app_bg": "rgb(248, 250, 252)",
+        "text_len": 4180,
+        "render_seconds": 7.6
+      },
+      "tro_ly_ai_dark": {
+        "overflow_px": 0,
+        "exceptions": 0,
+        "error_alerts": [],
+        "forbidden_copy": [],
+        "data_theme": null,
+        "app_bg": "rgb(248, 250, 252)",
+        "text_len": 2400,
+        "render_seconds": 4.4
+      },
+      "kho_du_lieu_dark": {
+        "overflow_px": 0,
+        "exceptions": 0,
+        "error_alerts": [],
+        "forbidden_copy": [],
+        "data_theme": null,
+        "app_bg": "rgb(248, 250, 252)",
+        "text_len": 1028,
+        "render_seconds": 3.3
+      },
+      "duyet_tai_lieu_dark": {
+        "overflow_px": 0,
+        "exceptions": 0,
+        "error_alerts": [],
+        "forbidden_copy": [],
+        "data_theme": null,
+        "app_bg": "rgb(248, 250, 252)",
+        "text_len": 496,
+        "render_seconds": 3.1
+      },
+      "dashboard_light_tablet": {
+        "overflow_px": 0,
+        "exceptions": 0,
+        "error_alerts": [],
+        "forbidden_copy": [],
+        "data_theme": null,
+        "app_bg": "rgb(248, 250, 252)",
+        "text_len": 2849
+      },
+      "dashboard_light_mobile": {
+        "overflow_px": 0,
+        "exceptions": 0,
+        "error_alerts": [],
+        "forbidden_copy": [],
+        "data_theme": null,
+        "app_bg": "rgb(248, 250, 252)",
+        "text_len": 2877
+      },
+      "_logout": true
+    },
+    "admin": {
+      "trang_chu_light": {
+        "overflow_px": 0,
+        "exceptions": 0,
+        "error_alerts": [],
+        "forbidden_copy": [],
+        "data_theme": null,
+        "app_bg": "rgb(244, 247, 251)",
+        "text_len": 1946,
+        "render_seconds": 2.9
+      },
+      "kham_pha_light": {
+        "overflow_px": 0,
+        "exceptions": 0,
+        "error_alerts": [],
+        "forbidden_copy": [],
+        "data_theme": null,
+        "app_bg": "rgb(244, 247, 251)",
+        "text_len": 3328,
+        "render_seconds": 6.0
+      },
+      "kho_du_lieu_light": {
+        "overflow_px": 0,
+        "exceptions": 0,
+        "error_alerts": [],
+        "forbidden_copy": [],
+        "data_theme": null,
+        "app_bg": "rgb(244, 247, 251)",
+        "text_len": 1030,
+        "render_seconds": 3.6
+      },
+      "model_registry_light": {
+        "overflow_px": 0,
+        "exceptions": 0,
+        "error_alerts": [],
+        "forbidden_copy": [],
+        "data_theme": null,
+        "app_bg": "rgb(244, 247, 251)",
+        "text_len": 1001,
+        "render_seconds": 3.2
+      },
+      "tro_ly_ai_light": {
+        "overflow_px": 0,
+        "exceptions": 0,
+        "error_alerts": [],
+        "forbidden_copy": [],
+        "data_theme": null,
+        "app_bg": "rgb(244, 247, 251)",
+        "text_len": 2417,
+        "render_seconds": 7.3
+      },
+      "tai_lieu_light": {
+        "overflow_px": 0,
+        "exceptions": 0,
+        "error_alerts": [],
+        "forbidden_copy": [],
+        "data_theme": null,
+        "app_bg": "rgb(244, 247, 251)",
+        "text_len": 1167,
+        "render_seconds": 3.3
+      },
+      "cau_hinh_ai_light": {
+        "overflow_px": 0,
+        "exceptions": 0,
+        "error_alerts": [],
+        "forbidden_copy": [],
+        "data_theme": null,
+        "app_bg": "rgb(244, 247, 251)",
+        "text_len": 1496,
+        "render_seconds": 3.2
+      },
+      "bao_cao_light": {
+        "overflow_px": 0,
+        "exceptions": 0,
+        "error_alerts": [],
+        "forbidden_copy": [],
+        "data_theme": null,
+        "app_bg": "rgb(244, 247, 251)",
+        "text_len": 1942,
+        "render_seconds": 4.7
+      },
+      "cai_dat_light": {
+        "overflow_px": 0,
+        "exceptions": 0,
+        "error_alerts": [],
+        "forbidden_copy": [],
+        "data_theme": null,
+        "app_bg": "rgb(244, 247, 251)",
+        "text_len": 1841,
+        "render_seconds": 3.4
+      },
+      "_dark_toggle": {
+        "found": true,
+        "seconds": 3.6
+      },
+      "trang_chu_dark": {
+        "overflow_px": 0,
+        "exceptions": 0,
+        "error_alerts": [],
+        "forbidden_copy": [],
+        "data_theme": null,
+        "app_bg": "rgb(248, 250, 252)",
+        "text_len": 1942,
+        "render_seconds": 3.9
+      },
+      "kham_pha_dark": {
+        "overflow_px": 0,
+        "exceptions": 0,
+        "error_alerts": [],
+        "forbidden_copy": [],
+        "data_theme": null,
+        "app_bg": "rgb(248, 250, 252)",
+        "text_len": 3330,
+        "render_seconds": 5.3
+      },
+      "kho_du_lieu_dark": {
+        "overflow_px": 0,
+        "exceptions": 0,
+        "error_alerts": [],
+        "forbidden_copy": [],
+        "data_theme": null,
+        "app_bg": "rgb(248, 250, 252)",
+        "text_len": 1030,
+        "render_seconds": 3.2
+      },
+      "model_registry_dark": {
+        "overflow_px": 0,
+        "exceptions": 0,
+        "error_alerts": [],
+        "forbidden_copy": [],
+        "data_theme": null,
+        "app_bg": "rgb(248, 250, 252)",
+        "text_len": 1001,
+        "render_seconds": 3.2
+      },
+      "tro_ly_ai_dark": {
+        "overflow_px": 0,
+        "exceptions": 0,
+        "error_alerts": [],
+        "forbidden_copy": [],
+        "data_theme": null,
+        "app_bg": "rgb(248, 250, 252)",
+        "text_len": 2417,
+        "render_seconds": 3.5
+      },
+      "tai_lieu_dark": {
+        "overflow_px": 0,
+        "exceptions": 0,
+        "error_alerts": [],
+        "forbidden_copy": [],
+        "data_theme": null,
+        "app_bg": "rgb(248, 250, 252)",
+        "text_len": 1167,
+        "render_seconds": 3.3
+      },
+      "cau_hinh_ai_dark": {
+        "overflow_px": 0,
+        "exceptions": 0,
+        "error_alerts": [],
+        "forbidden_copy": [],
+        "data_theme": null,
+        "app_bg": "rgb(248, 250, 252)",
+        "text_len": 1496,
+        "render_seconds": 3.1
+      },
+      "bao_cao_dark": {
+        "overflow_px": 0,
+        "exceptions": 0,
+        "error_alerts": [],
+        "forbidden_copy": [],
+        "data_theme": null,
+        "app_bg": "rgb(248, 250, 252)",
+        "text_len": 1942,
+        "render_seconds": 3.8
+      },
+      "cai_dat_dark": {
+        "overflow_px": 0,
+        "exceptions": 0,
+        "error_alerts": [],
+        "forbidden_copy": [],
+        "data_theme": null,
+        "app_bg": "rgb(248, 250, 252)",
+        "text_len": 1841,
+        "render_seconds": 2.9
+      },
+      "cau_hinh_ai_light_tablet": {
+        "overflow_px": 0,
+        "exceptions": 0,
+        "error_alerts": [],
+        "forbidden_copy": [],
+        "data_theme": null,
+        "app_bg": "rgb(248, 250, 252)",
+        "text_len": 1496
+      },
+      "cau_hinh_ai_light_mobile": {
+        "overflow_px": 0,
+        "exceptions": 0,
+        "error_alerts": [],
+        "forbidden_copy": [],
+        "data_theme": null,
+        "app_bg": "rgb(248, 250, 252)",
+        "text_len": 1524
+      },
+      "_logout": true
+    }
+  },
+  "server": {
+    "cloud_keys_in_env": false,
+    "listening_seconds": 4.1
+  },
+  "os_dark_preference_light_toggle": {
+    "overflow_px": 0,
+    "exceptions": 0,
+    "error_alerts": [],
+    "forbidden_copy": [],
+    "data_theme": null,
+    "app_bg": "rgb(11, 19, 43)",
+    "text_len": 853
+  }
+}

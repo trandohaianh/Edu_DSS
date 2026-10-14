@@ -1,0 +1,43 @@
+.git
+.github
+.pytest_cache
+.env
+.env.*
+**/secrets.toml
+*.pem
+*.key
+.venv
+# Any local/experimental virtualenv (e.g. .venv_torch210_experimental) — never part of the image.
+.venv*
+venv*/
+.conda
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+*.log
+*.tmp
+*.bak
+*.ipynb
+python-installer.exe
+agent-transcripts
+*.zip
+uploads
+# Docker gate finding (Step 10, unnecessary-source-artifact check): the whole
+# tree is developer-machine runtime data (logs, model artifacts, embeddings,
+# CMS content) recreated by the app at first run — none of it belongs in the
+# image. The prior partial list here still let ~400KB/90 files of local
+# activity logs and metadata into the built image. Mirrors the same fix
+# already applied to the repo's own .gitignore.
+data_warehouse/
+# C1.1 (P0 data hygiene): runtime never reads these; they must not reach the image.
+# `dữ liệu/` once carried an unrelated employee export with personal data.
+dữ liệu/
+reports/
+docs/
+EduDSS_UI_Reference_Kit/
+ui_reference/
+*.docx
+*.pptx
+*.xlsx
+deploy/

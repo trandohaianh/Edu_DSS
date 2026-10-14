@@ -1,0 +1,12 @@
+{
+  "viewport": [
+    1440,
+    900
+  ],
+  "page_overflow_x": false,
+  "main_overflow_x": false,
+  "theme": "dark",
+  "bg": "rgb(15, 23, 42)",
+  "traceback": false,
+  "text_head": "ED\n\nEduDSS\n\nHỗ trợ quyết định học tập\n\nTổng quan\n\nNGƯỜI DÙNG & DỮ LIỆU\n\nNgười dùng\n\nKho dữ liệu\n\nKhám phá dữ liệu\n\nTRI THỨC & AI\n\nTài liệu & quy chế\n\nCấu hình AI\n\nTrợ lý AI\n\nVẬN HÀNH\n\nTích hợp LMS/CMS\n\nMô hình ML\n\nBáo cáo & giám sát\n\nCài đặt\n\nA\nadmin\nQuản trị viên\n\nGiao diện\n\nSáng\n\nTối\n\nHệ thống\n\nĐăng xuất\n\nNgười dùng\n\nTài khoản đang có trong hệ thống và vai trò được cấp.\n\nTổng tài khoản\n\n3\n\nAdmin\n\n1\n\nGiảng viên / CVHT\n\n1\n\nSinh viên\n\n1\nDanh sách tài khoản\n\nTìm theo tên đăng nhập hoặc mã sinh viên\n\n3 / 3 tài khoản\n\nCấp tài khoản\nHệ thống không cho tự đăng ký. Tài khoản Giảng viên/Admin do Quản trị viên cấp; tài khoản Sinh viên được cấp từ hệ thống quản lý học tập của Trường. Giao diện tạo/sửa/khoá tài khoản chưa có trong phiên bản này — thao tác quản trị tài khoản (có ghi nhật ký kiểm toán) được thực hiện qua dịch vụ quản trị trên cơ sở dữ liệu."
+}

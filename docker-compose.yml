@@ -1,0 +1,122 @@
+services:
+  lms-cms-simulator:
+    build:
+      context: .
+      dockerfile: simulator/Dockerfile
+    container_name: edudss-lms-cms-simulator
+    profiles: ["simulation", "integration-ab"]
+    ports:
+      - "${EDUDSS_BIND_ADDR:-127.0.0.1}:${LMS_CMS_SIMULATOR_PORT:-8765}:8765"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8765/health', timeout=3)"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # PostgreSQL + pgvector (Phase 1, production-readiness engagement, dss/db/).
+  # OPTIONAL: the streamlit-dss service below runs fine without this — it only
+  # gets used if DATABASE_URL/DB_HOST etc. are set to point at it. Not started
+  # by default plain `docker compose up`; use `docker compose --profile db up`
+  # to include it, or start it standalone for local Phase 1 development.
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: edudss-postgres
+    profiles: ["db", "integration-ab"]
+    environment:
+      - POSTGRES_DB=${DB_NAME:-edudss_db}
+      - POSTGRES_USER=${DB_USER:-edudss}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:?set DB_PASSWORD in .env before starting the db profile}
+      - POSTGRES_APP_USER=${DB_APP_USER:-edudss_app}
+      - POSTGRES_APP_PASSWORD=${DB_APP_PASSWORD:?set DB_APP_PASSWORD for the integration profile}
+    # C1.1: chỉ lắng nghe trên loopback theo mặc định (dev). KHÔNG dùng file này
+    # cho production — xem deploy/production/ (PostgreSQL không publish cổng nào).
+    ports:
+      - "${DB_BIND_ADDR:-127.0.0.1}:${DB_PORT:-5432}:5432"
+    volumes:
+      - edudss_postgres_data:/var/lib/postgresql/data
+      - ./postgres-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-edudss} -d ${DB_NAME:-edudss_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
+
+  migrate-integration:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    profiles: ["integration-ab"]
+    environment:
+      - DATABASE_URL=postgresql+psycopg2://${DB_USER:-edudss}:${DB_PASSWORD}@postgres:5432/${DB_NAME:-edudss_db}
+    command: ["python", "-m", "alembic", "upgrade", "head"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  streamlit-integration:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    profiles: ["integration-ab"]
+    ports:
+      - "${EDUDSS_BIND_ADDR:-127.0.0.1}:${EDUDSS_INTEGRATION_PORT:-8503}:8502"
+    environment:
+      - APP_FILE=run_dss.py
+      - STREAMLIT_PORT=8502
+      - PYTHONPATH=/app
+      - DATABASE_URL=postgresql+psycopg2://${DB_APP_USER:-edudss_app}:${DB_APP_PASSWORD}@postgres:5432/${DB_NAME:-edudss_db}
+      - LMS_CMS_SIMULATOR_URL=http://lms-cms-simulator:8765
+    depends_on:
+      migrate-integration:
+        condition: service_completed_successfully
+      lms-cms-simulator:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8502/_stcore/health', timeout=5)"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
+  # dss/ — nguồn sự thật DUY NHẤT của EduDSS (qua run_dss.py) — http://localhost:8502
+  # Bản monolith app/5.py đã bị xóa (Phase 0 refactor, 2026-09-08): 2 codebase
+  # song song từng buộc mọi thay đổi phải sửa 2 lần — xem bản đánh giá kiến
+  # trúc để biết lý do quyết định.
+  streamlit-dss:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: streamlit-dss
+    ports:
+      - "${EDUDSS_BIND_ADDR:-127.0.0.1}:8502:8502"
+    environment:
+      - APP_FILE=run_dss.py
+      - STREAMLIT_PORT=8502
+      - PYTHONPATH=/app
+      - LMS_CMS_SIMULATOR_URL=${LMS_CMS_SIMULATOR_URL:-http://lms-cms-simulator:8765}
+    restart: always
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8502/_stcore/health', timeout=5)"
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+    volumes:
+      - ./run_dss.py:/app/run_dss.py
+      - ./dss:/app/dss
+      - ./uploads:/app/uploads
+      - ./models:/app/models
+      - ./data_warehouse:/app/data_warehouse
+
+volumes:
+  edudss_postgres_data:

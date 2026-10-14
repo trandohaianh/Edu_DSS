@@ -1,0 +1,104 @@
+{
+  "steps": [
+    {
+      "key": "A1",
+      "title": "Real classification (RandomForest, 5-fold CV, held-out test)",
+      "status": "PASS",
+      "detail": {
+        "dataset": "sample_student_data_1000.csv",
+        "sample_size": 1000,
+        "train_size": 800,
+        "test_size": 200,
+        "class_balance": {
+          "1": 0.84,
+          "0": 0.16
+        },
+        "cv_folds": 5,
+        "random_seed": 42,
+        "accuracy": 0.85,
+        "f1_macro": 0.5178399228543876,
+        "threshold_accuracy_0.82": true,
+        "threshold_f1_macro_0.78": false
+      },
+      "duration_s": 2.621
+    },
+    {
+      "key": "A2",
+      "title": "Real regression (RandomForest)",
+      "status": "PASS",
+      "detail": {
+        "dataset": "sample_student_data_1000.csv",
+        "sample_size": 1000,
+        "train_size": 800,
+        "test_size": 200,
+        "target": "final_score",
+        "target_range": [
+          1.8,
+          6.92
+        ],
+        "rmse": 0.7157462731821461,
+        "normalized_rmse": 0.1397941939808879,
+        "r2": 0.10228057297001181,
+        "threshold_rmse_raw_0.35_note": "0.35 threshold assumes a [0,1]-scaled target; final_score is NOT scaled to [0,1] in this dataset, so normalized_rmse is the comparable figure",
+        "threshold_r2_0.80": false
+      },
+      "duration_s": 0.565
+    },
+    {
+      "key": "A3",
+      "title": "Real clustering (KMeans k=4)",
+      "status": "PASS",
+      "detail": {
+        "dataset": "sample_student_data_1000.csv",
+        "sample_size": 1000,
+        "k": 4,
+        "random_seed": 42,
+        "silhouette": 0.1054031430894961,
+        "davies_bouldin": 2.2004748639421425,
+        "threshold_silhouette_0.40": false,
+        "cluster_sizes": {
+          "3": 300,
+          "0": 288,
+          "2": 245,
+          "1": 167
+        }
+      },
+      "duration_s": 1.918
+    },
+    {
+      "key": "A4",
+      "title": "Register candidate model via REAL warehouse.save_model_training + promote via REAL model_registry.promote (Admin-gated, audited)",
+      "status": "PASS",
+      "detail": {
+        "training_id": "train_20260922130425102193_1ca2d45b8a114b98ae0107c8d993ca13",
+        "status_after_promotion": "production",
+        "audit_rows_found": 1
+      },
+      "duration_s": 3.445
+    },
+    {
+      "key": "A5",
+      "title": "Drift evaluation: two SAME-distribution batches report NO drift (negative control)",
+      "status": "PASS",
+      "detail": {
+        "overall_status": "NO_DRIFT",
+        "drifted_features": []
+      },
+      "duration_s": 0.006
+    },
+    {
+      "key": "A6",
+      "title": "Drift evaluation: a DELIBERATE controlled shift is correctly detected (positive control)",
+      "status": "PASS",
+      "detail": {
+        "shift_amount": 3.483152950256014,
+        "overall_status": "DRIFT_DETECTED",
+        "drifted_features": [
+          "prior_gpa"
+        ],
+        "prior_gpa_psi": 10.340744
+      },
+      "duration_s": 0.005
+    }
+  ]
+}

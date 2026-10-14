@@ -1,0 +1,431 @@
+{
+  "data": {
+    "origin": "SYNTHETIC",
+    "generator": "dss.core.data_helpers.generate_data(random_state=42)",
+    "rows": 1000,
+    "candidate_features": [
+      "diem_ky_nay",
+      "ty_le_diem_danh",
+      "so_gio_hoc_tuan",
+      "diem_giua_ky",
+      "diem_du_an",
+      "diem_thong_ke",
+      "diem_xu_ly_du_lieu",
+      "diem_truc_quan_hoa",
+      "diem_machine_learning",
+      "diem_lap_trinh",
+      "gpa_previous"
+    ]
+  },
+  "classification": {
+    "target": "xep_loai",
+    "features_used": [
+      "diem_ky_nay",
+      "ty_le_diem_danh",
+      "so_gio_hoc_tuan",
+      "diem_giua_ky",
+      "diem_du_an",
+      "diem_thong_ke",
+      "diem_xu_ly_du_lieu",
+      "diem_truc_quan_hoa",
+      "diem_machine_learning",
+      "diem_lap_trinh",
+      "gpa_previous"
+    ],
+    "class_labels": [
+      "Giỏi",
+      "Khá",
+      "Trung bình",
+      "Xuất sắc",
+      "Yếu"
+    ],
+    "train_size": 800,
+    "test_size": 200,
+    "class_distribution_full": {
+      "Khá": 461,
+      "Giỏi": 420,
+      "Trung bình": 66,
+      "Xuất sắc": 51,
+      "Yếu": 2
+    },
+    "models": {
+      "Logistic Regression (Softmax)": {
+        "accuracy": 0.925,
+        "precision_macro": 0.7522482893450635,
+        "recall_macro": 0.6888373944895683,
+        "f1_macro": 0.7148605020889562,
+        "accuracy_train": 0.9625,
+        "confusion_matrix": [
+          [
+            80,
+            4,
+            0,
+            0,
+            0
+          ],
+          [
+            5,
+            87,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            2,
+            11,
+            0,
+            0
+          ],
+          [
+            3,
+            0,
+            0,
+            7,
+            0
+          ],
+          [
+            0,
+            0,
+            1,
+            0,
+            0
+          ]
+        ]
+      },
+      "Random Forest Classifier": {
+        "accuracy": 0.89,
+        "precision_macro": 0.8947630847105715,
+        "recall_macro": 0.8574072304507088,
+        "f1_macro": 0.8744802387526847,
+        "accuracy_train": 0.99875,
+        "confusion_matrix": [
+          [
+            76,
+            6,
+            0,
+            2,
+            0
+          ],
+          [
+            7,
+            84,
+            1,
+            0,
+            0
+          ],
+          [
+            0,
+            3,
+            10,
+            0,
+            0
+          ],
+          [
+            3,
+            0,
+            0,
+            7,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            1
+          ]
+        ]
+      },
+      "XGBoost Classifier": {
+        "accuracy": 0.915,
+        "precision_macro": 0.6998793208841914,
+        "recall_macro": 0.7016945373467113,
+        "f1_macro": 0.7007586811488686,
+        "accuracy_train": 1.0,
+        "confusion_matrix": [
+          [
+            77,
+            5,
+            0,
+            2,
+            0
+          ],
+          [
+            4,
+            87,
+            1,
+            0,
+            0
+          ],
+          [
+            0,
+            2,
+            11,
+            0,
+            0
+          ],
+          [
+            2,
+            0,
+            0,
+            8,
+            0
+          ],
+          [
+            0,
+            0,
+            1,
+            0,
+            0
+          ]
+        ]
+      },
+      "LightGBM Classifier": {
+        "accuracy": 0.92,
+        "precision_macro": 0.714492808960163,
+        "recall_macro": 0.7036614110527154,
+        "f1_macro": 0.7086022126022126,
+        "accuracy_train": 1.0,
+        "confusion_matrix": [
+          [
+            76,
+            6,
+            0,
+            2,
+            0
+          ],
+          [
+            3,
+            89,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            2,
+            11,
+            0,
+            0
+          ],
+          [
+            2,
+            0,
+            0,
+            8,
+            0
+          ],
+          [
+            0,
+            0,
+            1,
+            0,
+            0
+          ]
+        ]
+      }
+    },
+    "best_model_by_app_ranking": "Random Forest Classifier"
+  },
+  "regression": {
+    "target": "diem_ky_sau",
+    "features_used": [
+      "diem_ky_nay",
+      "ty_le_diem_danh",
+      "so_gio_hoc_tuan",
+      "diem_giua_ky",
+      "diem_du_an",
+      "diem_thong_ke",
+      "diem_xu_ly_du_lieu",
+      "diem_truc_quan_hoa",
+      "diem_machine_learning",
+      "diem_lap_trinh",
+      "gpa_previous"
+    ],
+    "models": {
+      "Linear Regression": {
+        "mae": 0.06225404755990033,
+        "rmse": 0.07576182194546939,
+        "r2": 0.9929078076473433,
+        "r2_train": 0.9920690080862674
+      },
+      "Random Forest Regressor": {
+        "mae": 0.12703199999999953,
+        "rmse": 0.15718632112877992,
+        "r2": 0.9694712385903957,
+        "r2_train": 0.9961310866221605
+      },
+      "XGBoost Regressor": {
+        "mae": 0.09683529682159424,
+        "rmse": 0.12122391076956889,
+        "r2": 0.9818424910603204,
+        "r2_train": 0.9967272095314517
+      },
+      "LightGBM Regressor": {
+        "mae": 0.09263106101511863,
+        "rmse": 0.1255742646339324,
+        "r2": 0.9805158720551413,
+        "r2_train": 0.9945002610648654
+      }
+    },
+    "best_model_by_app_ranking": "Linear Regression",
+    "train_size": 800,
+    "test_size": 200
+  },
+  "leakage_check": {
+    "pearson_r_with_diem_ky_sau": {
+      "diem_ky_nay": 0.9475,
+      "gpa_previous": 0.9474,
+      "diem_thong_ke": 0.6411,
+      "diem_lap_trinh": 0.6326,
+      "diem_xu_ly_du_lieu": 0.6125,
+      "diem_truc_quan_hoa": 0.6032,
+      "diem_machine_learning": 0.5835,
+      "diem_giua_ky": 0.264,
+      "ty_le_diem_danh": 0.1524,
+      "so_gio_hoc_tuan": 0.1369,
+      "diem_du_an": 0.1164
+    },
+    "target_formula": "diem_ky_sau = 0.60*diem_ky_nay + 0.15*diem_giua_ky + 0.10*diem_du_an + 0.10*(ty_le_diem_danh*10) + 0.05*(so_gio_hoc_tuan/3.5) + N(0, 0.08), then clipped to +/-1.5 of diem_ky_nay; xep_loai = score_to_xep_loai(diem_ky_sau)"
+  },
+  "explainability": {
+    "regression": {
+      "model": "Linear Regression",
+      "method": "estimator.feature_importances_ (app: get_production_feature_importance)",
+      "top": []
+    },
+    "classification": {
+      "model": "Random Forest Classifier",
+      "method": "estimator.feature_importances_ (app: get_production_feature_importance)",
+      "top": [
+        {
+          "feature": "gpa_previous",
+          "importance_pct": 26.87
+        },
+        {
+          "feature": "diem_ky_nay",
+          "importance_pct": 25.67
+        },
+        {
+          "feature": "diem_giua_ky",
+          "importance_pct": 9.33
+        },
+        {
+          "feature": "diem_truc_quan_hoa",
+          "importance_pct": 7.34
+        },
+        {
+          "feature": "diem_xu_ly_du_lieu",
+          "importance_pct": 7.16
+        },
+        {
+          "feature": "diem_machine_learning",
+          "importance_pct": 6.59
+        },
+        {
+          "feature": "diem_lap_trinh",
+          "importance_pct": 6.57
+        },
+        {
+          "feature": "diem_thong_ke",
+          "importance_pct": 5.3
+        },
+        {
+          "feature": "diem_du_an",
+          "importance_pct": 2.03
+        },
+        {
+          "feature": "ty_le_diem_danh",
+          "importance_pct": 1.58
+        }
+      ]
+    },
+    "regression_shap": {
+      "model": "Linear Regression",
+      "method": "mean |SHAP value| over 300 rows (shap.Explainer)",
+      "top": [
+        {
+          "feature": "diem_ky_nay",
+          "mean_abs_shap": 1.7309503178934695
+        },
+        {
+          "feature": "gpa_previous",
+          "mean_abs_shap": 1.0342344714634009
+        },
+        {
+          "feature": "diem_giua_ky",
+          "mean_abs_shap": 0.17937785311190793
+        },
+        {
+          "feature": "ty_le_diem_danh",
+          "mean_abs_shap": 0.09296279725163145
+        },
+        {
+          "feature": "diem_du_an",
+          "mean_abs_shap": 0.07429002977077481
+        },
+        {
+          "feature": "so_gio_hoc_tuan",
+          "mean_abs_shap": 0.053429174258247315
+        },
+        {
+          "feature": "diem_thong_ke",
+          "mean_abs_shap": 0.005017208156926543
+        },
+        {
+          "feature": "diem_lap_trinh",
+          "mean_abs_shap": 0.0022553236695126862
+        },
+        {
+          "feature": "diem_xu_ly_du_lieu",
+          "mean_abs_shap": 0.00211938543885628
+        },
+        {
+          "feature": "diem_machine_learning",
+          "mean_abs_shap": 0.0018855253150287714
+        }
+      ]
+    }
+  },
+  "clustering": {
+    "features": [
+      "diem_ky_nay",
+      "ty_le_diem_danh",
+      "so_gio_hoc_tuan",
+      "diem_giua_ky",
+      "diem_du_an",
+      "diem_thong_ke",
+      "diem_xu_ly_du_lieu",
+      "diem_truc_quan_hoa",
+      "diem_machine_learning",
+      "diem_lap_trinh"
+    ],
+    "k_selected": 4,
+    "k_rule": "bootstrap default: min(4, max(2, n//10))",
+    "silhouette": 0.10866664019864875,
+    "davies_bouldin": 2.2492529133502277,
+    "cluster_sizes": {
+      "0": 214,
+      "1": 267,
+      "2": 242,
+      "3": 277
+    },
+    "cluster_pct": {
+      "0": 21.4,
+      "1": 26.7,
+      "2": 24.2,
+      "3": 27.7
+    },
+    "silhouette_sweep_k2_8": {
+      "2": 0.19241919311773,
+      "3": 0.11134895064935466,
+      "4": 0.10866664019864875,
+      "5": 0.09598292467306054,
+      "6": 0.09246248794126728,
+      "7": 0.09100678674624857,
+      "8": 0.08777849686863791
+    }
+  },
+  "runtime_seconds": 948.5
+}

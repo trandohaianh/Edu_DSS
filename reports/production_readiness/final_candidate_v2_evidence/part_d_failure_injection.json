@@ -1,0 +1,75 @@
+{
+  "steps": [
+    {
+      "key": "D1",
+      "title": "401 Unauthorized (invalid bearer token) \u2014 live HTTP",
+      "status": "PASS",
+      "detail": {
+        "http_status": 401,
+        "code": "unauthorized"
+      },
+      "duration_s": 0.027
+    },
+    {
+      "key": "D2",
+      "title": "403 Forbidden (tenant/org mismatch) \u2014 live HTTP",
+      "status": "PASS",
+      "detail": {
+        "http_status": 403,
+        "code": "tenant_forbidden"
+      },
+      "duration_s": 0.0
+    },
+    {
+      "key": "D3",
+      "title": "500 Internal Server Error (simulated) \u2014 live HTTP",
+      "status": "PASS",
+      "detail": {
+        "http_status": 500,
+        "code": "server_error",
+        "retryable": true
+      },
+      "duration_s": 0.019
+    },
+    {
+      "key": "D4",
+      "title": "429 Too Many Requests (simulated) \u2014 live HTTP",
+      "status": "PASS",
+      "detail": {
+        "http_status": 429,
+        "code": "rate_limited",
+        "retryable": true
+      },
+      "duration_s": 0.016
+    },
+    {
+      "key": "D5",
+      "title": "Timeout \u2014 live HTTP with a short client timeout",
+      "status": "PASS",
+      "detail": {
+        "code": "timeout",
+        "retryable": true
+      },
+      "duration_s": 0.315
+    },
+    {
+      "key": "D6",
+      "title": "Malformed payload \u2014 live HTTP",
+      "status": "PASS",
+      "detail": {
+        "code": "malformed_json"
+      },
+      "duration_s": 0.016
+    },
+    {
+      "key": "D7",
+      "title": "404 \u2014 not modeled by the accepted simulator, disclosed rather than fabricated",
+      "status": "PASS",
+      "detail": {
+        "note": "The accepted LMS/CMS simulator does not model a 404 scenario for this endpoint shape; not fabricated for this test.",
+        "status": "NOT_APPLICABLE"
+      },
+      "duration_s": 0.0
+    }
+  ]
+}

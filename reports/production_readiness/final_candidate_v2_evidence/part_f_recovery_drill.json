@@ -1,0 +1,61 @@
+{
+  "steps": [
+    {
+      "key": "F1",
+      "title": "Populate a full durable-asset footprint (prediction, consultation, audit entry, webhook delivery) before backup",
+      "status": "PASS",
+      "detail": {
+        "prediction_id": 963,
+        "consultation_id": 4,
+        "audit_write_ok": true,
+        "webhook_delivered": true
+      },
+      "duration_s": 1.937
+    },
+    {
+      "key": "F2",
+      "title": "Real coordinated backup + verify + restore-to-fresh-database",
+      "status": "PASS",
+      "detail": {
+        "backup_sha256": "0e22d23b6a06dc96ad40913ab24273f4634f376cdc7cc6028cda21a005541409",
+        "size_bytes": 275711,
+        "restore_db": "fcv2_recovery_ef868c43"
+      },
+      "duration_s": 2.442
+    },
+    {
+      "key": "F3",
+      "title": "FULL inventory check against the RESTORED database (not just row counts \u2014 RLS and pgvector re-confirmed live)",
+      "status": "PASS",
+      "detail": {
+        "organizations": 1,
+        "users": 7,
+        "students": 4,
+        "courses": 2,
+        "cms_content": 2,
+        "webhook_inbox": 3,
+        "integration_sync_states": 11,
+        "predictions": 1,
+        "consultations": 1,
+        "audit_logs": 1,
+        "rag_documents": 2,
+        "rls_policy_present_on_restored_db": true,
+        "pgvector_retrieval_on_restored_db": true
+      },
+      "duration_s": 0.108
+    },
+    {
+      "key": "F4",
+      "title": "Explicit non-DB asset disclosure (what this backup does NOT cover)",
+      "status": "PASS",
+      "detail": {
+        "model_binaries_joblib": "NOT_RECOVERED by DB backup \u2014 SEPARATELY_RECOVERABLE via ops/non_db_recovery.py manifest (Workstream D)",
+        "datasets_raw_csv": "NOT_RECOVERED by DB backup \u2014 SEPARATELY_RECOVERABLE via ops/non_db_recovery.py manifest",
+        "cms_binary_uploads": "NOT_APPLICABLE \u2014 this deployment's CMS content is text/metadata in Postgres, no binary upload store exists",
+        "secrets_configuration": "NOT_RECOVERED by either mechanism \u2014 by design, secrets are never included in any backup or manifest",
+        "application_logs": "NOT_RECOVERED by either mechanism \u2014 logs are not treated as a durable recovery asset in this design"
+      },
+      "duration_s": 0.0
+    }
+  ]
+}

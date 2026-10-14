@@ -1,0 +1,12 @@
+    bst.update(dtrain, iteration=i, fobj=obj)
+
+tests/test_xgboost_gridsearch_when_safe.py::test_xgboost_uses_gridsearch_when_enough_minority_samples
+  D:\KLTN\code\.venv\Lib\site-packages\xgboost\training.py:199: UserWarning: [20:34:06] WARNING: C:\actions-runner\_work\xgboost\xgboost\src\learner.cc:790: 
+  Parameters: { "use_label_encoder" } are not used.
+  
+    bst.update(dtrain, iteration=i, fobj=obj)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+691 passed, 158 skipped, 8 warnings in 187.99s (0:03:07)
+
+[exited with code 0]
