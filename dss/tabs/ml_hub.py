@@ -446,13 +446,20 @@ def render_training_config_ui(df, classification_trainer, regression_trainer, ke
                         "smote": "SMOTE (Tạo thêm mẫu cho lớp ít dữ liệu)",
                         "borderline": "BorderlineSMOTE (Ưu tiên tạo mẫu vùng ranh giới)",
                         "adasyn": "ADASYN (Tạo mẫu thích nghi theo độ khó)",
+                        "class_weight": "class_weight (Tăng trọng số lớp ít — không sinh mẫu giả)",
                     }
                     balance_method = st.selectbox(
                         "Phương pháp:",
-                        ["none", "smote", "borderline", "adasyn"],
+                        ["none", "smote", "borderline", "adasyn", "class_weight"],
                         format_func=lambda x: balance_labels.get(x, x),
                         key=f"{key_prefix}_balance",
-                        help="Kỹ thuật xử lý mất cân bằng lớp (class imbalance)."
+                        help=(
+                            "Kỹ thuật xử lý mất cân bằng lớp (class imbalance). "
+                            "Khi lớp thiểu số chỉ còn vài mẫu, các biến thể SMOTE nội suy giữa "
+                            "chính vài mẫu đó nên mẫu sinh ra nằm gọn trên một đoạn thẳng và gần "
+                            "như không thêm thông tin; class_weight phù hợp hơn vì chỉ tăng mức "
+                            "phạt khi đoán sai lớp hiếm, mô hình vẫn chỉ học từ mẫu thật."
+                        )
                     )
             
             st.markdown("---")

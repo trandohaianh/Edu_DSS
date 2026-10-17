@@ -23,8 +23,10 @@ from sklearn.ensemble import (
 from sklearn.feature_selection import RFE, SelectKBest, mutual_info_classif
 from sklearn.impute import KNNImputer, SimpleImputer
 from sklearn.linear_model import Lasso, LinearRegression, LogisticRegression, Ridge
+from sklearn.base import clone
 from sklearn.metrics import (
     accuracy_score,
+    average_precision_score,
     classification_report,
     confusion_matrix,
     f1_score,
@@ -35,6 +37,7 @@ from sklearn.metrics import (
     recall_score,
     roc_auc_score,
 )
+from sklearn.preprocessing import label_binarize
 from sklearn.model_selection import GridSearchCV, train_test_split  # noqa: F401
 from dss.core import tuning
 from sklearn.pipeline import Pipeline, Pipeline as SklearnPipeline
@@ -96,6 +99,60 @@ RF_CLASSIFIER_GRID_COMPACT = {
     'model__min_samples_split': [2],
     'model__min_samples_leaf': [1, 2],
 }
+
+
+def apply_class_weight_balanced(model):
+    """Trả về (model, đã_áp_dụng) với class_weight='balanced' nếu estimator hỗ trợ.
+
+    Đây là phương án cân bằng lớp KHÔNG sinh dữ liệu giả, đối lập với SMOTE.
+    Lý do cần nó: khi lớp thiểu số chỉ có 2 mẫu, láng giềng cùng lớp duy nhất của
+    mẫu này là mẫu kia, nên MỌI điểm SMOTE nội suy ra đều nằm trên đoạn thẳng nối
+    hai điểm đó — 996 mẫu sinh ra chỉ chiếm 1 chiều trong không gian nhiều chiều.
+    Nó làm mô hình tự tin hơn mà không thêm thông tin nào. class_weight thay vào đó
+    chỉ tăng trọng số phạt khi đoán sai lớp hiếm, mô hình vẫn chỉ nhìn mẫu THẬT.
+
+    XGBoost đa lớp không nhận class_weight (chỉ có scale_pos_weight cho nhị phân),
+    nên hàm trả về cờ False để nơi gọi ghi log thay vì âm thầm bỏ qua.
+    """
+    try:
+        if "class_weight" in model.get_params():
+            balanced = clone(model)
+            balanced.set_params(class_weight="balanced")
+            return balanced, True
+    except Exception as exc:  # pragma: no cover - phòng khi estimator lạ
+        _logger.warning("Không đặt được class_weight: %s", exc)
+    return model, False
+
+
+def pr_auc_macro(y_true, y_proba, classes):
+    """PR-AUC (average precision) trung bình macro theo kiểu một-chọi-phần-còn-lại.
+
+    Vì sao cần bên cạnh F1-macro: F1 đo tại MỘT ngưỡng cố định. Với lớp thiểu số
+    chỉ vài mẫu, recall của lớp đó chỉ nhận được vài giá trị rời rạc (2 mẫu -> 0,
+    0.5 hoặc 1), nên F1-macro dịch rất mạnh chỉ vì một mẫu đoán đúng hay sai và
+    không đủ ổn định để chọn mô hình. PR-AUC lấy trung bình trên toàn dải ngưỡng,
+    tức đo khả năng XẾP ĐÚNG THỨ TỰ — đúng với cách sản phẩm được dùng, vì đầu ra
+    của hệ thống là danh sách lớp xếp theo mức rủi ro chứ không phải nhãn nhị phân.
+
+    Trả về None khi không tính được (thiếu xác suất, chỉ có một lớp trong tập test).
+    """
+    try:
+        if y_proba is None:
+            return None
+        classes = list(classes)
+        if len(classes) < 2:
+            return None
+        if len(classes) == 2:
+            proba = np.asarray(y_proba)
+            score = proba[:, 1] if proba.ndim == 2 and proba.shape[1] == 2 else proba
+            return float(average_precision_score((np.asarray(y_true) == classes[1]).astype(int), score))
+        y_bin = label_binarize(y_true, classes=classes)
+        if y_bin.shape[1] != np.asarray(y_proba).shape[1]:
+            return None
+        return float(average_precision_score(y_bin, np.asarray(y_proba), average="macro"))
+    except Exception as exc:
+        _logger.warning("Không tính được PR-AUC: %s", exc)
+        return None
 
 
 class ClassificationTrainer:
@@ -292,11 +349,31 @@ class ClassificationTrainer:
         
         # Determine the Imblearn Sampler
         sampler = None
+        # Lý do cân bằng lớp bị hạ cấp so với yêu cầu (None = chạy đúng như yêu cầu).
+        # Được ghi vào từng kết quả để báo cáo không bao giờ nói "đã cân bằng" khi chưa.
+        balance_fallback_reason = None
         if balance_method != "none" and IMB_LEARN_AVAILABLE:
             try:
-                if min_train_samples_per_fold < 2:
-                    _logger.warning("Dữ liệu lớp thiểu số quá ít trong từng fold CV nên tạm thời tắt cân bằng lớp.")
+                if balance_method == "class_weight":
+                    # Không sinh mẫu — trọng số được đặt trên chính estimator ở vòng lặp dưới.
                     sampler = None
+                    _logger.info("Cân bằng lớp bằng class_weight='balanced' (không sinh dữ liệu giả).")
+                elif min_train_samples_per_fold < 2:
+                    # Lớp thiểu số còn quá ít mẫu trong mỗi fold train để SMOTE/ADASYN chạy
+                    # (chúng cần >= 2 mẫu cùng lớp để nội suy). TRƯỚC ĐÂY chỗ này chỉ ghi log
+                    # rồi im lặng chạy tiếp, nên kết quả vẫn được báo cáo như thể đã cân bằng
+                    # trong khi thực tế không cân bằng gì — xem balance_method_effective bên dưới.
+                    _logger.warning(
+                        "Lớp thiểu số chỉ còn %d mẫu trong mỗi fold train nên '%s' KHÔNG chạy được; "
+                        "huấn luyện tiếp mà không cân bằng lớp. Với cỡ lớp này hãy dùng "
+                        "balance_method='class_weight' (không cần sinh mẫu).",
+                        min_train_samples_per_fold, balance_method,
+                    )
+                    sampler = None
+                    balance_fallback_reason = (
+                        f"'{balance_method}' cần >= 2 mẫu lớp thiểu số trong mỗi fold train, "
+                        f"hiện chỉ có {min_train_samples_per_fold}"
+                    )
                 elif balance_method == "smote" and k_neighbors > 0:
                     sampler = SMOTE(random_state=42, k_neighbors=k_neighbors)
                     _logger.info("Đang áp dụng SMOTE (k_neighbors=%d) để cân bằng dữ liệu...", k_neighbors)
@@ -309,11 +386,14 @@ class ClassificationTrainer:
                 else:
                     if k_neighbors <= 0:
                         _logger.warning("Không thể áp dụng SMOTE vì class thiểu số có quá ít mẫu (<=1).")
+                        balance_fallback_reason = "lớp thiểu số có <= 1 mẫu nên không nội suy được"
             except Exception as e:
                 _logger.warning("Không thể cân bằng dữ liệu: %s", e)
                 sampler = None
+                balance_fallback_reason = f"lỗi khi khởi tạo bộ cân bằng: {e}"
         elif balance_method != "none" and not IMB_LEARN_AVAILABLE:
             _logger.warning("Thư viện imbalanced-learn chưa được cài đặt, không thể cân bằng dữ liệu.")
+            balance_fallback_reason = "chưa cài imbalanced-learn"
 
         results, trained_pipelines = {}, {} # Dùng để lưu kết quả và các pipeline đã huấn luyện
         failed_models = {}
@@ -348,6 +428,14 @@ class ClassificationTrainer:
             if name not in _self.models:
                 continue
             model = _self.models[name]
+            if balance_method == "class_weight":
+                model, cw_applied = apply_class_weight_balanced(model)
+                if not cw_applied:
+                    _logger.warning(
+                        "%s không nhận tham số class_weight nên chạy KHÔNG cân bằng lớp; "
+                        "hãy đọc kết quả của mô hình này tách khỏi các mô hình còn lại.",
+                        name,
+                    )
             try:
                 # Chọn Pipeline phù hợp (ImbPipeline nếu có SMOTE, ngược lại dùng SklearnPipeline)
                 PipelineClass = ImbPipeline if sampler is not None else SklearnPipeline
@@ -500,6 +588,17 @@ class ClassificationTrainer:
                 precision_macro = precision_score(y_test_eval, y_pred, average='macro', zero_division=0)
                 recall_macro = recall_score(y_test_eval, y_pred, average='macro', zero_division=0)
                 conf_matrix = confusion_matrix(y_test_eval, y_pred).tolist()
+
+                # PR-AUC: chỉ số ổn định hơn F1 khi lớp thiểu số rất ít mẫu, và đo đúng
+                # thứ mà sản phẩm cần (xếp hạng rủi ro) thay vì một nhãn tại ngưỡng 0,5.
+                pr_auc = None
+                try:
+                    if hasattr(pipeline, "predict_proba"):
+                        proba_full = pipeline.predict_proba(X_test)
+                        proba_eval = np.asarray(proba_full)[valid_test_mask]
+                        pr_auc = pr_auc_macro(y_test_eval, proba_eval, getattr(pipeline, "classes_", np.unique(y_test_eval)))
+                except Exception as exc:
+                    _logger.warning("%s: không lấy được xác suất để tính PR-AUC: %s", name, exc)
                 
                 # *** KIỂM TRA OVERFITTING DỰA TRÊN HEURISTIC DỰ ÁN ***
                 y_pred_train = pipeline.predict(X_train_final)
@@ -553,9 +652,18 @@ class ClassificationTrainer:
                     'Accuracy (Train)': train_accuracy,
                     'F1 Score (Macro)': f1_macro,
                     'F1 Score (Weighted)': f1_weighted,
+                    'PR-AUC (Macro)': pr_auc,
                     'Precision (Macro)': precision_macro,
                     'Recall (Macro)': recall_macro,
                     'Confusion Matrix': conf_matrix,
+                    # Phân biệt YÊU CẦU và THỰC TẾ: nếu bộ cân bằng không chạy được,
+                    # kết quả này KHÔNG phải kết quả đã cân bằng lớp, và phải nói rõ.
+                    'balance_method': balance_method,
+                    'balance_method_effective': (
+                        'none' if (sampler is None and balance_method not in ('none', 'class_weight'))
+                        else balance_method
+                    ),
+                    'balance_fallback_reason': balance_fallback_reason,
                     'report': report,
                     'Overfitting': is_overfitting,
                     'Suspicious Perfect Score': suspicious_perfect_score,
