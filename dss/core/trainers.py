@@ -30,6 +30,7 @@ from sklearn.metrics import (
     classification_report,
     confusion_matrix,
     f1_score,
+    make_scorer,
     mean_absolute_error,
     mean_squared_error,
     precision_score,
@@ -153,6 +154,25 @@ def pr_auc_macro(y_true, y_proba, classes):
     except Exception as exc:
         _logger.warning("Không tính được PR-AUC: %s", exc)
         return None
+
+
+# Dưới ngưỡng này (số mẫu của lớp ÍT NHẤT trong tập train), F1 tại một ngưỡng cố
+# định dịch quá mạnh theo từng mẫu để dùng làm tiêu chí chọn mô hình, nên
+# GridSearchCV chuyển sang PR-AUC. Chọn 20 vì ở cỡ đó một mẫu đổi recall của lớp
+# thiểu số khoảng 5 điểm phần trăm — vẫn lớn nhưng đã đọc được; dưới nữa thì bước
+# nhảy rời rạc lấn át chênh lệch thật giữa các mô hình.
+PR_AUC_SELECTION_THRESHOLD = 20
+
+
+def _pr_auc_macro_scorer(y_true, y_proba):
+    """Bọc pr_auc_macro thành scorer cho GridSearchCV ở bài toán nhiều hơn 2 lớp.
+
+    sklearn không có sẵn chuỗi scoring 'average_precision' cho đa lớp, nên dựng tay.
+    Trả về 0.0 thay vì None khi không tính được, vì GridSearchCV cần một số để so sánh.
+    """
+    classes = np.unique(y_true)
+    value = pr_auc_macro(y_true, y_proba, classes)
+    return 0.0 if value is None else value
 
 
 class ClassificationTrainer:
@@ -352,6 +372,9 @@ class ClassificationTrainer:
         # Lý do cân bằng lớp bị hạ cấp so với yêu cầu (None = chạy đúng như yêu cầu).
         # Được ghi vào từng kết quả để báo cáo không bao giờ nói "đã cân bằng" khi chưa.
         balance_fallback_reason = None
+        # Cách cân bằng THỰC SỰ được áp dụng. Khác balance_method khi bộ sinh mẫu không
+        # chạy được ở cỡ lớp hiện tại và mã tự hạ cấp sang class_weight.
+        balance_method_applied = balance_method
         if balance_method != "none" and IMB_LEARN_AVAILABLE:
             try:
                 if balance_method == "class_weight":
@@ -360,20 +383,32 @@ class ClassificationTrainer:
                     _logger.info("Cân bằng lớp bằng class_weight='balanced' (không sinh dữ liệu giả).")
                 elif min_train_samples_per_fold < 2:
                     # Lớp thiểu số còn quá ít mẫu trong mỗi fold train để SMOTE/ADASYN chạy
-                    # (chúng cần >= 2 mẫu cùng lớp để nội suy). TRƯỚC ĐÂY chỗ này chỉ ghi log
-                    # rồi im lặng chạy tiếp, nên kết quả vẫn được báo cáo như thể đã cân bằng
-                    # trong khi thực tế không cân bằng gì — xem balance_method_effective bên dưới.
+                    # (chúng cần >= 2 mẫu cùng lớp để nội suy).
+                    #
+                    # Hai đời hành vi trước đây đều sai theo cách riêng:
+                    #   1. Chỉ ghi log rồi im lặng chạy tiếp -> báo cáo nói "đã cân bằng"
+                    #      trong khi thực tế không cân bằng gì.
+                    #   2. Ghi rõ lý do nhưng vẫn KHÔNG cân bằng, chỉ khuyên người dùng tự
+                    #      đổi sang class_weight -> người dùng đã YÊU CẦU cân bằng lớp mà
+                    #      nhận về mô hình không cân bằng, và lời khuyên nằm trong log
+                    #      không ai đọc.
+                    #
+                    # Nay tự hạ cấp sang class_weight: đó là cách cân bằng duy nhất còn
+                    # chạy được ở cỡ lớp này, vì nó tăng trọng số phạt chứ không nội suy
+                    # mẫu mới. Đo bằng tools/exp_balance_compare.py: ở cỡ lớp thiểu số 2
+                    # mẫu, SMOTE không chạy được, còn class_weight vẫn chạy; ở các cỡ lớn
+                    # hơn hai phương án chênh nhau trong phạm vi độ lệch giữa các seed.
                     _logger.warning(
                         "Lớp thiểu số chỉ còn %d mẫu trong mỗi fold train nên '%s' KHÔNG chạy được; "
-                        "huấn luyện tiếp mà không cân bằng lớp. Với cỡ lớp này hãy dùng "
-                        "balance_method='class_weight' (không cần sinh mẫu).",
+                        "tự hạ cấp sang class_weight='balanced' (không cần sinh mẫu).",
                         min_train_samples_per_fold, balance_method,
                     )
                     sampler = None
                     balance_fallback_reason = (
                         f"'{balance_method}' cần >= 2 mẫu lớp thiểu số trong mỗi fold train, "
-                        f"hiện chỉ có {min_train_samples_per_fold}"
+                        f"hiện chỉ có {min_train_samples_per_fold}; đã hạ cấp sang class_weight"
                     )
+                    balance_method_applied = "class_weight"
                 elif balance_method == "smote" and k_neighbors > 0:
                     sampler = SMOTE(random_state=42, k_neighbors=k_neighbors)
                     _logger.info("Đang áp dụng SMOTE (k_neighbors=%d) để cân bằng dữ liệu...", k_neighbors)
@@ -428,7 +463,7 @@ class ClassificationTrainer:
             if name not in _self.models:
                 continue
             model = _self.models[name]
-            if balance_method == "class_weight":
+            if balance_method_applied == "class_weight":
                 model, cw_applied = apply_class_weight_balanced(model)
                 if not cw_applied:
                     _logger.warning(
@@ -489,9 +524,40 @@ class ClassificationTrainer:
                     cv_strategy = [(idx_train, idx_val)] 
                     _logger.warning("Cảnh báo: Dữ liệu quá mất cân bằng. Vô hiệu hóa Cross-Validation để chống lỗi.")
                     
-                # Cấu hình scoring cho GridSearchCV: ưu tiên F1 Macro cho bài toán phân loại đa lớp / mất cân bằng
+                # Tiêu chí chọn mô hình cho GridSearchCV.
+                #
+                # F1 được tính tại MỘT ngưỡng cố định, nên khi lớp thiểu số chỉ còn vài
+                # mẫu thì recall của lớp đó chỉ nhận được vài giá trị rời rạc: với 2 mẫu
+                # là 0 / 0,5 / 1. Một mẫu đoán đúng hay sai làm macro-F1 tổng dịch tới
+                # 1/số_lớp, tức khoảng 12 điểm phần trăm với 4 lớp. Chọn mô hình bằng con
+                # số đó là chọn theo nhiễu.
+                #
+                # PR-AUC (average precision) lấy trung bình trên toàn dải ngưỡng nên
+                # không phụ thuộc một điểm cắt, và nó đo đúng thứ sản phẩm này cần: khả
+                # năng XẾP HẠNG sinh viên theo rủi ro để giảng viên gọi từ trên xuống,
+                # chứ không phải nhãn nhị phân.
+                #
+                # Chỉ đổi khi lớp thiểu số thực sự ít; ở cỡ lớp bình thường F1 vẫn ổn
+                # định và quen thuộc hơn với người đọc báo cáo.
                 n_classes_in_train = len(np.unique(y_train_final))
-                clf_scoring = 'f1_macro' if n_classes_in_train > 2 else 'f1_weighted'
+                min_class_count = int(pd.Series(y_train_final).value_counts().min())
+                if min_class_count < PR_AUC_SELECTION_THRESHOLD:
+                    clf_scoring = (
+                        'average_precision' if n_classes_in_train == 2
+                        else 'average_precision_macro_ovr'
+                    )
+                    if clf_scoring == 'average_precision_macro_ovr':
+                        # sklearn không có sẵn chuỗi này; dựng scorer thủ công.
+                        clf_scoring = make_scorer(
+                            _pr_auc_macro_scorer, response_method='predict_proba'
+                        )
+                    _logger.info(
+                        "Lớp thiểu số chỉ có %d mẫu (< %d) nên chọn mô hình bằng PR-AUC "
+                        "thay vì F1: F1 tại một ngưỡng dịch quá mạnh theo từng mẫu ở cỡ này.",
+                        min_class_count, PR_AUC_SELECTION_THRESHOLD,
+                    )
+                else:
+                    clf_scoring = 'f1_macro' if n_classes_in_train > 2 else 'f1_weighted'
 
                 # P-5: cv_mean/cv_std của tiêu chí tối ưu (lấy từ cv_results_ tại
                 # best_index_) — chỉ có giá trị với nhánh THẬT SỰ chạy GridSearchCV
@@ -660,8 +726,8 @@ class ClassificationTrainer:
                     # kết quả này KHÔNG phải kết quả đã cân bằng lớp, và phải nói rõ.
                     'balance_method': balance_method,
                     'balance_method_effective': (
-                        'none' if (sampler is None and balance_method not in ('none', 'class_weight'))
-                        else balance_method
+                        'none' if (sampler is None and balance_method_applied not in ('none', 'class_weight'))
+                        else balance_method_applied
                     ),
                     'balance_fallback_reason': balance_fallback_reason,
                     'report': report,

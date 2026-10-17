@@ -956,10 +956,17 @@ def build_metrics_dataframe(results, hub_type):
             if np.isnan(f1_weighted):
                 f1_weighted = safe_metric_value(weighted_avg.get("f1-score", macro_avg.get("f1-score")))
 
+            # PR-AUC là tiêu chí CHỌN mô hình khi lớp thiểu số quá ít mẫu
+            # (xem PR_AUC_SELECTION_THRESHOLD trong dss/core/trainers.py). Tiêu chí
+            # dùng để chọn thì phải hiện trong bảng, nếu không người đọc báo cáo
+            # không có cách nào kiểm lại vì sao mô hình này được chọn.
+            pr_auc_val = safe_metric_value(m.get("PR-AUC (Macro)"))
+
             rows.append(
                 {
                     "Model": name,
                     "F1 Score (Macro)": f1_macro if not np.isnan(f1_macro) else f1_weighted,
+                    "PR-AUC (Macro)": pr_auc_val,
                     "Accuracy": acc,
                     "Precision": precision_val,
                     "Recall": recall_val,
