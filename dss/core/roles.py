@@ -1,20 +1,21 @@
-"""Phân quyền theo vai trò (Giảng viên / Sinh viên / Admin).
-
-Không dùng đăng nhập mật khẩu — hệ thống hiện tại chỉ chạy 1 phiên dùng chung,
-nên chỉ cần một bộ chọn vai trò đơn giản để lọc giao diện. Được thiết kế sẵn
-để sau này nhúng vào LMS: LMS chỉ cần mở link kèm `?role=teacher` (hoặc
-student/admin) là hệ thống tự nhận đúng vai trò, không cần sửa code.
+"""Navigation labels and allowed roles; authentication is enforced by auth_service.
+Classroom and programme services independently enforce their own scope and roles.
 """
 import re
-import streamlit as st
 
 ROLES = ["Giảng viên / CVHT", "Sinh viên", "Admin"]
 HOME_TAB_LABEL = "🏡 Trang chủ"
+CLASSROOM_TAB_LABEL = "🏫 Lớp học và đánh giá"
+PROGRAM_TAB_LABEL = "🏛️ Chương trình và cấp phát"
+MATERIALS_TAB_LABEL = "📖 Học liệu của trường"
 
 _LEADING_ICON_RE = re.compile(r"^\S+\s+")
 
 
 TAB_SHORT_LABELS = {
+    MATERIALS_TAB_LABEL: "Học liệu của trường",
+    CLASSROOM_TAB_LABEL: "Lớp học và đánh giá",
+    PROGRAM_TAB_LABEL: "Chương trình và cấp phát",
     HOME_TAB_LABEL: "Trang chủ",
     "📊 Dashboard": "Dashboard",
     "🔍 Khám phá — Xử lý dữ liệu": "Khám phá dữ liệu",
@@ -57,6 +58,9 @@ def nav_label(tab_label: str, role: str | None = None) -> str:
 
 
 TAB_ICONS = {
+    MATERIALS_TAB_LABEL: "📖",
+    CLASSROOM_TAB_LABEL: "🏫",
+    PROGRAM_TAB_LABEL: "🏛️",
     HOME_TAB_LABEL: "🏠",
     "📊 Dashboard": "📊",
     "🔍 Khám phá — Xử lý dữ liệu": "🔍",
@@ -143,7 +147,7 @@ ROLE_ALIASES = {
 }
 
 ALL_TABS = [
-    HOME_TAB_LABEL,
+    HOME_TAB_LABEL, CLASSROOM_TAB_LABEL, MATERIALS_TAB_LABEL, PROGRAM_TAB_LABEL,
     "📊 Dashboard",
     "🔍 Khám phá — Xử lý dữ liệu",
     "🧪 Huấn luyện — Dự đoán",
@@ -164,6 +168,9 @@ ALL_TABS = [
 
 # Vai trò nào được thấy tab nào ở thanh điều hướng chính.
 TAB_ACCESS = {
+    MATERIALS_TAB_LABEL: {"Admin"},
+    CLASSROOM_TAB_LABEL: set(ROLES),
+    PROGRAM_TAB_LABEL: {"Admin", "Giảng viên / CVHT", "Platform Admin"},
     HOME_TAB_LABEL: set(ROLES),
     # Đổi tên từ "🏠 Trang chính — Dashboard" -> "📊 Dashboard" (yêu cầu thiết
     # kế: Trang chủ và Dashboard phải là 2 route/trải nghiệm TÁCH BIỆT rõ

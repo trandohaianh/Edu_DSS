@@ -1,15 +1,11 @@
 """Shared runtime imports for Streamlit tab modules."""
 from dss.config import *  # noqa: F403
-from dss.core.utils import (
-    render_chart_guide,
-    render_chart_guide_advanced,
-    st_step_header,
-)
 from dss.security.upload_security import UploadValidationError, parse_tabular_upload
 from dss.services import model_registry
 from dss.services.model_service import model_lifecycle_badge_text as _model_lifecycle_badge_text
 from dss.tabs import ui_kit
 from dss.core.runtime_mode import synthetic_data_allowed
+from dss.core.target_utils import is_id_like
 
 
 def warehouse_tab(warehouse, role=None):
@@ -125,7 +121,7 @@ def warehouse_tab(warehouse, role=None):
                 from dss.services.lms_live_sync import lms_live_sync_manager
 
                 cur_df = st.session_state.get("current_df")
-                id_col_w = next((c for c in cur_df.columns if "id" in str(c).lower()), None) if cur_df is not None else None
+                id_col_w = next((c for c in cur_df.columns if is_id_like(c)), None) if cur_df is not None else None
                 student_list = cur_df[id_col_w].dropna().astype(str).unique().tolist() if (cur_df is not None and id_col_w) else ["SV2025_001"]
 
                 lw_col1, lw_col2 = st.columns([1.5, 2], gap="medium")

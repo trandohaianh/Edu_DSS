@@ -13,7 +13,6 @@
 """
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 from dss.core.data_root import DATA_ROOT_ENV_VAR, get_data_root, is_isolated_test_environment

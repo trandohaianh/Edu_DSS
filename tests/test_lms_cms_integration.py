@@ -33,15 +33,12 @@ from dss.services.cms_repository import (
     DemoCMSRepository,
     MockCMSRepository,
     RealConnectorCMSRepository,
-    get_cms_repository,
 )
 from dss.services.lms_connector import (
     DemoLMSRepository,
-    LMSAssessmentRecord,
     LMSStudentLearningSummary,
     MockLMSRepository,
     RealConnectorLMSRepository,
-    get_lms_repository,
 )
 
 

@@ -10,6 +10,7 @@ from dss.services.model_service import (
 from dss.services import llm_service
 from dss.tabs import ui_kit
 from dss.core.logging_config import get_logger
+from dss.core.target_utils import is_id_like
 
 _logger = get_logger(__name__)
 
@@ -17,7 +18,7 @@ _logger = get_logger(__name__)
 # lẫn nền tối (Plotly không đọc được biến CSS).
 _POSITIVE_BAR = "#1E8E3E"
 _NEGATIVE_BAR = "#D93025"
-_NEUTRAL_BAR = "#1A73E8"
+_NEUTRAL_BAR = "#2F5BD3"
 
 _GPA_COLUMNS = ["diem_ky_sau", "diem_ky_nay", "final_score", "gpa_previous", "gpa", "score", "total_score"]
 
@@ -217,7 +218,7 @@ def _render_student_home_dashboard(wh, current_student_id, df=None, llm_integrat
         ui_kit.empty_state("Chưa có dữ liệu lớp học để phân tích.")
         return
 
-    id_col = next((c for c in df.columns if 'id' in c.lower()), df.columns[0])
+    id_col = next((c for c in df.columns if is_id_like(c)), df.columns[0])
     _rows = df[df[id_col].astype(str) == str(current_student_id)]
     if _rows.empty:
         ui_kit.empty_state(

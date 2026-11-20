@@ -10,13 +10,11 @@ import streamlit as st
 from scipy import stats
 
 from dss.config import OPENPYXL_AVAILABLE, XLSXWRITER_AVAILABLE
-from dss.core.data_helpers import feature_label
 from dss.core.feature_utils import fill_missing_values
 from dss.core.feature_utils import render_feature_analysis, to_excel
 from dss.core.feature_utils import render_feature_method_explanation, render_save_export_buttons
 from dss.core.trainers import DataPreprocessor
 from dss.core.utils import st_step_header
-from dss.core.warehouse import DataWarehouse
 from dss.security.upload_security import UploadValidationError, parse_tabular_upload
 from dss.services import model_service
 from dss.tabs import ui_kit
@@ -764,12 +762,9 @@ def data_exploration_tab(df, wh=None):
         if len(numeric_cols_clean) >= 2:
             col_scatter1, col_scatter2, col_scatter3 = st.columns([1, 1, 1])
             with col_scatter1:
-                x_axis_adv = st.selectbox("Chọn trục X:", numeric_cols_clean, index=0,
-                                          format_func=feature_label, key="adv_scatter_x")
+                x_axis_adv = st.selectbox("Chọn trục X:", numeric_cols_clean, index=0, key="adv_scatter_x")
             with col_scatter2:
-                y_axis_adv = st.selectbox("Chọn trục Y:", numeric_cols_clean,
-                                          index=1 if len(numeric_cols_clean) > 1 else 0,
-                                          format_func=feature_label, key="adv_scatter_y")
+                y_axis_adv = st.selectbox("Chọn trục Y:", numeric_cols_clean, index=1 if len(numeric_cols_clean) > 1 else 0, key="adv_scatter_y")
             with col_scatter3:
                 color_col_adv = st.selectbox("Màu sắc (phân nhóm):", ["None"] + df_clean.columns.tolist(), index=0, key="adv_scatter_color")
             

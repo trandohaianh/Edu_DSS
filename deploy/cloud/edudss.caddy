@@ -1,0 +1,26 @@
+# EduDSS — site trên Caddy dùng chung (setup.sh thay __DOMAIN__ rồi chép vào /opt/edge/sites/).
+__DOMAIN__ {
+	encode zstd gzip
+	request_body {
+		max_size 200MB
+	}
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
+		Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://*.googleusercontent.com; connect-src 'self' wss:; frame-src 'self'; frame-ancestors 'self'; base-uri 'self'"
+		-Server
+	}
+	# Prometheus (Grafana Cloud) — chỉ đường /metrics của cổng health; health server tự kiểm tra Bearer token.
+	handle /metrics {
+		reverse_proxy edudss:8081
+	}
+	handle {
+		reverse_proxy edudss:8501 {
+			health_uri /_stcore/health
+			health_interval 30s
+		}
+	}
+}

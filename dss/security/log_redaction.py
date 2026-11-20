@@ -38,7 +38,12 @@ def install_log_redaction() -> None:
 
     def factory(*args, **kwargs):
         record = old_factory(*args, **kwargs)
-        record.msg = redact_text(record.getMessage())
+        try:
+            message = record.getMessage()
+        except Exception:  # noqa: BLE001 - lỗi định dạng (%s thiếu/thừa đối số) không được làm hỏng code đang log
+            # logging thường chỉ báo lỗi này qua Handler.handleError; trong record factory nó ném thẳng vào nơi gọi.
+            message = f"{record.msg} [log format error; args={len(record.args) if isinstance(record.args, tuple) else 1}]"
+        record.msg = redact_text(message)
         record.args = ()
         if record.exc_info and record.exc_info[1] is not None:
             message = str(record.exc_info[1])

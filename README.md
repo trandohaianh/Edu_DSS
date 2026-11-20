@@ -1,32 +1,15 @@
-# EduDSS — cảnh báo sớm sinh viên có nguy cơ
+# EduDSS evaluator setup
 
-Hệ thống hỗ trợ quyết định cho trường đại học: tìm ra sinh viên có nguy cơ không
-đạt **từ giữa kỳ**, khi còn kịp can thiệp, thay vì phát hiện ở điểm cuối kỳ.
-Streamlit + PostgreSQL, ba vai trò (sinh viên, giảng viên, quản trị viên).
+> **Bản full-stack (16/11/2026)**
+> - Đăng nhập Google (OIDC native của Streamlit) gắn với tài khoản theo email.
+> - Admin quản lý tài khoản ngay trong app.
+> - Chế độ demo công khai (`EDUDSS_PUBLIC_DEMO`) không có tài khoản mặc định.
+> - Chi phí AI tính theo token thật do provider trả về; chi phí hạ tầng nhập tay.
+> - `/metrics` cho Grafana Cloud, kèm dashboard và 12 cảnh báo.
+> - Pipeline vận hành: KPI, chất lượng dữ liệu/drift, backup có diễn tập khôi phục.
+> - Bộ eval có cổng chặn: [evals/README.md](evals/README.md).
+> - Deploy miễn phí chung VM: [deploy/cloud/README.md](deploy/cloud/README.md).
 
-Ba quyết định thiết kế đáng chú ý nhất:
-
-- **Chọn mô hình bằng F1-macro, không bằng accuracy.** Trong tập đánh giá 1.000
-  sinh viên, lớp "Yếu" chỉ có 2 mẫu. Một mô hình đoán "Khá" cho tất cả đã có
-  accuracy rất cao trong khi bỏ sót trọn vẹn nhóm cần tìm. Một `DummyClassifier`
-  đoán theo lớp đa số được giữ làm mốc so sánh và không bao giờ được chọn.
-- **Mô hình mới dừng ở trạng thái Candidate cho tới khi quản trị viên duyệt.**
-  Đổi mô hình là đổi danh sách sinh viên bị gọi tên, nên quyết định đó không
-  thuộc về người vừa bấm nút huấn luyện. Mỗi lần duyệt hoặc quay lui đều ghi
-  nhật ký kiểm toán. Xem `dss/services/model_registry.py`.
-- **Cách ly dữ liệu giữa các trường đặt trong cơ sở dữ liệu, không chỉ lọc trong
-  mã.** 35 trên 41 bảng nghiệp vụ bật Row-Level Security. Bốn bảng không bật là
-  danh mục dùng chung (`organizations`, `roles`, `permissions`,
-  `role_permissions`); hai bảng còn lại (`rag_chunks`, `model_metrics`) không có
-  cột `organization_id` và được cô lập qua bảng cha, vốn đã có RLS.
-
-Mọi số liệu trong kho này đo trên **dữ liệu mô phỏng**. Chúng chứng minh pipeline
-và cách thiết kế chạy đúng, không chứng minh hiệu quả trên sinh viên thật — chi
-tiết trong phần giới hạn của từng báo cáo dưới `reports/`.
-
----
-
-## Cài đặt để chạy thử
 
 ## Prerequisites
 
@@ -45,8 +28,12 @@ python -m pip install -r requirements.txt
 # pulls in the GPU-only nvidia-nccl-cu12, unused on CPU) — install it the
 # same way the Dockerfile does, with --no-deps, after the line above:
 python -m pip install --no-deps xgboost==3.1.2
+export EDUDSS_ENV=development    # Windows PowerShell: $env:EDUDSS_ENV="development" (hoặc đặt trong app/.env)
 streamlit run run_dss.py
 ```
+
+`EDUDSS_ENV` không đặt thì ứng dụng chạy như **production** (fail closed): không có tài khoản demo
+`admin/admin123`, `giangvien/gv123`, không tự tạo tài khoản sinh viên và không có dữ liệu mô phỏng.
 
 Local/default stores are intended for evaluation and fallback. Set
 `EDUDSS_DATA_ROOT` to isolate writable data from an existing installation.
@@ -61,13 +48,19 @@ export DATABASE_URL='postgresql+psycopg2://USER:PASSWORD@HOST:5432/DBNAME'
 python -m alembic upgrade head
 ```
 
-The accepted migration head and the expected table list are derived from the
-checkout itself by `dss/db/schema_contract.py` — do not hard-code them here, as
-earlier versions of this file did (`797f72d1c666` / "27 tables" went stale the
-moment a new migration landed). Production-style RLS verification also requires
-`DATABASE_APP_ROLE_URL` for a separately granted, non-superuser application
-role. See `.github/workflows/edudss-release-gate.yml` for a reproducible
-synthetic CI setup.
+The classroom/programme release migration head is `d2e3a6102601`.
+Use `python -m alembic heads` and `python -m ops.migration_check verify`
+to check the shipped graph and the deployed schema. Production-style RLS
+verification uses a separately granted, non-superuser application role.
+The isolated test runner below creates its own disposable PostgreSQL and
+never uses the development database.
+
+See [the classroom/programme pilot guide](docs/STAGE23_PILOT_GUIDE.md) for
+roles, school allocations, CSV enrollment and the HLU integration boundary.
+
+```bash
+python tools/run_stage23_acceptance.py
+```
 
 Current users/auth, activity history, AI token usage and admin AI configuration
 are PostgreSQL-primary-with-fallback. This wording does not imply that every
@@ -107,3 +100,12 @@ The internal demo exercises the accepted local and PostgreSQL-backed flows.
 External production LMS/SIS/CMS integration is not proven. Database
 backup/restore is verified, while external model artifacts, datasets, CMS
 uploads, secret recovery and full disaster recovery remain separate work.
+
+## Optional queued learning engine
+
+The [learning engine guide](../engine/README.md) covers time-aware ML validation,
+local TF-IDF/Surprise SVD recommendations, Redis lecture cache and Celery advice.
+Set EDUDSS_ENGINE_URL and the shared server signing key to enable its AI tab.
+Dataset school/course/student identities must match the application's verified
+classes. The [architecture and measured limits](../engine/docs/VALIDATION.md)
+include synthetic accuracy, quota checks and cache-versus-HTTP timings.

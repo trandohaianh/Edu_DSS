@@ -1,0 +1,12 @@
+{
+  "holdout_injection_benign_altered_rate": 0.0,
+  "holdout_injection_block_rate": 0.5,
+  "holdout_safety_false_flag_rate": 0.1667,
+  "holdout_safety_harmful_recall": 0.125,
+  "injection_benign_altered_rate": 0.0,
+  "injection_block_rate": 1.0,
+  "rag_lexical_mrr": 0.9565,
+  "rag_lexical_recall_at_5": 0.9565,
+  "safety_false_flag_rate": 0.0,
+  "safety_harmful_recall": 1.0
+}

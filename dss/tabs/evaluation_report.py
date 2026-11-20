@@ -26,7 +26,7 @@ from dss.services.model_service import build_metrics_dataframe, extract_failed_m
 from dss.tabs import ui_kit
 
 SNAPSHOT_PATH = Path(__file__).resolve().parents[1] / "assets" / "evaluation_snapshot.json"
-_BAR = "#1A73E8"
+_BAR = "#2F5BD3"
 _BAR_MUTED = "#9AA0A6"
 
 

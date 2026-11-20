@@ -25,7 +25,7 @@ def env(monkeypatch):
 
 # ---------------------------------------------------------------- the switch
 @pytest.mark.parametrize("values,expected", [
-    ({}, False),
+    ({}, True),                                # unset fails CLOSED (audit 2026-11): no silent dev defaults
     ({"EDUDSS_ENV": "development"}, False),
     ({"EDUDSS_ENV": "test"}, False),
     ({"EDUDSS_ENV": "production"}, True),
@@ -163,3 +163,52 @@ def test_lockout_survives_restart_and_stores_no_plain_username(env):
     assert isinstance(json.loads(raw), dict)
     login_throttle.reset(name)
     assert login_throttle.is_locked(name) == (False, 0)
+
+
+# ------------------------------------------------------------------ audit 17/11/2026: khoá theo máy khách
+def test_failed_logins_from_one_client_do_not_lock_the_account_elsewhere(tmp_path, monkeypatch):
+    monkeypatch.setenv("EDUDSS_DATA_ROOT", str(tmp_path))
+    from dss.security import login_throttle as t
+    name = "admin-lock-probe"
+    t.reset(name)
+    for _ in range(t.MAX_FAILED_ATTEMPTS):
+        t.record_failure(name, "203.0.113.7")
+    assert t.is_locked(name, "203.0.113.7")[0] is True       # kẻ dò bị khoá
+    assert t.is_locked(name, "198.51.100.2") == (False, 0)   # quản trị ở máy khác vẫn vào được
+    t.reset(name, "198.51.100.2")                            # đăng nhập đúng ở máy khác không gỡ khoá kẻ dò
+    assert t.is_locked(name, "203.0.113.7")[0] is True
+    t.reset(name)                                            # quản trị đặt lại mật khẩu: xoá mọi bộ đếm
+    assert t.is_locked(name, "203.0.113.7") == (False, 0)
+
+
+def test_distributed_guessing_still_locks_the_whole_account(tmp_path, monkeypatch):
+    monkeypatch.setenv("EDUDSS_DATA_ROOT", str(tmp_path))
+    from dss.security import login_throttle as t
+    name = "admin-distributed"
+    t.reset(name)
+    for i in range(t.GLOBAL_MAX_FAILED):
+        t.record_failure(name, f"10.0.{i // 250}.{i % 250}")
+    assert t.is_locked(name, "192.0.2.99")[0] is True        # 50 lần sai từ nhiều máy: khoá cả tài khoản
+
+
+def test_unknown_client_keeps_the_strict_per_account_lock(tmp_path, monkeypatch):
+    monkeypatch.setenv("EDUDSS_DATA_ROOT", str(tmp_path))
+    from dss.security import login_throttle as t
+    name = "no-client"
+    t.reset(name)
+    for _ in range(t.MAX_FAILED_ATTEMPTS):
+        t.record_failure(name)
+    assert t.is_locked(name)[0] and t.is_locked(name, "192.0.2.1")[0]
+
+
+def test_successful_login_does_not_refill_the_distributed_guessing_budget(tmp_path, monkeypatch):
+    """Rà soát bảo mật 17/11/2026: trước đây đăng nhập đúng xoá cả bộ đếm chung của tài khoản."""
+    monkeypatch.setenv("EDUDSS_DATA_ROOT", str(tmp_path))
+    from dss.security import login_throttle as t
+    name = "admin-refill"
+    t.reset(name)
+    for i in range(t.GLOBAL_MAX_FAILED - 1):
+        t.record_failure(name, f"10.1.{i // 250}.{i % 250}")
+    t.reset(name, "192.0.2.10")                               # chủ tài khoản đăng nhập đúng
+    t.record_failure(name, "10.9.9.9")                        # lần sai thứ 50 vẫn khoá cả tài khoản
+    assert t.is_locked(name, "192.0.2.99")[0] is True

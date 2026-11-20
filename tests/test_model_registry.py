@@ -9,9 +9,7 @@ TRA REGISTRY, không kiểm tra thuật toán ML.
 """
 from __future__ import annotations
 
-import json
 
-import pytest
 
 
 class _FakePipeline:

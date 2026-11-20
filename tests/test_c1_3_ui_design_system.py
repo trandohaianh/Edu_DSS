@@ -87,7 +87,7 @@ def _sidebar_nav_groups():
     tree = ast.parse((APP / "dss" / "main.py").read_text(encoding="utf-8"))
     for node in ast.walk(tree):
         if isinstance(node, ast.Assign) and any(getattr(t, "id", None) == "SIDEBAR_NAV_GROUPS" for t in node.targets):
-            return eval(compile(ast.Expression(node.value), "main.py", "eval"), {"HOME_TAB_LABEL": roles.HOME_TAB_LABEL})
+            return eval(compile(ast.Expression(node.value), "main.py", "eval"), {name: getattr(roles, name) for name in ("HOME_TAB_LABEL", "CLASSROOM_TAB_LABEL", "PROGRAM_TAB_LABEL", "MATERIALS_TAB_LABEL")})
     raise AssertionError("Không tìm thấy SIDEBAR_NAV_GROUPS trong main.py")
 
 
@@ -293,7 +293,10 @@ def test_admin_integration_page_does_not_claim_a_live_connection():
     assert "Trực tuyến" not in text and "Live Webhook" not in text
 
 
-def test_admin_users_page_lists_accounts_without_fake_crud(dev_env):
+def test_admin_users_page_lists_accounts_and_crud_is_wired(dev_env):
+    """Trước bản full-stack, trang này cố ý KHÔNG có nút Tạo/Khoá vì chưa có service nào phía
+    sau (tránh CRUD giả). Nay form gọi auth_service.admin_* thật (kiểm tra vai trò Admin ở tầng
+    service + nhật ký kiểm toán): bấm Tạo phải thật sự tạo tài khoản."""
     from streamlit.testing.v1 import AppTest
     from dss.services import auth_service
 
@@ -303,12 +306,23 @@ def test_admin_users_page_lists_accounts_without_fake_crud(dev_env):
         from dss.tabs.admin_settings import admin_users_tab
         admin_users_tab()
 
-    at = AppTest.from_function(script, default_timeout=60).run()
+    at = AppTest.from_function(script, default_timeout=60)
+    at.session_state["_authenticated"] = True
+    at.session_state["_auth_role"] = "Admin"
+    at.session_state["_auth_username"] = "admin"
+    at.run()
     assert not at.exception
     assert len(at.dataframe) == 1
     listed = set(at.dataframe[0].value["Tên đăng nhập"])
     assert {"admin", "giangvien"} <= listed
-    assert not [b for b in at.button if any(w in (b.label or "") for w in ("Tạo", "Xoá", "Khoá"))]
+    labels = {t.label: t for t in at.text_input}
+    labels["Tên đăng nhập"].input("gv.moi")
+    labels["Mật khẩu ban đầu (≥ 10 ký tự)"].input("mat-khau-dai-123")
+    labels["Email Google (tuỳ chọn)"].input("gv.moi@truong.edu.vn")
+    next(b for b in at.button if b.label == "Tạo tài khoản").click().run()
+    assert not at.exception
+    created = auth_service._load_users()["gv.moi"]
+    assert created["role"] == "Giảng viên / CVHT" and created["email"] == "gv.moi@truong.edu.vn"
 
 
 # ---------------------------------------------------------------- student home

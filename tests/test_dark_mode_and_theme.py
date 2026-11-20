@@ -1,6 +1,5 @@
 """Unit tests for Deep Dark Mode and Theme Switcher functionality."""
 from pathlib import Path
-import pytest
 from dss.config import inject_styles
 
 

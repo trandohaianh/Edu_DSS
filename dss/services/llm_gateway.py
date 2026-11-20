@@ -547,7 +547,6 @@ class LLMGateway:
             yield "⏳ Hệ thống AI đang phục vụ tối đa tải sinh viên đồng thời. Đang chuyển sang Demo Mode (mẫu chung, không cá nhân hóa)..."
             dedup_chain = ["demo"]
 
-        success = False
         final_answer = ""
 
         try:
@@ -606,7 +605,6 @@ class LLMGateway:
                         )
                         yield demo_text
                         final_answer = demo_text
-                        success = True
                         break
                     else:
                         continue  # Không có key -> thử candidate tiếp theo trong chain
@@ -650,6 +648,8 @@ class LLMGateway:
                             )
                     if stream:
                         chunk_list = []
+                        from dss.services import llm_usage
+                        llm_usage.begin()
                         stream_iter = iter(stream)
                         if is_raw_provider_call:
                             # H-3: call_ai_provider() không raise khi lỗi — nó yield ĐÚNG
@@ -682,19 +682,28 @@ class LLMGateway:
                             yield chunk
                             chunk_list.append(chunk)
                         final_answer = "".join(chunk_list)
-                        success = True
                         if p_key != "demo":
                             circuit_breaker.record_success(p_key)
+                        # Token THẬT do provider trả về (usage_metadata/usage) nếu có — khớp hoá
+                        # đơn, gồm cả token suy nghĩ; nếu không có mới dùng ước lượng theo ký tự.
+                        provider_usage = llm_usage.take()
+                        if provider_usage:
+                            used_model = provider_usage["model"] or p_model or "default"
+                            used_in, used_out = provider_usage["input_tokens"], provider_usage["output_tokens"]
+                            used_thinking, usage_source = provider_usage["thinking_tokens"], "provider"
+                        else:
+                            used_model = p_model or "default"
+                            used_in, used_out = input_tokens, approximate_token_count(final_answer)
+                            used_thinking, usage_source = 0, "estimated"
                         record_operation("ai.provider_attempt", provider_started, success=True,
-                                         provider=p_key, model=p_model or "default",
-                                         input_tokens=input_tokens,
-                                         output_tokens=approximate_token_count(final_answer))
+                                         provider=p_key, model=used_model,
+                                         input_tokens=used_in, output_tokens=used_out)
                         # Ghi nhận token thành công
                         token_tracker.record_usage(
                             user_id=user_id, role=role, request_type=request_type,
-                            provider=p_key, model=p_model or "default",
-                            input_tokens=input_tokens,
-                            output_tokens=approximate_token_count(final_answer),
+                            provider=p_key, model=used_model,
+                            input_tokens=used_in, output_tokens=used_out,
+                            usage_source=usage_source, thinking_tokens=used_thinking,
                         )
                         # Lưu vào đệm — dimensions PHẢI gồm "student_pseudonym" (=user_id):
                         # trước fix này, dimensions chỉ có {"role": role} nên

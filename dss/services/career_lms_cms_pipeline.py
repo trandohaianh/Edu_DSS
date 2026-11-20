@@ -26,15 +26,13 @@ Nguyên tắc:
 """
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 from dss.services.career_gap_analysis import (
     PRIORITY_CRITICAL,
     PRIORITY_HIGH,
-    PRIORITY_MEDIUM,
-    PRIORITY_NICE,
     STATUS_HAVE,
     STATUS_MISSING,
     STATUS_STRENGTHEN,
@@ -45,7 +43,6 @@ from dss.services.career_gap_analysis import (
 from dss.services.career_knowledge_base import CareerRole, get_role
 from dss.services.career_profile import (
     ALL_SKILL_CATALOG,
-    SKILL_LEVEL_VALUE,
     StudentCareerProfile,
 )
 from dss.services.career_roadmap import (
@@ -60,7 +57,6 @@ from dss.services.career_roadmap import (
 from dss.services.career_scoring import (
     CareerFitResult,
     CareerReadinessResult,
-    compute_career_fit,
     compute_career_readiness,
 )
 from dss.services.cms_repository import (
@@ -132,7 +128,6 @@ def enrich_career_profile_with_lms_cms(
 ) -> LMSStudentLearningSummary:
     """Lấy dữ liệu học tập từ LMS và ánh xạ CMS để làm giàu Career Profile với minh chứng xác thực."""
     lms = lms_repo or get_lms_repository()
-    cms = cms_repo or get_cms_repository()
 
     # 1. Trích xuất Student Learning Profile từ LMS
     summary = lms.get_student_learning_summary(profile.student_pseudonym, raw_row)
@@ -195,7 +190,6 @@ def compute_traced_gap_analysis(
             continue
 
         # 1. Xác định LMS Evidence cho kỹ năng
-        skill_item = profile.skills.get(g.skill_name)
         target_next_level = {"None": "Basic", "Basic": "Intermediate", "Intermediate": "Advanced"}.get(g.current_level, "Intermediate")
 
         # Tìm trong lịch sử bài kiểm tra của LMS xem có bài nào liên quan kỹ năng này không
@@ -351,7 +345,6 @@ def execute_closed_loop_action(
     4. Cập nhật khuyến nghị nghề nghiệp tức thì.
     """
     lms = lms_repo or get_lms_repository()
-    cms = cms_repo or get_cms_repository()
     role = get_role(role_id)
 
     # 1. Lưu readiness trước khi thực hiện

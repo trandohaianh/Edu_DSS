@@ -1,4 +1,4 @@
-import sys, time, warnings, logging
+import sys, warnings, logging
 warnings.filterwarnings("ignore"); logging.disable(logging.WARNING)
 sys.path.insert(0, ".")
 from dss.core.data_helpers import generate_data

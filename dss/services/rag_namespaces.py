@@ -55,7 +55,6 @@ def is_namespace_allowed(role: str, namespace: str) -> bool:
 def validate_student_profile_not_in_knowledge(doc_data: dict) -> None:
     """Bảo vệ kiến trúc: Chặn việc vô tình lưu hồ sơ sinh viên thành tài liệu tri thức."""
     title = str(doc_data.get("title", "")).lower()
-    content = str(doc_data.get("content", "")).lower()
     doc_id = str(doc_data.get("id") or doc_data.get("document_id") or "").lower()
 
     suspicious_markers = [

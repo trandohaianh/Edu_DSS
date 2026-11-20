@@ -6,11 +6,9 @@ from __future__ import annotations
 # - Các thư viện chuẩn Python: hashlib, json, math, os, warnings, datetime, io
 # - Các thư viện dữ liệu/ML: numpy, pandas, scikit-learn, joblib
 # - Streamlit: giao diện web tương tác
-import hashlib  # tạo hash dùng cho id/unique keys
 import json  # đọc/ghi cấu trúc JSON (metadata, lịch sử)
 import math  # các hàm toán học cơ bản (sqrt, floor, ...)
 import os  # thao tác file system (tạo folder, path join)
-import time
 import warnings  # để bật/tắt cảnh báo khi cần
 from datetime import datetime  # thời gian hiện tại, lưu metadata
 from io import BytesIO  # dùng để xây buffer khi tải file (Excel)
@@ -72,7 +70,6 @@ except Exception:
 
 # Visualize libraries
 import plotly.express as px
-import plotly.graph_objects as go
 import matplotlib.pyplot as plt
 
 # Chuẩn hóa hiển thị giá trị trên biểu đồ để dễ đọc nhanh.
@@ -120,16 +117,12 @@ from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import (
     RandomForestClassifier,
     RandomForestRegressor,
-    GradientBoostingClassifier,
-    GradientBoostingRegressor,
-    StackingClassifier,
     StackingRegressor,
 )
 from sklearn.linear_model import LogisticRegression, LinearRegression, Ridge, Lasso
 from sklearn.svm import SVC, SVR
 from sklearn.model_selection import train_test_split, GridSearchCV, cross_val_score, StratifiedKFold, KFold
 from sklearn.metrics import (
-    classification_report,
     confusion_matrix,
     accuracy_score,
     precision_score,
@@ -138,12 +131,7 @@ from sklearn.metrics import (
     mean_squared_error,
     mean_absolute_error,
     r2_score,
-    roc_auc_score,
-    roc_curve,
-    auc,
-    ConfusionMatrixDisplay,
-    silhouette_score,
-)
+    )
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.impute import SimpleImputer, KNNImputer
 from sklearn.pipeline import Pipeline, Pipeline as SklearnPipeline

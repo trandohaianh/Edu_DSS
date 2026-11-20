@@ -27,8 +27,6 @@ exception — the test itself fails if any step fails.
 """
 from __future__ import annotations
 
-import hashlib
-import hmac
 import json
 import os
 import subprocess

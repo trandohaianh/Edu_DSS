@@ -20,6 +20,7 @@ from dss.services import learning_explainer
 from dss.services import privacy_service
 from dss.core.data_helpers import TOPIC_SCORE_COLUMNS
 from dss.core.logging_config import get_logger
+from dss.core.target_utils import is_id_like
 
 _logger = get_logger(__name__)
 
@@ -352,7 +353,7 @@ def _infer_topic_mastery(df, current_student_id: str, topic_id: str):
     tier cuối cùng cho resolve_explanation_level() khi không có learning_profile."""
     if not current_student_id or not topic_id:
         return None
-    id_col = next((c for c in df.columns if "id" in c.lower()), None)
+    id_col = next((c for c in df.columns if is_id_like(c)), None)
     if not id_col:
         return None
     matching_col = next((c for c in TOPIC_SCORE_COLUMNS if topic_id.lower() in c.lower() or topic_id.lower() in TOPIC_SCORE_COLUMNS[c].lower()), None)
@@ -374,7 +375,7 @@ def _resolve_level_for_student(df, current_student_id, course_id, lesson_id, top
     try:
         from dss.services.learning_profile import StudentLearningProfile
         if current_student_id and df is not None:
-            id_col = next((c for c in df.columns if "id" in c.lower()), None)
+            id_col = next((c for c in df.columns if is_id_like(c)), None)
             if id_col:
                 rows = df[df[id_col].astype(str) == str(current_student_id)]
                 if not rows.empty:

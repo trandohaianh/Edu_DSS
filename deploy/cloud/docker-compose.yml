@@ -1,0 +1,81 @@
+# EduDSS — bản demo công khai trên VM miễn phí (Oracle Always Free, dùng chung với FieldOps/Telecom).
+#
+#   Internet ─443─▶ Caddy của FieldOps (mạng docker `edge`) ─▶ edudss:8501 (Streamlit)
+#                                                         └─▶ edudss:8081/metrics (Bearer token)
+#   worker: cùng image, chạy pipeline vận hành (KPI theo giờ, chất lượng dữ liệu, backup + diễn tập khôi phục)
+#
+# Dữ liệu MÔ PHỎNG (EDUDSS_ENV=development + EDUDSS_PUBLIC_DEMO=1): không tài khoản demo, không
+# đăng nhập SVxxx/SVxxx123; khách đăng nhập Google và nhận 1 sinh viên mô phỏng riêng.
+# Bản triển khai cho một trường thật (PostgreSQL + RLS, image ký số) là deploy/production/.
+#
+#   docker compose --env-file .env up -d --build            # khi đã có Caddy chung (mạng edge)
+#   docker compose --env-file .env --profile standalone up -d --build   # VM chỉ có EduDSS
+
+name: edudss
+
+x-app: &app
+  image: edudss:local
+  restart: unless-stopped
+  env_file: .env
+  environment:
+    EDUDSS_ENV: development
+    EDUDSS_PUBLIC_DEMO: "1"
+    EDUDSS_MODE: DEMO_SYNTHETIC
+    EDUDSS_DATA_ROOT: /app/data_warehouse
+    STREAMLIT_BROWSER_GATHER_USAGE_STATS: "false"
+    STREAMLIT_CLIENT_TOOLBAR_MODE: viewer
+    STREAMLIT_SERVER_ENABLE_XSRF_PROTECTION: "true"
+    HF_HOME: /app/data_warehouse/.hf-cache
+  volumes:
+    - edudss_data:/app/data_warehouse
+
+services:
+  edudss:
+    <<: *app
+    build:
+      context: ../..
+      args:
+        EDUDSS_GIT_SHA: ${EDUDSS_GIT_SHA:-unknown}
+    mem_limit: 3g
+    networks:
+      default: {}
+      edge:
+        aliases: [edudss]
+    healthcheck:
+      test: ["CMD", "python", "-m", "dss.core.health_server", "probe", "livez"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 180s
+
+  worker:
+    <<: *app
+    pull_policy: never
+    command: ["python", "-m", "ops.pipeline", "--schedule"]
+    mem_limit: 1536m
+    healthcheck:
+      disable: true
+    depends_on:
+      edudss: {condition: service_started}
+
+  caddy:
+    image: caddy:2
+    profiles: [standalone]
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    volumes:
+      - ./standalone.Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./edudss.caddy.generated:/etc/caddy/edudss.caddy:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks: [edge]
+
+volumes:
+  edudss_data:
+  caddy_data:
+  caddy_config:
+
+networks:
+  edge:
+    external: true
+    name: edge

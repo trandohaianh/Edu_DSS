@@ -19,22 +19,18 @@ Kiểm chứng đầy đủ các tiêu chuẩn bắt buộc:
 """
 from __future__ import annotations
 
-import pytest
 
 from dss.services.career_profile import (
-    ALL_SKILL_CATALOG,
     SUBJECT_TO_COMPETENCY_DOMAIN,
     StudentCareerProfile,
 )
 from dss.services.career_knowledge_base import (
-    CAREER_ROLES,
     get_role,
     list_roles,
 )
 from dss.services.career_scoring import (
     CAREER_FIT_WEIGHTS,
     CAREER_READINESS_WEIGHTS,
-    compute_academic_match,
     compute_career_fit,
     compute_career_readiness,
     compute_constraint_match,
@@ -45,13 +41,8 @@ from dss.services.career_scoring import (
 from dss.services.career_gap_analysis import (
     PRIORITY_CRITICAL,
     PRIORITY_HIGH,
-    PRIORITY_MEDIUM,
-    PRIORITY_NICE,
-    STATUS_HAVE,
     STATUS_MISSING,
-    STATUS_STRENGTHEN,
     compute_gap_analysis,
-    group_gap_by_status,
 )
 from dss.services.career_roadmap import (
     _BUCKET_1M,
@@ -62,10 +53,8 @@ from dss.services.career_roadmap import (
     suggest_alternative_paths,
 )
 from dss.services.career_whatif import (
-    apply_constraint_change,
     apply_skill_change,
     compare_scenarios,
-    filter_roles_by_constraint,
     rank_roles_for_timeframe,
 )
 from dss.services.career_ai_advisor import (

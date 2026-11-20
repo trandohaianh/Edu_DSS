@@ -31,10 +31,8 @@ from dss.services.career_profile import (
     ExperienceItem,
     StudentCareerProfile,
 )
-from dss.services.career_knowledge_base import CareerRole, get_role, list_roles
+from dss.services.career_knowledge_base import get_role, list_roles
 from dss.services.career_scoring import (
-    compute_career_fit,
-    compute_career_readiness,
     detect_capability_vs_constraint_conflicts,
     rank_careers,
 )
@@ -54,14 +52,12 @@ from dss.services.career_roadmap import (
     _BUCKET_3M,
     _BUCKET_6M,
     compute_transition,
-    generate_roadmap,
     suggest_alternative_paths,
 )
 from dss.services.career_whatif import (
     apply_constraint_change,
     apply_skill_change,
     compare_scenarios,
-    filter_roles_by_constraint,
     rank_roles_for_timeframe,
 )
 from dss.services.career_ai_advisor import (
@@ -71,10 +67,6 @@ from dss.services.career_ai_advisor import (
 )
 from dss.services.lms_connector import (
     BaseLMSRepository,
-    STATUS_DEMO,
-    STATUS_FUTURE_REAL,
-    STATUS_IMPLEMENTED,
-    STATUS_PARTIAL,
     get_lms_repository,
 )
 from dss.services.cms_repository import (
@@ -82,13 +74,13 @@ from dss.services.cms_repository import (
     get_cms_repository,
 )
 from dss.services.career_lms_cms_pipeline import (
-    ClosedLoopActionResult,
     TracedGapItem,
     compute_traced_gap_analysis,
     enrich_career_profile_with_lms_cms,
     execute_closed_loop_action,
     generate_traced_roadmap,
 )
+from dss.core.target_utils import is_id_like
 
 _STATUS_ICON = {STATUS_HAVE: "✅", STATUS_STRENGTHEN: "🔶", STATUS_MISSING: "✕"}
 _PRIORITY_BADGE_KIND = {
@@ -947,7 +939,7 @@ def student_advisory_tab(df, role=None, current_student_id=None):
         )
         return
 
-    id_col = next((c for c in df.columns if "id" in c.lower()), df.columns[0] if not df.empty else None)
+    id_col = next((c for c in df.columns if is_id_like(c)), df.columns[0] if not df.empty else None)
     if not id_col:
         st.error("Không tìm thấy cột định danh ID trong tập dữ liệu.")
         return

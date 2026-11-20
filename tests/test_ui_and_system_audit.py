@@ -1,6 +1,5 @@
 """Unit tests for Centralized Display Mapper and Shared UI Kit components."""
 import pandas as pd
-import pytest
 from dss.core.display_mapper import (
     clean_display_dataframe,
     map_data_source,

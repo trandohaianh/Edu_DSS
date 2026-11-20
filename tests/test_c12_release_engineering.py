@@ -45,7 +45,8 @@ def test_schema_contract_tables_come_from_metadata():
     tables = schema_contract.expected_tables()
     assert "alembic_version" in tables
     assert set(Base.metadata.tables) <= tables
-    assert len(tables) == len(Base.metadata.tables) + 1
+    from dss.platform.models import PlatformBase
+    assert tables == frozenset(set(Base.metadata.tables) | set(PlatformBase.metadata.tables) | {"alembic_version"})
 
 
 def test_no_hard_coded_schema_snapshot_in_ci_or_backup_test():

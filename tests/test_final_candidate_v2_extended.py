@@ -41,12 +41,10 @@ from __future__ import annotations
 
 import json
 import os
-import subprocess
 import time
 import uuid
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 import pytest
 import requests
@@ -59,7 +57,7 @@ from sklearn.metrics import (
 )
 from sklearn.model_selection import cross_val_score, train_test_split
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import FunctionTransformer, StandardScaler
+from sklearn.preprocessing import StandardScaler
 from sqlalchemy import create_engine, text
 
 OWNER_URL = os.getenv("FCV2_OWNER_URL")
@@ -249,7 +247,7 @@ def test_A_ml_governance_journey():
         state["training_id"] = training_id
 
         st.session_state["_auth_role"] = "Admin"
-        st.session_state["_auth_user"] = "fcv2-admin"
+        st.session_state["_auth_username"] = "fcv2-admin"
         from dss.services import model_registry
         ok, msg = model_registry.promote(wh, training_id, promoted_by="fcv2-admin", promotion_reason="Final candidate v2 verification")
         assert ok, msg
@@ -327,7 +325,6 @@ def test_B_ai_rag_advisor_journey():
         return {"question": question, "answer_length_chars": len(answer), "mode": "SIMULATED (Production Demo Policy — no paid provider credentials configured)"}
 
     def step_save_consultation():
-        from dss.core.warehouse import DataWarehouse
         os.environ["EDUDSS_ORGANIZATION_ID"] = str(state["org_a"])
         os.environ["EDUDSS_CONSULTATIONS_STORE"] = "postgres"
         from dss.db.repositories.consultation_repository import save_consultation, list_consultations

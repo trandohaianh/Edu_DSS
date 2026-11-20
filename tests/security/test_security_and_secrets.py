@@ -6,14 +6,12 @@ Validates:
 3. Model artifact SHA-256 checksum verification and tampering rejection.
 4. RBAC security enforcement (Lecturer cannot promote model, Student cannot see keys).
 """
-import hashlib
 import json
-import os
 import re
 import pytest
 from pathlib import Path
 
-from dss.services.auth_service import authenticate, is_account_locked, AccountLockedError
+from dss.services.auth_service import authenticate, AccountLockedError
 from dss.core.warehouse import DataWarehouse
 
 

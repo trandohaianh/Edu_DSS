@@ -20,7 +20,6 @@ Tuân thủ nguyên tắc:
 """
 from __future__ import annotations
 
-import copy
 import uuid
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass, field

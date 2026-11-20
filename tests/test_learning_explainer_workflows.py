@@ -46,7 +46,7 @@ def _ingest(llm_integration, course_id, lesson_id, topic_id, content: str, title
 def test_v1_v2_v3_supersession_and_archived_version_lookup(llm_integration, unique_course):
     lesson_id = f"lesson_ver3_{uuid.uuid4().hex[:8]}"
     v1 = _ingest(llm_integration, unique_course, lesson_id, "clustering", "K-Means bản v1: chưa có K-Means++.", "Bài v1")
-    v2 = _ingest(llm_integration, unique_course, lesson_id, "clustering", "K-Means bản v2: có K-Means++ khởi tạo tốt hơn.", "Bài v2")
+    _ingest(llm_integration, unique_course, lesson_id, "clustering", "K-Means bản v2: có K-Means++ khởi tạo tốt hơn.", "Bài v2")
     v3 = _ingest(llm_integration, unique_course, lesson_id, "clustering", "K-Means bản v3: thêm phần đánh giá Silhouette Score.", "Bài v3")
 
     assert len(v3.versions) == 3

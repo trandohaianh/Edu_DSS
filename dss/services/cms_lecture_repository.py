@@ -23,7 +23,6 @@ from __future__ import annotations
 import json
 import os
 import threading
-import uuid
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -260,6 +259,13 @@ def ingest_lecture_material(
     (Mục 15: bản cũ vẫn lưu lại, chỉ không còn là 'current'). Tái sử dụng
     document_ingestion.ingest_document() + chunking_service (qua đó) +
     vector_store — không viết lại pipeline trích xuất/phân đoạn."""
+    from dss.services import engine_gateway
+    if engine_gateway.enabled():
+        actor = engine_gateway.authorize_staff_course(course_id)
+        existing = get_lesson(lesson_id)
+        if existing is not None and existing.course_id != course_id:
+            raise PermissionError("Mã bài học đã thuộc một học phần khác.")
+        lecturer_id = actor.username
     lesson = create_or_get_lesson(course_id, lesson_id, topic_id, lecturer_id, title, learning_outcome, difficulty)
     next_version = len(lesson.versions) + 1
 
@@ -294,6 +300,7 @@ def ingest_lecture_material(
     ))
     lesson.current_document_id = ingested.document_id  # bản MỚI NHẤT luôn là "current"
     _upsert_lesson(lesson)
+    engine_gateway.auto_sync_upload(course_id, lesson_id, ingested.chunks)
     return lesson
 
 

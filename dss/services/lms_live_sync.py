@@ -16,6 +16,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 import pandas as pd
+from dss.core.target_utils import is_id_like
 
 
 @dataclass
@@ -72,7 +73,7 @@ class LMSLiveSyncManager:
             self.record_event(event)
             return False, df, "DataFrame trống hoặc chưa nạp."
 
-        id_col = next((c for c in df.columns if "id" in str(c).lower() or "ma" in str(c).lower()), None)
+        id_col = next((c for c in df.columns if is_id_like(c) or "ma" in str(c).lower()), None)
         if not id_col:
             self.record_event(event)
             return False, df, "Không tìm thấy cột định danh sinh viên trong dataset."

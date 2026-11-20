@@ -21,7 +21,6 @@ xác nhận KHÔNG tái hiện được trên code hiện tại — xem báo cá
 """
 from __future__ import annotations
 
-from playwright.sync_api import expect
 
 
 def _open_ai_advisor_tab(page):

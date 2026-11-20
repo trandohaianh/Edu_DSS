@@ -46,7 +46,7 @@ def scan_for_secrets() -> list:
                         if "EXAMPLE" in m or "YOUR" in m or "test" in m.lower():
                             continue
                         findings.append(f"Secret detected ({secret_type}) in {p.relative_to(ROOT_DIR)}: {m[:6]}...{m[-4:]}")
-            except Exception as ex:
+            except Exception:
                 pass
     return findings
 

@@ -90,6 +90,7 @@ def test_short_key_rejected(keyed):
 
 
 def test_development_key_is_generated_outside_source_and_stable(keyed):
+    keyed.setenv("EDUDSS_ENV", "development")       # EDUDSS_ENV không đặt = production (fail closed)
     keyed.delenv("EDUDSS_PSEUDONYM_KEY")
     pz.reset_cache_for_tests()
     first = pz.pseudonymize("SV001", organization_id=1)

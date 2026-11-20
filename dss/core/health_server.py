@@ -7,6 +7,9 @@
                   configuration, pseudonymization key). 503 otherwise. Optional AI
                   providers never affect it.
     GET /version  release identity + runtime state (dss.core.release.version_document()).
+    GET /metrics  Prometheus text format (dss/core/metrics_exporter.py). Bearer
+                  EDUDSS_METRICS_TOKEN; without a token only loopback clients are served.
+                  The reverse proxy publishes ONLY this path of the health port.
 
 Why a separate process: Streamlit executes the app script only when a browser session
 connects, so the app itself cannot answer readiness before the first user. This server
@@ -84,6 +87,9 @@ class Handler(BaseHTTPRequestHandler):
     sys_version = ""
 
     def do_GET(self):  # noqa: N802
+        if self.path.split("?", 1)[0].rstrip("/") == "/metrics":
+            self._metrics()
+            return
         route = ROUTES.get(self.path.split("?", 1)[0].rstrip("/") or "/")
         if route is None:
             self._send(404, {"status": "not_found"})
@@ -93,6 +99,25 @@ class Handler(BaseHTTPRequestHandler):
         except Exception:
             code, body = 503, {"status": "error"}
         self._send(code, body)
+
+    def _metrics(self) -> None:
+        try:
+            from dss.core import metrics_exporter
+
+            client_ip = self.client_address[0] if self.client_address else ""
+            if not metrics_exporter.authorized(self.headers.get("Authorization"), client_ip):
+                self._send(401, {"status": "unauthorized"})
+                return
+            payload, content_type = metrics_exporter.render()
+        except Exception:
+            self._send(503, {"status": "metrics_unavailable"})
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Length", str(len(payload)))
+        self.end_headers()
+        self.wfile.write(payload)
 
     def _send(self, code: int, body: dict) -> None:
         payload = json.dumps(body, ensure_ascii=False, default=str).encode("utf-8")

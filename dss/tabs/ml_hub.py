@@ -3,15 +3,13 @@ from dss.config import *  # noqa: F403
 from dss.core.utils import (
     render_chart_guide,
     render_chart_guide_advanced,
-    st_step_header,
     _make_safe_cv_strategy,
     _ensure_label_mapping,
 )
 from dss.core.data_helpers import feature_label
 from dss.core.observability import predict_with_metrics
-from dss.core.feature_utils import to_excel, create_feature_metrics_scatter_plots, render_save_export_buttons
+from dss.core.feature_utils import render_save_export_buttons
 from dss.core.target_utils import infer_default_target_column, infer_problem_type
-from dss.tabs.eda import scatter_with_optional_ols
 from dss.tabs import ui_kit
 
 # Phase 2 refactor: logic huấn luyện/đánh giá THUẦN (không UI) đã chuyển sang
@@ -20,28 +18,20 @@ from dss.tabs import ui_kit
 # sửa hàng trăm lời gọi UI bên dưới trong cùng phase — xem model_service.py để
 # đọc code thật.
 from dss.services.model_service import (
-    clear_prediction_training_state as _clear_prediction_training_state,
     run_training as _run_ml_hub_training,
     resolve_predicted_output_col as _resolve_predicted_output_col,
-    safe_metric_value as _safe_metric_value,
-    extract_failed_models as _extract_failed_models,
-    build_metrics_dataframe as _build_metrics_dataframe,
     drop_near_duplicate_columns as _drop_near_duplicate_columns,
-    pick_best_model_name as _pick_best_model_name,
     resolve_saved_feature_cols as _resolve_saved_feature_cols,
-    update_hub_benchmark_and_build_comparison as _update_hub_benchmark_and_build_comparison,
     resolve_hub_train_config as _resolve_hub_train_config,
-    assoc_strength as _assoc_strength,
     find_leaky_feature_cols as _find_leaky_feature_cols,
-    training_target_change_handler as _training_target_change_handler,
     training_target_widget_callback as _training_target_widget_callback,
-    resolve_production_for_prediction as _resolve_production_for_prediction,
     resolve_model_for_prediction as _resolve_model_for_prediction,
     describe_prediction_model as _describe_prediction_model,
     run_preview_benchmark as _run_preview_benchmark,
     compute_shap_local_explanation as _compute_shap_local_explanation,
     compute_shap_summary as _compute_shap_summary,
 )
+from dss.core.target_utils import is_id_like
 
 
 def render_training_config_ui(df, classification_trainer, regression_trainer, key_prefix="config"):
@@ -130,7 +120,7 @@ def render_training_config_ui(df, classification_trainer, regression_trainer, ke
 
         available_features = [col for col in all_cols if col != target_col]
         id_cols = [
-            col for col in all_cols if "id" in str(col).lower() or "name" in str(col).lower()
+            col for col in all_cols if is_id_like(col) or "name" in str(col).lower()
         ]
 
         # Phát hiện rò rỉ dữ liệu (leakage): cột feature gắn kết gần như tuyệt đối với Target
@@ -446,20 +436,13 @@ def render_training_config_ui(df, classification_trainer, regression_trainer, ke
                         "smote": "SMOTE (Tạo thêm mẫu cho lớp ít dữ liệu)",
                         "borderline": "BorderlineSMOTE (Ưu tiên tạo mẫu vùng ranh giới)",
                         "adasyn": "ADASYN (Tạo mẫu thích nghi theo độ khó)",
-                        "class_weight": "class_weight (Tăng trọng số lớp ít — không sinh mẫu giả)",
                     }
                     balance_method = st.selectbox(
                         "Phương pháp:",
-                        ["none", "smote", "borderline", "adasyn", "class_weight"],
+                        ["none", "smote", "borderline", "adasyn"],
                         format_func=lambda x: balance_labels.get(x, x),
                         key=f"{key_prefix}_balance",
-                        help=(
-                            "Kỹ thuật xử lý mất cân bằng lớp (class imbalance). "
-                            "Khi lớp thiểu số chỉ còn vài mẫu, các biến thể SMOTE nội suy giữa "
-                            "chính vài mẫu đó nên mẫu sinh ra nằm gọn trên một đoạn thẳng và gần "
-                            "như không thêm thông tin; class_weight phù hợp hơn vì chỉ tăng mức "
-                            "phạt khi đoán sai lớp hiếm, mô hình vẫn chỉ học từ mẫu thật."
-                        )
+                        help="Kỹ thuật xử lý mất cân bằng lớp (class imbalance)."
                     )
             
             st.markdown("---")
@@ -537,7 +520,8 @@ def render_training_config_ui(df, classification_trainer, regression_trainer, ke
                     )
 
     from dss.core.target_utils import detect_temporal_column
-    time_col = detect_temporal_column(df)
+    # Không dùng một đặc trưng mô hình làm cột thời gian (vd. total_time_minutes).
+    time_col = detect_temporal_column(df, feature_cols=selected_features)
     split_strategy = "temporal" if time_col else "random"
 
     return {
@@ -711,7 +695,7 @@ def _personal_prediction_student_form(df, wh, train_config=None, role=None):
     _own_student_row = None
     if role == "Sinh viên":
         _own_student_id = st.session_state.get("current_student_id")
-        _id_col_for_prefill = next((c for c in df.columns if "id" in str(c).lower()), None)
+        _id_col_for_prefill = next((c for c in df.columns if is_id_like(c)), None)
         if _own_student_id and _id_col_for_prefill:
             _own_match = df[df[_id_col_for_prefill].astype(str) == str(_own_student_id)]
             if not _own_match.empty:
@@ -942,7 +926,7 @@ def file_prediction_tab(
         st.markdown("#### Chọn Sinh viên để Dự đoán")
 
         # Tìm cột ID
-        id_col = next((c for c in df.columns if 'id' in c.lower()), df.columns[0])
+        id_col = next((c for c in df.columns if is_id_like(c)), df.columns[0])
         student_ids = df[id_col].unique()
 
         if role == "Sinh viên":

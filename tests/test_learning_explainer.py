@@ -15,7 +15,6 @@ kết quả truy xuất thật của vector store cục bộ.
 """
 from __future__ import annotations
 
-import shutil
 import uuid
 
 import pytest

@@ -161,7 +161,6 @@ def generate_career_passport_pdf(
         bottomMargin=36,
     )
 
-    styles = getSampleStyleSheet()
 
     # Style definitions
     header_org = ParagraphStyle(

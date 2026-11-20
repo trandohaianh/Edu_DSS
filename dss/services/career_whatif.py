@@ -11,13 +11,11 @@ Hỗ trợ trả lời các câu hỏi giả định cốt lõi:
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from dss.services.career_knowledge_base import CareerRole
 from dss.services.career_profile import StudentCareerProfile
 from dss.services.career_scoring import (
-    CareerFitResult,
-    CareerReadinessResult,
     compute_career_fit,
     compute_career_readiness,
 )

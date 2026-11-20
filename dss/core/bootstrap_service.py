@@ -1,117 +1,18 @@
-"""Khởi tạo workspace sau đăng nhập — TÁCH BIỆT rõ giữa:
-
-    (a) tiến trình UI thân thiện hiển thị cho người dùng (màn tải EduDSS,
-        xem `dss/tabs/loading_screen.py`), và
-    (b) công việc khởi tạo kỹ thuật THẬT (huấn luyện mặc định lần đầu, phân
-        cụm mặc định — logic 100% giữ nguyên từ `auto_bootstrap.py` cũ).
-
-Lớp UI chỉ biết map (percent, stage_key) -> câu tiếng Việt thân thiện; KHÔNG
-biết gì về RandomForest/GridSearchCV/KMeans. Ngược lại, module này (và các
-service nó gọi) không được vẽ bất kỳ UI kỹ thuật nào lên trang — nếu hàm
-huấn luyện dùng chung (`run_training`, chứa nhiều `st.write/info/...` phục vụ
-màn hình "Huấn luyện — Dự đoán" THỦ CÔNG của Giảng viên) được gọi Ở ĐÂY một
-cách NGẦM, output kỹ thuật của nó bị nuốt an toàn và chuyển thành log (xem
-`_suppress_streamlit_output`) — không sửa `trainers.py`/`run_training` (vẫn
-cần hiển thị bình thường khi Giảng viên tự bấm huấn luyện thủ công).
-"""
+"""Lightweight login initialization: reuse approved models; no implicit analytics."""
 from __future__ import annotations
 
-import logging
-from contextlib import contextmanager
-from datetime import datetime
-
-import numpy as np
 import pandas as pd
 import streamlit as st
 
 from dss.core.logging_config import get_logger
 from dss.core.target_utils import (
-    filter_leakage_features,
-    get_leaky_target_columns,
-    infer_default_target_column,
-    infer_problem_type,
+    filter_leakage_features, get_leaky_target_columns,
+    infer_default_target_column, infer_problem_type,
 )
 from dss.services.model_service import find_leaky_feature_cols
-from dss.services import clustering_service
+from dss.core.target_utils import is_id_like
 
 _logger = get_logger(__name__)
-
-
-class _NullWidget:
-    """No-op thay cho 1 container/widget Streamlit — nuốt an toàn mọi lời gọi
-    UI bên trong khi chạy Ở CHẾ ĐỘ NGẦM, không vẽ gì lên trang, không raise
-    lỗi dù gọi thuộc tính/method/`with` block nào."""
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *exc):
-        return False
-
-    def __getattr__(self, _name):
-        return lambda *a, **k: self
-
-    def __iter__(self):
-        return iter(())
-
-    def __bool__(self):
-        return False
-
-
-@contextmanager
-def _suppress_streamlit_output():
-    """Trong lúc khởi tạo NGẦM: st.write/info/success/warning/error được
-    CHUYỂN THÀNH log kỹ thuật thật (không mất thông tin cho người vận hành —
-    xem yêu cầu thiết kế "technical logs still exist"); mọi widget tương tác
-    (expander/columns/metric/chart/dataframe/button/spinner...) bị nuốt an
-    toàn — không vẽ gì lên trang. Khôi phục nguyên trạng `streamlit` module
-    ngay khi xong (finally), không ảnh hưởng bất kỳ lời gọi `st.*` nào khác
-    đang/sẽ chạy ở ngữ cảnh khác (vd. tab "Huấn luyện — Dự đoán" thủ công)."""
-    _text_levels = {
-        "write": logging.INFO,
-        "info": logging.INFO,
-        "success": logging.INFO,
-        "warning": logging.WARNING,
-        "error": logging.ERROR,
-    }
-    _widget_names = (
-        "expander", "columns", "metric", "plotly_chart", "dataframe",
-        "download_button", "button", "spinner", "progress", "caption",
-        "markdown", "subheader", "header",
-    )
-    _originals: dict[str, object] = {}
-
-    def _make_text_fn(level):
-        def _fn(*args, **kwargs):
-            if args:
-                try:
-                    _logger.log(level, "[bootstrap-ngầm] %s", str(args[0])[:500])
-                except Exception:
-                    pass
-            return None
-        return _fn
-
-    def _columns_fn(spec=1, *_a, **_k):
-        n = spec if isinstance(spec, int) else len(spec)
-        return [_NullWidget() for _ in range(max(int(n), 1))]
-
-    for _name, _level in _text_levels.items():
-        _originals[_name] = getattr(st, _name)
-        setattr(st, _name, _make_text_fn(_level))
-    for _name in _widget_names:
-        _originals[_name] = getattr(st, _name)
-        if _name == "columns":
-            setattr(st, _name, _columns_fn)
-        elif _name == "button":
-            setattr(st, _name, lambda *a, **k: False)
-        else:
-            setattr(st, _name, lambda *a, **k: _NullWidget())
-
-    try:
-        yield
-    finally:
-        for _name, _fn in _originals.items():
-            setattr(st, _name, _fn)
 
 
 def _detect_default_training_config(df):
@@ -125,7 +26,7 @@ def _detect_default_training_config(df):
         return None
 
     available_features = [c for c in all_cols if c != target_col]
-    id_cols = [c for c in all_cols if "id" in str(c).lower() or "name" in str(c).lower()]
+    id_cols = [c for c in all_cols if is_id_like(c) or "name" in str(c).lower()]
 
     clean_features = filter_leakage_features(df, target_col, available_features)
     leaky_cols = find_leaky_feature_cols(df, target_col, id_cols)
@@ -215,76 +116,29 @@ def _bootstrap_default_training(df, wh, classification_trainer, regression_train
 
 
 
-def _bootstrap_default_clustering(df):
-    if "cluster_results_df" in st.session_state and st.session_state.get("cluster_results_df") is not None:
-        return
-    # C-1: dùng hàm chọn cột mặc định DÙNG CHUNG với clustering.py (UI) — loại
-    # bí danh/target, nhận diện tên cột tiếng Việt, loại cột gần trùng lặp.
-    cluster_cols = clustering_service.select_default_cluster_features(df)
-    if not cluster_cols:
-        _logger.info("Bỏ qua phân cụm mặc định — không có cột số phù hợp.")
-        return
-
-    _logger.info("Bắt đầu phân cụm mặc định (ngầm): %d đặc trưng.", len(cluster_cols))
-    cluster_preprocessor, X_processed = clustering_service.preprocess_features(df, cluster_cols)
-    k_optimal = min(4, max(2, len(df) // 10))
-    kmeans, clusters = clustering_service.run_kmeans(X_processed, k_optimal)
-    _quality = clustering_service.compute_cluster_quality_metrics(X_processed, clusters)
-
-    st.session_state.cluster_preprocessor = cluster_preprocessor
-    st.session_state.cluster_selected_cols = cluster_cols
-    st.session_state.cluster_X_processed = X_processed
-    st.session_state.cluster_results_df = df.copy()
-    st.session_state.cluster_results_df["cluster"] = clusters
-    st.session_state.cluster_kmeans_model = kmeans
-    st.session_state.cluster_k_optimal = k_optimal
-    st.session_state.cluster_quality_silhouette = _quality["silhouette"]
-    st.session_state.cluster_quality_db = _quality["davies_bouldin"]
-    st.session_state.cluster_train_run_id = f"{datetime.now().timestamp()}_{k_optimal}"
-    _logger.info("Hoàn tất phân cụm mặc định (ngầm): k=%d.", k_optimal)
-
-
 def initialize_workspace(role, df, wh, classification_trainer, regression_trainer, progress_callback=None):
-    """Khởi tạo workspace sau đăng nhập. Báo tiến độ qua
-    `progress_callback(percent, stage_key)` — lớp UI (loading_screen.py) map
-    `stage_key` sang câu tiếng Việt thân thiện. KHÔNG train lại nếu dataset
-    này ĐÃ có kết quả (`hub_results`/`cluster_results_df` đã tồn tại) — giữ
-    đúng hành vi idempotent của `auto_bootstrap_analytics` cũ, không train lại
-    chỉ vì người dùng đăng nhập/mở lại trang.
-    """
-    def _report(pct, stage):
+    """Hydrate approved artifacts only; expensive analytics are explicit actions."""
+    def report(percent, stage):
         if progress_callback:
             try:
-                progress_callback(pct, stage)
+                progress_callback(percent, stage)
             except Exception:
-                _logger.exception("Lỗi trong progress_callback (bỏ qua, không chặn khởi tạo).")
+                _logger.exception("Không cập nhật được tiến độ khởi tạo.")
 
-    _report(10, "auth_ready")
-
+    report(10, "auth_ready")
     if df is None:
-        _report(100, "workspace_ready")
+        report(100, "workspace_ready")
         return
-    _report(30, "dataset_ready")
-
+    report(30, "dataset_ready")
     dataset_id = st.session_state.get("current_dataset_id")
     already_done = st.session_state.get("_auto_bootstrap_done_for") == dataset_id
-    st.session_state["_auto_bootstrap_done_for"] = dataset_id
-    _report(50, "artifacts_checked")
-
+    report(50, "artifacts_checked")
     if not already_done:
-        with _suppress_streamlit_output():
-            try:
-                _bootstrap_default_training(df, wh, classification_trainer, regression_trainer)
-            except Exception:
-                _logger.exception("Lỗi khi tự động huấn luyện mô hình mặc định — bỏ qua, Giảng viên có thể tự huấn luyện thủ công.")
-    _report(70, "model_ready")
-
-    if not already_done:
-        with _suppress_streamlit_output():
-            try:
-                _bootstrap_default_clustering(df)
-            except Exception:
-                _logger.exception("Lỗi khi tự động phân cụm mặc định — bỏ qua, Giảng viên có thể tự phân cụm thủ công.")
-    _report(90, "role_data_ready")
-
-    _report(100, "workspace_ready")
+        try:
+            _bootstrap_default_training(df, wh, classification_trainer, regression_trainer)
+        except Exception:
+            _logger.exception("Không thể nạp mô hình đã duyệt; tiếp tục mà không huấn luyện ngầm.")
+        st.session_state["_auto_bootstrap_done_for"] = dataset_id
+    report(70, "model_ready")
+    report(90, "role_data_ready")
+    report(100, "workspace_ready")

@@ -1,16 +1,12 @@
 """Shared runtime imports for Streamlit tab modules."""
 from dss.config import *  # noqa: F403
 from dss.core.data_helpers import feature_label
-from dss.core.utils import (
-    render_chart_guide,
-    render_chart_guide_advanced,
-    st_step_header,
-)
 from dss.core.init_app import clear_all_session_state_for_new_data
 from dss.core.roles import ALL_TABS, HOME_TAB_LABEL, filter_tabs_for_role
 from dss.services import model_service
 from dss.services.model_service import compute_lecturer_dashboard_overview
 from dss.tabs import ui_kit
+from dss.core.target_utils import is_id_like
 
 
 def _format_activity_timestamp(ts) -> str:
@@ -214,7 +210,7 @@ def _render_grade_editor(df, wh):
         return
     with st.container(border=True):
         st.markdown("##### Chỉnh sửa điểm sinh viên")
-        _gv_id_col = next((c for c in df.columns if 'id' in c.lower()), df.columns[0] if len(df.columns) else None)
+        _gv_id_col = next((c for c in df.columns if is_id_like(c)), df.columns[0] if len(df.columns) else None)
         st.caption(
             "Sửa trực tiếp trên bảng rồi bấm Lưu. Hệ thống KHÔNG tự tính lại xếp loại/điểm suy ra "
             "từ các cột khác — vui lòng nhập nhất quán. Sau khi lưu, mô hình dự đoán và phân cụm "

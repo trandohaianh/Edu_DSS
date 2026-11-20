@@ -66,3 +66,7 @@ backups/
 
 # C1.1: runtime security state (dev pseudonym key, login throttle) — never commit
 data_warehouse/security/
+
+# Full-stack: eval reports and generated deploy files
+reports/evals/
+deploy/cloud/edudss.caddy.generated

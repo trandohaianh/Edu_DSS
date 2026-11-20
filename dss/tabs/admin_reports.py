@@ -9,7 +9,6 @@ import os
 from dss.config import *  # noqa: F403
 from dss import config as dss_config
 from dss.config import GEMINI_AVAILABLE, GROQ_AVAILABLE, OLLAMA_AVAILABLE, OPENAI_AVAILABLE
-from dss.core.models import _check_ollama_running
 from dss.core.roles import ALL_TABS, HOME_TAB_LABEL, filter_tabs_for_role
 from dss.services import auth_service
 from dss.services.model_service import compute_lecturer_dashboard_overview, model_lifecycle_badge_text
@@ -206,7 +205,7 @@ def admin_reports_tab(warehouse, df=None, as_home=False):
             else:
                 type_counts = pd.Series([d.get("data_type", "other") for d in datasets]).value_counts()
                 fig = px.bar(x=type_counts.index, y=type_counts.values, labels={"x": "Loại dữ liệu", "y": "Số lượng"})
-                fig.update_traces(marker_color="#1A73E8")
+                fig.update_traces(marker_color="#2F5BD3")
                 fig.update_layout(margin=dict(l=10, r=10, t=10, b=10), height=280)
                 st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
     with col_right:
@@ -218,7 +217,7 @@ def admin_reports_tab(warehouse, df=None, as_home=False):
                 # MODELREG-001: dùng chung hàm phân loại 3 trạng thái với warehouse_tab.py.
                 status_counts = pd.Series([model_lifecycle_badge_text(m) for m in models]).value_counts()
                 fig = px.bar(x=status_counts.index, y=status_counts.values, labels={"x": "Trạng thái", "y": "Số lượng"})
-                fig.update_traces(marker_color="#1A73E8")
+                fig.update_traces(marker_color="#2F5BD3")
                 fig.update_layout(margin=dict(l=10, r=10, t=10, b=10), height=280)
                 st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
 
@@ -270,4 +269,89 @@ def admin_reports_tab(warehouse, df=None, as_home=False):
             tk2.metric("Chi phí hôm nay (USD)", f"${b_status['daily_cost']:.4f}", help=f"Ngân sách ngày: ${b_status['daily_budget']:.2f}")
             tk3.metric("Tokens tháng này", f"{b_status['monthly_tokens']:,}")
             tk4.metric("Chi phí tháng (USD)", f"${b_status['monthly_cost']:.4f}", help=f"Ngân sách tháng: ${b_status['monthly_budget']:.2f}")
-            st.caption("Chi phí là ước tính từ số token ghi nhận ở LLM Gateway, không phải hoá đơn của nhà cung cấp.")
+            st.caption("Chi phí = số token × bảng giá niêm yết (token_tracker.MODEL_PRICING_PER_M, cập nhật "
+                       f"{token_tracker.PRICING_AS_OF}). Số token lấy từ usage do Gemini/Groq/OpenAI trả về khi có; "
+                       "lượt nào provider không trả usage thì đếm xấp xỉ theo ký tự. Đây chưa phải hoá đơn.")
+
+    if not as_home:
+        st.markdown("<div class='dss-spacer-16'></div>", unsafe_allow_html=True)
+        _cost_and_operations_section()
+
+
+def _cost_and_operations_section() -> None:
+    """Chi phí đầy đủ (AI + hạ tầng, tính trên mỗi người dùng) và trạng thái pipeline vận hành."""
+    from datetime import datetime, timezone
+
+    from ops import pipeline
+
+    month = datetime.now(timezone.utc).strftime("%Y-%m")
+    with st.container(border=True):
+        ui_kit.card_title("Tổng chi phí tháng này (AI + hạ tầng)")
+        try:
+            snapshot = pipeline.compute_kpis()
+        except Exception:
+            snapshot = None
+        if snapshot:
+            ai_m = snapshot["ai_month"]
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("AI (USD)", f"${ai_m['cost_usd']:.4f}")
+            c2.metric("Hạ tầng (USD)", f"${snapshot['infra_month_usd']:.2f}")
+            c3.metric("USD / người dùng AI", f"${ai_m['cost_per_active_user_usd']:.4f}",
+                      help=f"{ai_m['active_ai_users']} người dùng có gọi AI trong tháng")
+            share = ai_m["provider_counted_token_share"]
+            c4.metric("Token đếm bởi provider", "—" if share is None else f"{share:.0%}",
+                      help="Phần token lấy từ usage thật của provider (phần còn lại là ước lượng).")
+        rows = [r for r in pipeline.load_infra_costs() if r.get("month") == month]
+        if rows:
+            st.dataframe(pd.DataFrame([{"Nhà cung cấp": r["provider"], "Khoản mục": r["item"],
+                                        "USD": r["amount_usd"], "Ghi chú": r.get("note", ""), "id": r["id"]}
+                                       for r in rows]), hide_index=True, width="stretch")
+        with st.form("infra_cost_form", clear_on_submit=True, border=False):
+            f1, f2, f3, f4 = st.columns([1.2, 1.6, 0.8, 0.6])
+            provider = f1.text_input("Nhà cung cấp", placeholder="Oracle Cloud")
+            item = f2.text_input("Khoản mục", placeholder="VM A1 (chia 3 dự án)")
+            amount = f3.number_input("USD", min_value=0.0, step=1.0, value=0.0)
+            f4.markdown("<div class='dss-spacer-16'></div>", unsafe_allow_html=True)
+            if f4.form_submit_button("Thêm"):
+                try:
+                    pipeline.save_infra_cost(month, provider, item, amount,
+                                             actor=str(st.session_state.get("_auth_username") or ""))
+                    st.rerun()
+                except ValueError as exc:
+                    st.error(str(exc))
+        if rows:
+            del_id = st.selectbox("Xoá khoản", [None] + [r["id"] for r in rows],
+                                  format_func=lambda v: "—" if v is None else f"#{v}", key="infra_del")
+            if del_id and st.button("Xoá khoản đã chọn"):
+                pipeline.delete_infra_cost(int(del_id))
+                st.rerun()
+
+    st.markdown("<div class='dss-spacer-16'></div>", unsafe_allow_html=True)
+    with st.container(border=True):
+        ui_kit.card_title("Pipeline vận hành")
+        runs = pipeline.last_runs()
+        labels = {"kpi_snapshot": "KPI theo giờ", "data_quality": "Chất lượng & drift dữ liệu",
+                  "backup": "Backup + diễn tập khôi phục", "retention": "Dọn dẹp / lưu giữ"}
+        table = []
+        for job in pipeline.JOBS:
+            row = runs.get(job) or {}
+            finished = row.get("finished_at")
+            table.append({
+                "Tác vụ": labels[job],
+                "Kết quả": {"ok": "Thành công", "degraded": "Cảnh báo", "failed": "Lỗi"}.get(row.get("status"), "Chưa chạy"),
+                "Lần chạy cuối (UTC)": datetime.fromtimestamp(finished, timezone.utc).strftime("%d/%m %H:%M") if finished else "—",
+                "Thời gian (s)": row.get("duration_s", "—"),
+            })
+        st.dataframe(pd.DataFrame(table), hide_index=True, width="stretch")
+        dq = (runs.get("data_quality") or {}).get("detail") or {}
+        bk = (runs.get("backup") or {}).get("detail") or {}
+        if dq:
+            st.caption(f"Drift lớn nhất (PSI) so với dữ liệu tham chiếu: {dq.get('drift_max_psi', 0):.3f} "
+                       "(≥ 0,25 là lệch mạnh). Mức nặng nhất: " + str(dq.get("worst_severity")))
+        if bk:
+            st.caption(f"Backup gần nhất: {bk.get('files', 0)} tệp, diễn tập khôi phục: {bk.get('restore_drill')}.")
+        job = st.selectbox("Chạy ngay", list(pipeline.JOBS), format_func=lambda j: labels[j], key="pipeline_run_job")
+        if st.button("Chạy", key="pipeline_run_now"):
+            with st.spinner("Đang chạy…"):
+                result = pipeline.run_job(job, "admin")
+            (st.success if result["status"] == "ok" else st.warning)(f"{labels[job]}: {result['status']}")

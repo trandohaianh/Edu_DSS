@@ -48,12 +48,14 @@ def select_default_cluster_features(
     - Cột gần như trùng lặp (|r| > corr_threshold) với 1 cột ĐÃ chọn trước đó
       (vd. gpa_previous = diem_ky_nay / 2.5, tương quan ~0.9999).
     """
-    from dss.core.target_utils import get_leaky_target_columns
+    from dss.core.target_utils import get_leaky_target_columns, is_identifier_column
 
     all_numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+    # Loại cột định danh theo TỪ trong tên (is_identifier_column), không theo chuỗi con "id":
+    # bản cũ loại nhầm video_views, midterm_score, valid_attempts.
     all_numeric_cols = [
         c for c in all_numeric_cols
-        if "id" not in c.lower() and "pca" not in c.lower() and "cluster" not in c.lower()
+        if not is_identifier_column(c) and "pca" not in c.lower() and "cluster" not in c.lower()
     ]
 
     forbidden = {"final_score", "grade", "diem_ky_sau", "xep_loai"}
@@ -97,6 +99,56 @@ def preprocess_features(df: pd.DataFrame, selected_cols: list[str]):
     return preprocessor, X_processed
 
 
+def _silhouette_score_bounded(X_processed, labels):
+    """Use a reproducible estimate above 2,000 rows; exact score for small classes."""
+    return silhouette_score(
+        X_processed, labels, metric="euclidean",
+        sample_size=2000 if len(X_processed) > 2000 else None, random_state=42,
+    )
+
+
+# Silhouette tốt nhất dưới ngưỡng này: dữ liệu không có cấu trúc nhóm rõ ràng (quy ước
+# Kaufman & Rousseeuw: < 0.25 là "không có cấu trúc đáng kể").
+WEAK_STRUCTURE_SILHOUETTE = 0.25
+WEAK_STRUCTURE_WARNING = (
+    "Cảnh báo: không có cấu trúc nhóm rõ ràng (Silhouette tốt nhất {sil:.3f} < 0.25). "
+    "Các cụm chỉ là cách cắt tuỳ ý một phân bố liên tục — không nên diễn giải như các nhóm "
+    "sinh viên tách biệt."
+)
+
+
+def weak_structure_warning(best_silhouette) -> Optional[str]:
+    """Chuỗi cảnh báo khi Silhouette tốt nhất < 0.25, ngược lại None."""
+    try:
+        sil = float(best_silhouette)
+    except (TypeError, ValueError):
+        return None
+    if not np.isfinite(sil) or sil >= WEAK_STRUCTURE_SILHOUETTE:
+        return None
+    return WEAK_STRUCTURE_WARNING.format(sil=sil)
+
+
+def _knee_k(k_list, inertia) -> Optional[int]:
+    """Điểm khuỷu (Kneedle): chuẩn hoá K và Inertia về [0, 1], chọn K xa dây cung nối điểm
+    đầu–cuối nhất. Bản cũ lấy K có độ giảm Inertia TUYỆT ĐỐI lớn nhất — với đường Inertia lồi
+    giảm dần thì đó gần như luôn là k_start+1, bất kể dữ liệu. None khi < 3 điểm hoặc đường
+    không cong (không có khuỷu)."""
+    if len(k_list) < 3:
+        return None
+    x = np.asarray(k_list, dtype=float)
+    y = np.asarray(inertia, dtype=float)
+    if not np.all(np.isfinite(y)) or y[0] == y[-1]:
+        return None
+    x_n = (x - x[0]) / (x[-1] - x[0])
+    y_n = (y - y[-1]) / (y[0] - y[-1])
+    # Đường lồi giảm: khoảng cách tới dây cung y = 1 - x là (1 - x_n) - y_n.
+    dist = (1.0 - x_n) - y_n
+    idx = int(np.argmax(dist[1:-1])) + 1
+    if dist[idx] <= 1e-9:
+        return None
+    return int(k_list[idx])
+
+
 def compute_elbow_silhouette(X_processed, k_start: int, k_end: int, progress_callback=None) -> dict:
     """Quét K từ k_start đến k_end, tính Inertia + Silhouette cho mỗi K, và đề
     xuất K tốt nhất — Y HỆT logic cũ (Bước 2). `progress_callback(fraction)`
@@ -121,7 +173,7 @@ def compute_elbow_silhouette(X_processed, k_start: int, k_end: int, progress_cal
             try:
                 n_lab = len(set(labels))
                 if n_lab >= 2 and n_lab < n_samples:
-                    sil_val = float(silhouette_score(X_processed, labels, metric="euclidean"))
+                    sil_val = float(_silhouette_score_bounded(X_processed, labels))
             except Exception:
                 sil_val = float("nan")
         sil_scores.append(sil_val)
@@ -130,12 +182,7 @@ def compute_elbow_silhouette(X_processed, k_start: int, k_end: int, progress_cal
             progress_callback((idx + 1) / len(k_range))
 
     k_list = list(k_range)
-    suggested_k_elbow = None
-    if len(inertia) > 1:
-        decreases = [inertia[i] - inertia[i + 1] for i in range(len(inertia) - 1)]
-        if decreases:
-            max_decrease_idx = int(np.nanargmax(decreases))
-            suggested_k_elbow = k_list[max_decrease_idx + 1]
+    suggested_k_elbow = _knee_k(k_list, inertia)
 
     sil_arr = np.array(sil_scores, dtype=float)
     valid_sil = np.isfinite(sil_arr)
@@ -152,12 +199,16 @@ def compute_elbow_silhouette(X_processed, k_start: int, k_end: int, progress_cal
             f"({best_sil:.3f}) — thường dễ chọn hơn chỉ nhìn Elbow."
         )
         if suggested_k_elbow is not None and suggested_k_elbow != recommended_k:
-            reason += f" Tham khảo Elbow (độ giảm Inertia lớn nhất): K = {suggested_k_elbow}."
+            reason += f" Tham khảo Elbow (điểm khuỷu của đường Inertia): K = {suggested_k_elbow}."
     elif suggested_k_elbow is not None:
         recommended_k = suggested_k_elbow
         reason = f"Không tính được Silhouette ổn định; dùng gợi ý Elbow: K = {recommended_k}."
     else:
         reason = "Chưa đủ dữ liệu để tự đề xuất K; vui lòng tăng số mẫu hoặc đổi khoảng K."
+
+    warning = weak_structure_warning(np.nanmax(sil_arr)) if valid_sil.any() else None
+    if warning:
+        reason = f"{warning} {reason}".strip()
 
     return {
         "k_list": k_list,
@@ -167,6 +218,8 @@ def compute_elbow_silhouette(X_processed, k_start: int, k_end: int, progress_cal
         "suggested_k_sil": suggested_k_sil,
         "recommended_k": recommended_k,
         "reason": reason,
+        "weak_structure": warning is not None,
+        "warning": warning,
     }
 
 
@@ -190,14 +243,15 @@ def compute_cluster_quality_metrics(X_processed, labels) -> dict:
     if n_labels < 2 or n_labels >= n_samples:
         return {"silhouette": None, "davies_bouldin": None}
     try:
-        sil = float(silhouette_score(X_processed, labels, metric="euclidean"))
+        sil = float(_silhouette_score_bounded(X_processed, labels))
     except Exception:
         sil = None
     try:
         db = float(davies_bouldin_score(X_processed, labels))
     except Exception:
         db = None
-    return {"silhouette": sil, "davies_bouldin": db}
+    return {"silhouette": sil, "davies_bouldin": db, "silhouette_sample_size": min(n_samples, 2000) if sil is not None else 0,
+            "weak_structure": weak_structure_warning(sil) is not None, "warning": weak_structure_warning(sil)}
 
 
 def compute_pca(X_processed):

@@ -10,9 +10,7 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 from sklearn.decomposition import PCA
-from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.feature_selection import RFE, SelectFromModel, mutual_info_classif, mutual_info_regression
-from sklearn.metrics import f1_score, mean_absolute_error, r2_score
 from sklearn.impute import KNNImputer
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import cross_val_score
@@ -64,7 +62,7 @@ def rf_feature_importance(X, y, task_type="classification", n_estimators=200, ra
         imp_df = pd.DataFrame({"feature": features, "importance": importances})
         imp_df = imp_df.sort_values("importance", ascending=False).reset_index(drop=True)
         return imp_df, model
-    except Exception as e:
+    except Exception:
         raise
 
 
@@ -89,7 +87,7 @@ def select_by_mutual_info(X, y, k=20, task_type="classification"):
         mi_series = pd.Series(mi, index=X.columns).sort_values(ascending=False)
         k = min(k, len(mi_series))
         return mi_series.index[:k].tolist(), mi_series
-    except Exception as e:
+    except Exception:
         raise
 
 
@@ -122,7 +120,7 @@ def select_by_pointbiserial_or_pearson(X, y, k=20):
         corr_s = pd.Series(corr_list).sort_values(ascending=False)
         k = min(k, len(corr_s))
         return corr_s.index[:k].tolist(), corr_s
-    except Exception as e:
+    except Exception:
         raise
 
 
@@ -141,7 +139,7 @@ def select_by_rfe(X, y, estimator=None, k=20, task_type="classification", step=1
         selected = [f for f, s in zip(X.columns, selector.support_) if s]
         ranking = pd.Series(selector.ranking_, index=X.columns).sort_values()
         return selected, ranking
-    except Exception as e:
+    except Exception:
         raise
 
 
@@ -167,7 +165,7 @@ def select_by_selectfrommodel(X, y, task_type="classification", threshold="media
             importances = pd.Series(0, index=X.columns)
         importances = importances.abs().sort_values(ascending=False)
         return selected, importances
-    except Exception as e:
+    except Exception:
         raise
 
 
@@ -187,7 +185,7 @@ def select_by_pca_loadings(X, k=20, n_components=3):
         mean_loading = loadings.mean(axis=0).sort_values(ascending=False)
         k = min(k, len(mean_loading))
         return mean_loading.index[:k].tolist(), mean_loading
-    except Exception as e:
+    except Exception:
         raise
 
 
@@ -253,7 +251,7 @@ def select_by_pearson(X, y, k=20):
         
         # Trả về top-k features và toàn bộ correlation series
         return corr_s.index[:k].tolist(), corr_s
-    except Exception as e:
+    except Exception:
         raise
 
 
@@ -319,7 +317,7 @@ def select_by_spearman(X, y, k=20):
         
         # Trả về top-k features và toàn bộ correlation series
         return corr_s.index[:k].tolist(), corr_s
-    except Exception as e:
+    except Exception:
         raise
 
 
@@ -360,7 +358,6 @@ def calculate_all_feature_metrics(X, y, task_type="classification", k=20, n_esti
     if not FS_AVAILABLE:
         raise ImportError("Thiếu các thư viện cần thiết cho feature selection.")
         
-    results = {}  # Dictionary để lưu kết quả tạm thời
     all_features = X.columns.tolist()  # Lấy danh sách tất cả features
 
     # Mã hóa các cột không phải số (categorical/string, vd. "xep_loai") thành số TRƯỚC khi
@@ -872,7 +869,6 @@ def render_feature_analysis(df, feature_cols, target_col, task_type="classificat
             why_selected = "Cần xử lý trước khi sử dụng"
         
         missing_pct = col_data.isna().mean() * 100
-        std_val = col_data.std() if pd.api.types.is_numeric_dtype(col_data) else np.nan
 
         # Tính correlation
         corr = np.nan

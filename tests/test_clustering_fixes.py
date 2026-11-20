@@ -1,6 +1,4 @@
-import pytest
 import pandas as pd
-import numpy as np
 from dss.services import clustering_service
 
 def test_compute_strengths_weaknesses_never_empty_when_features_exist():

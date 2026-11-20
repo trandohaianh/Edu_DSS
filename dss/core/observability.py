@@ -68,6 +68,9 @@ class StructuredFormatter(logging.Formatter):
             value = getattr(record, "obs_" + key, None)
             if isinstance(value, (int, float)) and not isinstance(value, bool):
                 payload[key] = value
+        if record.exc_info and record.exc_info[1] is not None:
+            # Trước đây bị bỏ: mọi logger.exception(...) ra log không có traceback. Traceback cũng được che dữ liệu.
+            payload["exception"] = redact_text(self.formatException(record.exc_info))
         return json.dumps(payload, ensure_ascii=False)
 
 
@@ -84,6 +87,13 @@ def record_operation(operation: str, started: float, *, success: bool, **metadat
     for key in ("provider", "model", "backend", "fallback", "batch_size", "top_k", "result_count", "input_tokens", "output_tokens"):
         if key in metadata:
             extra["obs_" + key] = metadata[key]
+    try:
+        from dss.core import metrics as _metrics
+        _metrics.record_operation(operation, outcome, elapsed_ms / 1000.0)
+        if operation == "ai.provider_attempt" and not success:
+            _metrics.record_ai_failure(metadata.get("provider"), "any", str(metadata.get("fallback") or "error"))
+    except Exception:
+        pass
     # Import here to avoid a logging_config -> observability cycle.
     try:
         from dss.core.logging_config import get_logger

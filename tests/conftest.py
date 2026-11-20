@@ -48,6 +48,8 @@ import pytest
 # first thing pytest imports), closes the gap at its actual source instead
 # of narrowing what the pollution guard checks.
 os.environ.setdefault("EDUDSS_DATA_ROOT", tempfile.mkdtemp(prefix="edudss_pytest_collection_"))
+# EDUDSS_ENV không đặt = production (fail closed). Bộ test chạy ở chế độ "test" trừ khi test tự đặt khác.
+os.environ.setdefault("EDUDSS_ENV", "test")
 
 _APP_ROOT = Path(__file__).resolve().parent.parent
 if str(_APP_ROOT) not in sys.path:

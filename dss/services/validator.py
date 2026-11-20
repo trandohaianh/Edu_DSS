@@ -21,7 +21,7 @@ Không tự nhận đã "hoàn thành toàn bộ Validator" — chỉ phần đ�
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, List, Optional
 
 STATUS_PASS = "PASS"
 STATUS_FAIL = "FAIL"

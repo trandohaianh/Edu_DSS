@@ -6,7 +6,6 @@ Validates:
 3. Gateway fallback to local Ollama or offline rule generator when external APIs are unavailable.
 """
 import os
-import pytest
 from dss.services.report_service import build_demo_study_plan
 from dss.services.learning_profile import StudentLearningProfile
 from dss.services.learning_plan import learning_plan_generator
@@ -41,13 +40,19 @@ def test_structured_learning_plan_offline_generator():
         "login_freq": 1.5,
         "practice_freq": 1.0,
         "gpa_previous": 6.0,
+        "session_duration": 40,
+        "learning_velocity": 0.75,
+        "topic_scores": {"Python": 4},
     }
     profile = StudentLearningProfile.build_from_lms_records(
         student_id="SV_OFFLINE_02",
         course_id="CS101",
         raw_lms_data=raw_data,
     )
-    plan = learning_plan_generator.generate_plan(profile)
+    plan = learning_plan_generator.generate_plan(profile, approved_resources=[{
+        "resource_id": "offline_python", "course": "CS101", "topic": "Python",
+        "status": "APPROVED", "url": "https://school.example.edu/python", "is_demo": False,
+    }])
     
     assert plan.student_pseudonym is not None
     assert len(plan.activities) > 0

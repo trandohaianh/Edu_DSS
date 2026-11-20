@@ -78,13 +78,27 @@ def build_demo_study_plan(student_id, predicted_gpa, weaknesses, profile, retrie
     # Không áp đặt con số cố định bịa đặt cho mọi sinh viên.
     num_weaknesses = len(weaknesses)
     l_prof = (profile or {}).get("learning_profile")
+    has_velocity = False
     if l_prof and isinstance(l_prof, dict):
-        vel = float(l_prof.get("trajectory", {}).get("learning_velocity", 1.0))
+        from dss.services.learning_profile import observed_number
+        trajectory = l_prof.get("trajectory") or {}
+        vel = observed_number(trajectory.get("learning_velocity")) if isinstance(trajectory, dict) else None
+        has_velocity = vel is not None and vel > 0
+        vel = vel if has_velocity else 1.0
         base_h = max(2.5, min(10.0, (num_weaknesses * 1.5 + 2.0) / max(vel, 0.5)))
         target_exercises = int(max(8, min(30, (num_weaknesses * 4 + 6) / max(vel, 0.7))))
     else:
         base_h = max(2.5, min(10.0, num_weaknesses * 1.2 + 2.5))
         target_exercises = int(max(8, min(30, num_weaknesses * 3 + 8)))
+
+    dosage_text = (
+        f"- Thời lượng theo chính sách mô phỏng: khoảng **{base_h:.1f} giờ/tuần**\n"
+        f"- Khối lượng theo chính sách mô phỏng: khoảng **{target_exercises} bài/tuần**"
+    )
+    if isinstance(l_prof, dict) and not has_velocity:
+        dosage_text = "- Chưa đủ dữ liệu quan sát để đề xuất thời lượng và khối lượng bài tập."
+    else:
+        dosage_text += "\n- Các con số là gợi ý mô phỏng, chưa được kiểm chứng hiệu quả."
 
     plan_text = f"""
 ### 🧭 Kế hoạch học tập (Chế độ demo)
@@ -100,8 +114,7 @@ def build_demo_study_plan(student_id, predicted_gpa, weaknesses, profile, retrie
 {week_plan_text}
 
 #### 3) Liều lượng can thiệp đề xuất mỗi tuần (Cá nhân hóa theo mức thiếu hụt)
-- Thời lượng học tập trung: khoảng **{base_h:.1f} giờ/tuần**
-- Khối lượng bài tập củng cố: khoảng **{target_exercises} bài/tuần**
+{dosage_text}
 - Tiêu chí đạt: Giảm thiểu lỗi lặp lại và hoàn thành các câu hỏi kiểm chứng theo tuần
 
 #### 4) Tài liệu đề xuất (RAG/demo)

@@ -59,7 +59,6 @@ def _patch_gateway_for_two_provider_chain(monkeypatch, fake_integration):
 
     monkeypatch.setattr(LLMGateway, "resolve_active_provider_and_model", _fake_resolve)
     monkeypatch.setattr(LLMGateway, "_check_rate_limit", lambda self: None)
-    import os
     monkeypatch.setenv("DSS_PRIMARY_PROVIDER", "gemini")
     monkeypatch.setenv("DSS_FALLBACK_1", "groq")
     monkeypatch.setenv("DSS_FALLBACK_2", "groq")

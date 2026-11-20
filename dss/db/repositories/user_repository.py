@@ -77,6 +77,26 @@ class UserRepository:
             role = session.get(Role, row.role_id)
             return _row_to_record(row, role.name if role else "unknown")
 
+    def get_user_by_email(self, email: str) -> Optional[dict[str, Any]]:
+        """Google Sign-In: the verified e-mail an Admin linked to this account (case-insensitive)."""
+        from sqlalchemy import func
+
+        with tenant_session_scope(self.organization_id) as session:
+            organization = session.get(Organization, self.organization_id)
+            if organization is None or not organization.is_active:
+                return None
+            rows = (
+                session.query(User)
+                .filter(User.organization_id == self.organization_id, func.lower(User.email) == email.strip().lower())
+                .order_by(User.id)
+                .limit(2)
+                .all()
+            )
+            if len(rows) != 1:      # none, or ambiguous (two accounts share an e-mail): refuse
+                return None
+            role = session.get(Role, rows[0].role_id)
+            return _row_to_record(rows[0], role.name if role else "unknown")
+
     def list_users(self, limit: int = 1000, offset: int = 0) -> dict[str, dict[str, Any]]:
         with tenant_session_scope(self.organization_id) as session:
             rows = (

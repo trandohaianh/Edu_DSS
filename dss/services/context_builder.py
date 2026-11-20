@@ -14,7 +14,7 @@ của Authorization — chưa có trong đợt này, xem AGENT_FINAL_INTEGRATION
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, Set
+from typing import Dict, Set
 
 _COMMON_FORBIDDEN = {
     "name", "email", "phone", "address", "dob", "full_transcript", "full_chat_history",

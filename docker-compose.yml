@@ -8,6 +8,7 @@ services:
     ports:
       - "${EDUDSS_BIND_ADDR:-127.0.0.1}:${LMS_CMS_SIMULATOR_PORT:-8765}:8765"
     restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8765/health', timeout=3)"]
       interval: 5s
@@ -42,6 +43,7 @@ services:
       timeout: 5s
       retries: 5
     restart: always
+    security_opt: ["no-new-privileges:true"]
 
   migrate-integration:
     build:
@@ -55,6 +57,7 @@ services:
       postgres:
         condition: service_healthy
     restart: "no"
+    security_opt: ["no-new-privileges:true"]
 
   streamlit-integration:
     build:
@@ -81,6 +84,7 @@ services:
       retries: 10
       start_period: 30s
     restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
 
   # dss/ — nguồn sự thật DUY NHẤT của EduDSS (qua run_dss.py) — http://localhost:8502
   # Bản monolith app/5.py đã bị xóa (Phase 0 refactor, 2026-09-08): 2 codebase
@@ -99,6 +103,7 @@ services:
       - PYTHONPATH=/app
       - LMS_CMS_SIMULATOR_URL=${LMS_CMS_SIMULATOR_URL:-http://lms-cms-simulator:8765}
     restart: always
+    security_opt: ["no-new-privileges:true"]
     healthcheck:
       test:
         [

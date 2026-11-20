@@ -230,7 +230,6 @@ def test_07_non_superuser_cross_tenant_provenance_and_drift_isolated(tenant, war
     # not to an error or to org A's real data.
     assert model_registry.get_provenance(training_id_a, organization_id=org_b) is None
 
-    from dss.db.repositories import ml_provenance_repository as repo
     app_engine = create_engine(APP_URL)
     with app_engine.begin() as conn:
         conn.execute(text("SET LOCAL app.organization_id = :o"), {"o": str(org_b)})

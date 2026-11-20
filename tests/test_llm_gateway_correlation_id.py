@@ -40,7 +40,6 @@ def test_no_configured_provider_error_includes_correlation_id(monkeypatch):
 def test_correlation_id_error_message_leaks_no_technical_detail(monkeypatch):
     """Thông báo lỗi cuối cùng KHÔNG được chứa stack trace/exception
     class/path/API key — chỉ câu thân thiện + mã sự cố."""
-    from dss.core import data_helpers
     monkeypatch.setattr("dss.services.llm_gateway.is_production_environment", lambda: True)
 
     def _fake_resolve(self, requested_provider=None, requested_model=None, role="Sinh viên", explicit_api_key=None):

@@ -1,0 +1,2 @@
+# Chỉ dùng khi VM KHÔNG có Caddy của FieldOps (docker compose --profile standalone).
+import /etc/caddy/edudss.caddy

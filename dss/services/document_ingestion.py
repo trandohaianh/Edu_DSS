@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import io
 import json
-import os
 import uuid
 import zipfile
 import xml.etree.ElementTree as ET

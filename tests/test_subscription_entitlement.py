@@ -1,5 +1,4 @@
 """Unit tests for SaaS Subscription & Entitlement Service."""
-import pytest
 from dss.services import subscription_service
 
 

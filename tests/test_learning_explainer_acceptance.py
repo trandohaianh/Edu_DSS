@@ -14,7 +14,7 @@ import pytest
 import dss.config as dss_config
 from dss.services import cms_lecture_repository as cms_repository
 from dss.services import learning_explainer
-from dss.services.learning_profile import AcademicEvidence, QuestionLevelEvidence, StudentLearningProfile
+from dss.services.learning_profile import QuestionLevelEvidence, StudentLearningProfile
 
 
 @pytest.fixture(scope="module")

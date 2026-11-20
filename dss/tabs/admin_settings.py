@@ -71,9 +71,11 @@ def admin_users_tab():
                 rows.append({
                     "Tên đăng nhập": uname,
                     "Vai trò": urec.get("role", "—"),
+                    "Email (đăng nhập Google)": urec.get("email") or "—",
                     "Mã sinh viên": sid or "—",
                     "Trạng thái": "Đã khoá" if urec.get("is_active", True) is False else "Hoạt động",
-                    "Nguồn cấp": "Tự cấp khi đăng nhập (LMS)" if urec.get("auto_provisioned") else "Quản trị viên tạo",
+                    "Nguồn cấp": ("Tự cấp qua Google (demo)" if urec.get("auth_provider") == "google" or uname.startswith("g_")
+                                  else "Tự cấp khi đăng nhập (LMS)" if urec.get("auto_provisioned") else "Quản trị viên tạo"),
                 })
             if rows:
                 st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True, height=min(420, 38 + 35 * len(rows)))
@@ -81,14 +83,67 @@ def admin_users_tab():
             else:
                 ui_kit.empty_state("Không có tài khoản khớp từ khoá.")
 
-    ui_kit.alert_box(
-        "Hệ thống không cho tự đăng ký. Tài khoản Giảng viên/Admin do Quản trị viên cấp; tài khoản "
-        "Sinh viên được cấp từ hệ thống quản lý học tập của Trường. Giao diện tạo/sửa/khoá tài khoản "
-        "chưa có trong phiên bản này — thao tác quản trị tài khoản (có ghi nhật ký kiểm toán) được thực "
-        "hiện qua dịch vụ quản trị trên cơ sở dữ liệu.",
-        kind="info",
-        title="Cấp tài khoản",
-    )
+    st.markdown("<div class='dss-spacer-16'></div>", unsafe_allow_html=True)
+    _admin_account_forms(all_users)
+
+
+def _admin_account_forms(all_users: dict) -> None:
+    """Tạo tài khoản, gắn email Google, khoá/mở khoá, đổi vai trò, đặt lại mật khẩu.
+
+    Mọi thao tác đi qua auth_service.admin_* (kiểm tra vai trò Admin ở tầng service + ghi nhật ký
+    kiểm toán), chạy được với cả kho tài khoản PostgreSQL lẫn kho cục bộ."""
+    col_new, col_edit = st.columns(2, gap="medium")
+    with col_new, st.container(border=True):
+        ui_kit.card_title("Tạo tài khoản")
+        with st.form("admin_create_account", clear_on_submit=True, border=False):
+            username = st.text_input("Tên đăng nhập", placeholder="vd. nguyenvana")
+            role = st.selectbox("Vai trò", auth_service.ASSIGNABLE_ROLES, index=1)
+            email = st.text_input("Email Google (tuỳ chọn)", placeholder="ten@truong.edu.vn",
+                                  help="Gắn email để người này đăng nhập bằng Google.")
+            student_id = st.text_input("Mã sinh viên (chỉ cho vai trò Sinh viên)")
+            password = st.text_input("Mật khẩu ban đầu (≥ 10 ký tự)", type="password")
+            if st.form_submit_button("Tạo tài khoản", type="primary"):
+                try:
+                    auth_service.admin_create_account(username, password, role, email=email or None,
+                                                      student_id=student_id or None)
+                    st.success(f"Đã tạo tài khoản {username.strip().lower()}.")
+                    st.rerun()
+                except (ValueError, PermissionError) as exc:
+                    st.error(str(exc))
+                except Exception:
+                    st.error("Không tạo được tài khoản (lỗi kho dữ liệu). Không có gì bị thay đổi.")
+
+    with col_edit, st.container(border=True):
+        ui_kit.card_title("Sửa tài khoản")
+        names = sorted(all_users)
+        if not names:
+            st.caption("Chưa có tài khoản để sửa.")
+            return
+        target = st.selectbox("Tài khoản", names, key="admin_edit_target")
+        current = all_users.get(target, {})
+        with st.form("admin_edit_account", border=False):
+            new_email = st.text_input("Email Google", value=current.get("email") or "",
+                                      help="Để trống để gỡ liên kết Google.")
+            roles = list(auth_service.ASSIGNABLE_ROLES)
+            cur_role = current.get("role")
+            new_role = st.selectbox("Vai trò", roles, index=roles.index(cur_role) if cur_role in roles else 0)
+            active = st.toggle("Đang hoạt động", value=current.get("is_active", True) is not False)
+            new_password = st.text_input("Đặt lại mật khẩu (để trống nếu không đổi)", type="password")
+            if st.form_submit_button("Lưu thay đổi", type="primary"):
+                try:
+                    auth_service.admin_update_account(
+                        target, email=new_email,
+                        active=active if active != (current.get("is_active", True) is not False) else None,
+                        role=new_role if new_role != cur_role else None,
+                    )
+                    if new_password:
+                        auth_service.admin_reset_password(target, new_password)
+                    st.success("Đã lưu.")
+                    st.rerun()
+                except (ValueError, PermissionError) as exc:
+                    st.error(str(exc))
+                except Exception:
+                    st.error("Không lưu được (lỗi kho dữ liệu). Không có gì bị thay đổi.")
 
 
 # ---------------------------------------------------------------------------

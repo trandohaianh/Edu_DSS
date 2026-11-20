@@ -27,28 +27,73 @@ def _usage_file() -> Path:
     """PERF-002: tính lại mỗi lần gọi, không cache mức module (xem dss/core/data_root.py)."""
     return get_data_root() / "ai_token_usage.json"
 
-# Bảng giá định mức chi phí ($ / 1,000,000 tokens)
+# Bảng giá định mức chi phí ($ / 1,000,000 tokens) — giá niêm yết trả theo lượt (paid tier),
+# kiểm tra lại 16/11/2026. Token "suy nghĩ" (thinking) của Gemini tính theo giá OUTPUT.
+# Khớp theo TÊN MODEL DÀI NHẤT trước ("gemini-2.5-flash-lite" không bị tính giá
+# "gemini-2.5-flash"), rồi mới tới giá mặc định theo provider.
+# Các alias "-latest" của Google trỏ sang model mới nhất nên giá có thể đổi: ghi đè không cần
+# sửa code bằng EDUDSS_LLM_PRICING_JSON='{"gemini-flash-lite-latest": {"input": 0.25, "output": 1.5}}'.
+PRICING_AS_OF = "2026-11-16"
 MODEL_PRICING_PER_M = {
     # Google Gemini
     "gemini-1.5-flash": {"input": 0.075, "output": 0.30},
     "gemini-1.5-pro": {"input": 1.25, "output": 5.00},
     "gemini-2.0-flash": {"input": 0.10, "output": 0.40},
-    "gemini-2.5-flash": {"input": 0.10, "output": 0.40},
-    "gemini": {"input": 0.10, "output": 0.40},
-    # Groq (Llama / Mixtral)
+    "gemini-2.0-flash-lite": {"input": 0.075, "output": 0.30},
+    "gemini-2.5-flash-lite": {"input": 0.10, "output": 0.40},
+    "gemini-2.5-flash": {"input": 0.30, "output": 2.50},
+    "gemini-2.5-pro": {"input": 1.25, "output": 10.00},
+    "gemini-3-flash": {"input": 0.50, "output": 3.00},
+    "gemini-3.1-flash-lite": {"input": 0.25, "output": 1.50},
+    "gemini-3.1-pro": {"input": 2.00, "output": 12.00},
+    "gemini-flash-lite-latest": {"input": 0.25, "output": 1.50},
+    "gemini-flash-latest": {"input": 0.50, "output": 3.00},
+    "gemini-pro-latest": {"input": 2.00, "output": 12.00},
+    "gemini": {"input": 0.30, "output": 2.50},
+    # Groq
+    "openai/gpt-oss-20b": {"input": 0.075, "output": 0.30},
+    "openai/gpt-oss-120b": {"input": 0.15, "output": 0.60},
     "llama-3.3-70b-versatile": {"input": 0.59, "output": 0.79},
     "llama-3.1-8b-instant": {"input": 0.05, "output": 0.08},
     "mixtral-8x7b-32768": {"input": 0.24, "output": 0.24},
-    "groq": {"input": 0.20, "output": 0.40},
+    "groq": {"input": 0.15, "output": 0.60},
     # OpenAI
     "gpt-4o-mini": {"input": 0.15, "output": 0.60},
     "gpt-4o": {"input": 2.50, "output": 10.00},
+    "gpt-3.5-turbo": {"input": 0.50, "output": 1.50},
     "openai": {"input": 0.15, "output": 0.60},
     # Local models
     "ollama": {"input": 0.0, "output": 0.0},
     "huggingface": {"input": 0.0, "output": 0.0},
     "demo": {"input": 0.0, "output": 0.0},
 }
+
+
+def _pricing_table() -> Dict[str, Dict[str, float]]:
+    table = dict(MODEL_PRICING_PER_M)
+    raw = os.environ.get("EDUDSS_LLM_PRICING_JSON", "").strip()
+    if raw:
+        try:
+            for key, price in json.loads(raw).items():
+                table[str(key).lower()] = {"input": float(price["input"]), "output": float(price["output"])}
+        except Exception:
+            pass  # cấu hình sai -> giữ bảng mặc định, không làm hỏng lượt gọi AI
+    return table
+
+
+def price_for(provider: str, model: str) -> Dict[str, float]:
+    table = _pricing_table()
+    model_clean = (model or "").lower()
+    prov_clean = (provider or "").lower()
+    if prov_clean in ("demo", "ollama", "huggingface", "cache"):
+        return table.get(prov_clean, {"input": 0.0, "output": 0.0})
+    if model_clean in table:
+        return table[model_clean]
+    for key in sorted(table, key=len, reverse=True):
+        if key not in ("gemini", "groq", "openai") and key in model_clean:
+            return table[key]
+    return table.get(prov_clean, {"input": 0.10, "output": 0.40})
+
 
 DEFAULT_DAILY_QUOTA_BY_ROLE = {
     "Sinh viên": 15_000,  # 15k tokens / ngày / sinh viên (~10-15 câu hỏi)
@@ -83,21 +128,16 @@ class UsageRecord:
     # cache (không gọi provider thật) — dùng để KHÔNG tính phí (xem cost=0.0
     # bên dưới) và để phân tích tỷ lệ cache-hit thật sau này.
     cache_hit: bool = False
+    # Số token lấy từ đâu: "provider" = usage_metadata/usage do Gemini/Groq/OpenAI trả về (chính
+    # xác, khớp hoá đơn); "estimated" = đếm xấp xỉ theo số ký tự khi provider không trả usage.
+    usage_source: str = "estimated"
+    # Token suy nghĩ (Gemini thinking / reasoning tokens) — ĐÃ nằm trong output_tokens (tính giá output).
+    thinking_tokens: int = 0
 
 
 def estimate_cost(provider: str, model: str, input_tokens: int, output_tokens: int) -> float:
-    """Tính toán chi phí ước tính (USD) dựa trên bảng giá định mức."""
-    prov_clean = (provider or "").lower()
-    model_clean = (model or "").lower()
-
-    pricing = None
-    for key, p in MODEL_PRICING_PER_M.items():
-        if key in model_clean:
-            pricing = p
-            break
-    if not pricing:
-        pricing = MODEL_PRICING_PER_M.get(prov_clean, {"input": 0.10, "output": 0.40})
-
+    """Chi phí ước tính (USD) theo bảng giá. output_tokens gồm cả token suy nghĩ (nếu có)."""
+    pricing = price_for(provider, model)
     cost = (input_tokens / 1_000_000.0 * pricing["input"]) + (
         output_tokens / 1_000_000.0 * pricing["output"]
     )
@@ -145,6 +185,8 @@ def record_usage(
     input_tokens: int,
     output_tokens: int,
     cache_hit: bool = False,
+    usage_source: str = "estimated",
+    thinking_tokens: int = 0,
 ) -> UsageRecord:
     """Ghi nhận lượt sử dụng token và cập nhật chi phí (Thread-safe, Atomic).
 
@@ -185,7 +227,18 @@ def record_usage(
         total_tokens=total_tokens,
         estimated_cost=cost,
         cache_hit=cache_hit,
+        usage_source="provider" if usage_source == "provider" else "estimated",
+        thinking_tokens=max(0, int(thinking_tokens or 0)),
     )
+    try:
+        from dss.core import metrics
+
+        metrics.record_ai_usage(provider=record.provider, model=record.model, request_type=record.request_type,
+                                input_tokens=input_tokens, output_tokens=output_tokens,
+                                thinking_tokens=record.thinking_tokens, cost_usd=cost, cache_hit=cache_hit,
+                                source=record.usage_source)
+    except Exception:
+        pass
 
     from dss.core.persistence_config import is_postgres_enabled
 

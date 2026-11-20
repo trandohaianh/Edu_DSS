@@ -23,7 +23,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from dss.services.learning_profile import StudentLearningProfile
+from dss.services.learning_profile import StudentLearningProfile, observed_number
 
 
 @dataclass
@@ -120,24 +120,51 @@ class DiagnosticAssessmentService:
         response_times_seconds: List[float],
         hint_counts: List[int],
     ) -> Dict[str, Any]:
-        """Thu thập kết quả bài làm của sinh viên và cập nhật hồ sơ học tập."""
+        """Record the latest completed assessment; do not pool unknown denominators."""
         total_questions = len(blueprint.questions)
-        correct_count = 0
+        if blueprint.status != "APPROVED" or any(not question.approved_by_lecturer for question in blueprint.questions):
+            raise ValueError("Assessment must be approved before collecting responses")
+        if not total_questions:
+            raise ValueError("Assessment has no questions")
+        if not isinstance(student_answers, (list, tuple)) or len(student_answers) != total_questions:
+            raise ValueError("A completed response is required for every question")
+        for answer, question in zip(student_answers, blueprint.questions):
+            if (isinstance(answer, bool) or not isinstance(answer, int)
+                    or answer < 0 or answer >= len(question.options)):
+                raise ValueError("Answer index is outside the question options")
 
-        for i, q in enumerate(blueprint.questions):
-            if i < len(student_answers) and student_answers[i] == q.correct_answer_index:
-                correct_count += 1
-
-        accuracy = correct_count / max(1, total_questions)
-        avg_time = sum(response_times_seconds) / max(1, len(response_times_seconds))
-        total_hints = sum(hint_counts)
-
-        # Cập nhật bằng chứng cấp câu hỏi vào profile
-        profile.question_level.accuracy_rate = (profile.question_level.accuracy_rate * 0.7) + (accuracy * 0.3)
-        profile.question_level.average_response_time_seconds = (
-            profile.question_level.average_response_time_seconds * 0.7
-        ) + (avg_time * 0.3)
-        profile.question_level.hint_requests_count += total_hints
+        correct_count = sum(
+            answer == question.correct_answer_index
+            for answer, question in zip(student_answers, blueprint.questions)
+        )
+        accuracy = correct_count / total_questions
+        times = [observed_number(value) for value in response_times_seconds] if isinstance(response_times_seconds, (list, tuple)) else []
+        hints = [observed_number(value, integer=True) for value in hint_counts] if isinstance(hint_counts, (list, tuple)) else []
+        avg_time = (
+            sum(times) / total_questions
+            if len(times) == total_questions and all(value is not None for value in times)
+            else None
+        )
+        total_hints = (
+            sum(hints)
+            if len(hints) == total_questions and all(value is not None for value in hints)
+            else None
+        )
+        # These metrics describe this assessment only. A weighted historical
+        # average would require prior question counts and an explicit window.
+        profile.question_level.accuracy_rate = accuracy
+        profile.question_level.average_response_time_seconds = avg_time
+        profile.question_level.hint_requests_count = total_hints
+        for name, value in (
+            ("accuracy_rate", accuracy),
+            ("average_response_time_seconds", avg_time),
+            ("hint_requests_count", total_hints),
+        ):
+            path = f"question_level.{name}"
+            if value is not None:
+                profile.evidence_sources[path] = f"diagnostic:{blueprint.blueprint_id}"
+            else:
+                profile.evidence_sources.pop(path, None)
 
         return {
             "blueprint_id": blueprint.blueprint_id,
@@ -147,9 +174,7 @@ class DiagnosticAssessmentService:
             "average_response_time": avg_time,
             "hints_used": total_hints,
             "feedback": (
-                "Hoàn thành tốt bài chẩn đoán. Kiến thức cốt lõi đã được củng cố."
-                if accuracy >= 0.75
-                else "Phát hiện một số lỗ hổng kiến thức cần tiếp tục ôn tập theo kế hoạch."
+                "Đã ghi nhận kết quả bài chẩn đoán; đối chiếu theo chủ đề để chọn bước học tiếp theo."
             ),
         }
 

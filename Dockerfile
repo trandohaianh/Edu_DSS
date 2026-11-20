@@ -17,6 +17,14 @@ WORKDIR /app
 
 COPY requirements.txt requirements.lock.txt /app/
 
+# linux/arm64 (Oracle Cloud Ampere A1 free tier): PyTorch publishes no "+cpu" local-version
+# wheel for aarch64; the plain PyPI torch 2.10.0 aarch64 wheel IS the CPU-only build (CUDA
+# aarch64 wheels on PyPI start at 2.11). Rewrite that ONE pin in both files; everything else,
+# including the lock-drift check below, stays identical to amd64.
+RUN if [ "$(uname -m)" = "aarch64" ]; then \
+        sed -i 's/^torch==2\.10\.0+cpu/torch==2.10.0/' /app/requirements.txt /app/requirements.lock.txt; \
+    fi
+
 RUN python -m venv /opt/edudss-venv \
     && . /opt/edudss-venv/bin/activate \
     && PIP_VERSION="$(sed -n 's/^# pip==//p' /app/requirements.lock.txt)" \
@@ -24,10 +32,11 @@ RUN python -m venv /opt/edudss-venv \
     && python -m pip install -r /app/requirements.txt -c /app/requirements.lock.txt \
     && python -m pip install --no-deps "$(grep -i '^xgboost==' /app/requirements.lock.txt)" \
     && python - <<'PY'
-import importlib.metadata as m, re, torch
+import importlib.metadata as m, platform, re, torch
 bad = [d.name for d in m.distributions() if d.name.lower().startswith("nvidia") or d.name.lower() == "triton"]
 assert not bad, f"unexpected GPU-only packages installed: {bad}"
-assert torch.__version__.endswith("+cpu") and torch.cuda.is_available() is False, torch.__version__
+assert torch.cuda.is_available() is False, torch.__version__
+assert torch.__version__.endswith("+cpu") or platform.machine() == "aarch64", torch.__version__
 norm = lambda n: re.sub(r"[-_.]+", "-", n).lower()
 skip = {"pip", "setuptools", "wheel"}
 lock = {}
@@ -111,6 +120,9 @@ ENV PYTHONPATH=/app
 ENV APP_FILE=run_dss.py
 ENV STREAMLIT_PORT=8501
 ENV EDUDSS_HEALTH_PORT=8081
+# Prometheus multiprocess files shared by Streamlit and the health server (/metrics);
+# wiped at every start so counters never mix runs.
+ENV PROMETHEUS_MULTIPROC_DIR=/tmp/edudss-metrics
 # No telemetry to third parties by default, in every environment.
 ENV STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
 
@@ -123,4 +135,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=5 \
     CMD python -c "import os, urllib.request; urllib.request.urlopen('http://127.0.0.1:' + os.environ.get('EDUDSS_HEALTH_PORT', '8081') + '/livez', timeout=5)" || exit 1
 
 # Operator endpoints run beside Streamlit; if Streamlit exits, the container exits.
-CMD ["sh", "-c", "python -m dss.core.health_server & exec streamlit run ${APP_FILE} --server.port=${STREAMLIT_PORT} --server.address=0.0.0.0 --server.headless=true"]
+CMD ["sh", "-c", "rm -rf \"$PROMETHEUS_MULTIPROC_DIR\" && mkdir -p \"$PROMETHEUS_MULTIPROC_DIR\" && python ops/write_streamlit_secrets.py && (python -m dss.core.health_server &) && exec streamlit run ${APP_FILE} --server.port=${STREAMLIT_PORT} --server.address=0.0.0.0 --server.headless=true"]

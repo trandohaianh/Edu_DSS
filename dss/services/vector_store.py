@@ -10,6 +10,7 @@ Nguyên tắc:
 from __future__ import annotations
 
 import json
+from copy import deepcopy
 import os
 import threading
 from abc import ABC, abstractmethod
@@ -24,6 +25,16 @@ from dss.core.observability import observed
 
 from dss.services.chunking_service import DocumentChunk
 from dss.services.rag_namespaces import NAMESPACE_STUDENT_LEARNING
+
+
+def _ordered_document_chunks(chunks):
+    def position(chunk):
+        value = (chunk.get("metadata") or {}).get("chunk_index")
+        if isinstance(value, int) and not isinstance(value, bool):
+            return value, str(chunk.get("chunk_id", ""))
+        suffix = str(chunk.get("chunk_id", "")).rsplit("#c", 1)[-1]
+        return (int(suffix) if suffix.isdecimal() else 0), str(chunk.get("chunk_id", ""))
+    return sorted(chunks, key=position)
 
 
 class BaseVectorStore(ABC):
@@ -50,6 +61,14 @@ class BaseVectorStore(ABC):
     @abstractmethod
     def list_documents(self, namespace: Optional[str] = None) -> List[Dict[str, Any]]:
         pass
+
+    def get_document_chunks(self, document_id: str, *, course_id: str) -> List[Dict[str, Any]]:
+        """Read exact document/course content without embeddings or model calls.
+
+        Implementations enforce their namespace and school storage boundaries.
+        Caller services must separately enforce enrollment and document approval.
+        """
+        raise NotImplementedError("Plain document reads are unavailable for this backend.")
 
     @abstractmethod
     def update_document_metadata(self, document_id: str, updates: Dict[str, Any]) -> bool:
@@ -219,6 +238,18 @@ class LocalVectorStore(BaseVectorStore):
             self._save_to_disk()
             return True
 
+    def get_document_chunks(self, document_id: str, *, course_id: str) -> List[Dict[str, Any]]:
+        if not isinstance(document_id, str) or not document_id.strip() or not isinstance(course_id, str) or not course_id.strip():
+            raise ValueError("Exact document_id and course_id are required.")
+        with self._lock:
+            chunks = [
+                deepcopy({key: value for key, value in chunk.items() if key != "embedding"})
+                for chunk in self._memory_chunks
+                if chunk.get("document_id") == document_id and chunk.get("course_id") == course_id
+                and chunk.get("namespace", self.namespace) == self.namespace
+            ]
+        return _ordered_document_chunks(chunks)
+
     def list_documents(self, namespace: Optional[str] = None) -> List[Dict[str, Any]]:
         with self._lock:
             docs_map: Dict[str, Dict[str, Any]] = {}
@@ -357,10 +388,10 @@ class PgVectorStore(BaseVectorStore):
                     doc_row_id = conn.execute(
                         sa_text(
                             "INSERT INTO rag_documents (organization_id, document_id, title, source_type, "
-                            "namespace, version, is_current, doc_type, issuer, official_ref, status, "
+                            "namespace, course_code, version, is_current, doc_type, issuer, official_ref, status, "
                             "approved_by, approved_at, review_note, content_hash, effective_from, "
                             "expires_at, created_at, updated_at) "
-                            "VALUES (:org_id, :doc_id, :title, :source_type, :namespace, 1, true, :doc_type, "
+                            "VALUES (:org_id, :doc_id, :title, :source_type, :namespace, :course_id, 1, true, :doc_type, "
                             ":issuer, :official_ref, :status, :approved_by, :approved_at, :review_note, "
                             ":content_hash, :effective_from, :expires_at, now(), now()) "
                             "RETURNING id"
@@ -370,6 +401,7 @@ class PgVectorStore(BaseVectorStore):
                             "title": meta.get("title", c.document_id),
                             "source_type": meta.get("source_type", "DEMO"),
                             "namespace": self.namespace,
+                            "course_id": c.course_id,
                             "doc_type": meta.get("doc_type"),
                             "issuer": meta.get("issuer"),
                             "official_ref": meta.get("official_ref"),
@@ -437,7 +469,7 @@ class PgVectorStore(BaseVectorStore):
 
         sql = sa_text(
             "SELECT rc.chunk_id, rc.content, rc.source, rc.chunk_metadata, rd.document_id, rd.title, "
-            "rd.course_id, (rc.embedding <=> CAST(:embedding AS vector)) AS distance "
+            "rd.course_code AS course_id, (rc.embedding <=> CAST(:embedding AS vector)) AS distance "
             "FROM rag_chunks rc JOIN rag_documents rd ON rd.id = rc.document_id "
             f"WHERE {' AND '.join(where_clauses)} "
             "ORDER BY rc.embedding <=> CAST(:embedding AS vector) "
@@ -477,6 +509,29 @@ class PgVectorStore(BaseVectorStore):
             )
             return result.rowcount > 0
 
+    def get_document_chunks(self, document_id: str, *, course_id: str) -> List[Dict[str, Any]]:
+        if not isinstance(document_id, str) or not document_id.strip() or not isinstance(course_id, str) or not course_id.strip():
+            raise ValueError("Exact document_id and course_id are required.")
+        if not self._is_connected:
+            raise RuntimeError("PostgreSQL document storage is unavailable.")
+        from sqlalchemy import text as sa_text
+        organization_id = self._require_organization_id()
+        with self._engine.begin() as connection:
+            connection.execute(sa_text("SELECT set_config('app.organization_id', :scope, true)"),
+                               {"scope": str(organization_id)})
+            rows = connection.execute(sa_text(
+                "SELECT rc.chunk_id, rc.content, rc.source, rc.chunk_metadata, rd.document_id, rd.course_code AS course_id, rd.title "
+                "FROM rag_chunks rc JOIN rag_documents rd ON rd.id = rc.document_id "
+                "WHERE rd.organization_id = :school AND rd.namespace = :namespace "
+                "AND rd.document_id = :document AND rd.course_code = :course AND rd.is_current = true"
+            ), {"school": organization_id, "namespace": self.namespace,
+                "document": document_id, "course": course_id}).mappings().all()
+        return _ordered_document_chunks([{
+            "chunk_id": row["chunk_id"], "document_id": row["document_id"],
+            "course_id": row["course_id"], "content": row["content"],
+            "source": row["source"], "title": row["title"], "metadata": row["chunk_metadata"] or {},
+        } for row in rows])
+
     def list_documents(self, namespace: Optional[str] = None) -> List[Dict[str, Any]]:
         if not self._is_connected:
             return []
@@ -488,7 +543,7 @@ class PgVectorStore(BaseVectorStore):
             conn.execute(sa_text("SET LOCAL app.organization_id = :oid"), {"oid": str(org_id)})
             rows = conn.execute(
                 sa_text(
-                    "SELECT document_id, title, course_id, namespace, source_type, created_at, "
+                    "SELECT document_id, title, course_code AS course_id, namespace, source_type, created_at, "
                     "doc_type, issuer, official_ref, status, approved_by, approved_at, review_note, "
                     "content_hash, effective_from, expires_at "
                     "FROM rag_documents WHERE organization_id = :org_id AND namespace = :ns AND is_current = true"
@@ -548,20 +603,14 @@ def get_vector_store(
     namespace: str = NAMESPACE_STUDENT_LEARNING,
     force_local: bool = False,
 ) -> BaseVectorStore:
-    """Factory — Phase 1B: gated the same way every other domain is
-    (`EDUDSS_RAG_STORE=postgres`), NOT merely "DATABASE_URL happens to be
-    set" — the app's own Postgres persistence for other domains already
-    requires DATABASE_URL, so using its mere presence here would silently
-    flip RAG to Postgres as a side effect of unrelated configuration.
-    ngược lại fallback sang LocalVectorStore đảm bảo tính ổn định và tương thích ngược.
-    """
+    """Resolve the explicitly selected backend; a PostgreSQL failure never selects local."""
     from dss.core.persistence_config import is_postgres_enabled
 
     if not force_local and is_postgres_enabled("RAG"):
-        pg_url = os.environ.get("PGVECTOR_URL") or os.environ.get("DATABASE_URL")
-        if pg_url:
-            pg_store = PgVectorStore(pg_url, namespace=namespace)
-            if pg_store.is_available():
-                return pg_store
-
+        from dss.db.session import _resolve_database_url
+        pg_url = os.environ.get("PGVECTOR_URL") or _resolve_database_url()
+        pg_store = PgVectorStore(pg_url, namespace=namespace)
+        if not pg_store.is_available():
+            raise RuntimeError("The configured PostgreSQL document store is unavailable.")
+        return pg_store
     return LocalVectorStore(namespace=namespace)

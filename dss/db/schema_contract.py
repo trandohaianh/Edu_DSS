@@ -48,7 +48,9 @@ def expected_tables() -> frozenset[str]:
     from dss.db.base import Base
     import dss.db.models  # noqa: F401  (registers every mapped table)
 
-    return frozenset(set(Base.metadata.tables) | {ALEMBIC_VERSION_TABLE})
+    from dss.platform.models import PlatformBase
+
+    return frozenset(set(Base.metadata.tables) | set(PlatformBase.metadata.tables) | {ALEMBIC_VERSION_TABLE})
 
 
 def database_revisions(engine) -> list[str]:

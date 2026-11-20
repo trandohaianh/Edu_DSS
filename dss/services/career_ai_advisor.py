@@ -16,9 +16,9 @@ from typing import Any, Dict, List, Optional, Tuple
 from dss.services.career_gap_analysis import compute_gap_analysis, group_gap_by_status, STATUS_HAVE, STATUS_MISSING, STATUS_STRENGTHEN, PRIORITY_CRITICAL, PRIORITY_HIGH
 from dss.services.career_knowledge_base import CareerRole, get_role
 from dss.services.career_profile import StudentCareerProfile
-from dss.services.career_roadmap import generate_roadmap, _BUCKET_1M, _BUCKET_3M, _BUCKET_6M
+from dss.services.career_roadmap import generate_roadmap, _BUCKET_1M, _BUCKET_3M
 from dss.services.privacy_service import sanitize_conversation_turn_for_provider
-from dss.services.career_scoring import CareerFitResult, CareerReadinessResult, detect_capability_vs_constraint_conflicts
+from dss.services.career_scoring import CareerFitResult, CareerReadinessResult
 
 
 def _strength_band(score) -> str:
@@ -240,7 +240,6 @@ def generate_offline_grounded_answer(
     if "fresher" in q_lower or "apply" in q_lower or "xin việc" in q_lower or "sẵn sàng" in q_lower:
         ready_score = next(r.readiness_score for f, r in ranked if f.role_id == target_role.role_id)
         has_port = profile.experience.has_portfolio()
-        is_int_ready = profile.experience.is_interview_ready()
 
         if ready_score >= 70.0 and has_port:
             return (

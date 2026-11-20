@@ -6,6 +6,7 @@ không phải regression âm thầm.
 """
 from __future__ import annotations
 
+import pytest
 import streamlit as st
 
 from dss.services import auth_service
@@ -177,19 +178,23 @@ def test_logout_clears_auth_keys(as_role):
     assert st.session_state.get("_auth_role") is None
 
 
-def test_logout_clears_prefixed_session_state(as_role):
+def test_logout_clears_all_session_state_except_theme(as_role):
     as_role("Sinh viên", student_id="SV001")
     st.session_state["hub_results"] = {"fake": "data"}
     st.session_state["cluster_results_df"] = "fake_df"
     st.session_state["llm_type"] = "gemini"
     st.session_state["reminder_done_SV001_1"] = True
-    st.session_state["unrelated_key_should_survive"] = "keep me"
+    # Audit 2026-11: trước đây chỉ xoá theo tiền tố, nên dataset đã tải và lịch sử chat AI còn lại cho người sau.
+    st.session_state["current_df"] = "real uploaded dataset"
+    st.session_state["ai_chat_history_Sinh viên_SV001"] = ["câu hỏi riêng tư"]
+    st.session_state["dss_theme"] = "dark"
 
     auth_service.logout()
 
-    for k in ("hub_results", "cluster_results_df", "llm_type", "reminder_done_SV001_1"):
+    for k in ("hub_results", "cluster_results_df", "llm_type", "reminder_done_SV001_1", "current_df",
+              "ai_chat_history_Sinh viên_SV001"):
         assert k not in st.session_state
-    assert st.session_state.get("unrelated_key_should_survive") == "keep me"
+    assert st.session_state.get("dss_theme") == "dark"
 
 
 def test_logout_clears_api_key_widget_state(as_role):
@@ -201,3 +206,50 @@ def test_logout_clears_api_key_widget_state(as_role):
 
     assert "gemini_key_input" not in st.session_state
     assert "groq_key_input" not in st.session_state
+
+
+# --------------------------------------------------------------- audit 2026-11
+def test_corrupt_users_file_is_not_overwritten(isolated_users_file):
+    isolated_users_file.write_text('{"giaovu1": {"username": "giaovu1"', encoding="utf-8")     # JSON hỏng
+    before = isolated_users_file.read_text(encoding="utf-8")
+    with pytest.raises(auth_service.AccountStoreCorrupted):
+        auth_service.authenticate("admin", "admin123")
+    with pytest.raises(auth_service.AccountStoreCorrupted):
+        auth_service._seed_default_accounts_if_missing()
+    assert isolated_users_file.read_text(encoding="utf-8") == before      # trước đây: ghi đè còn admin/giangvien
+
+
+def test_disabled_account_loses_open_session_on_next_check(isolated_users_file, as_role, monkeypatch):
+    record = auth_service.authenticate("admin", "admin123")
+    auth_service.establish_session(record, "password")
+    assert auth_service._session_still_valid(auth_service.current_user())
+    with auth_service._local_accounts_lock:
+        users = auth_service._load_users()
+        users["admin"]["is_active"] = False
+        auth_service._save_users(users)
+    monkeypatch.setattr(auth_service, "SESSION_RECHECK_SECONDS", 0)
+    assert not auth_service._session_still_valid(auth_service.current_user())
+
+
+def test_demoted_role_loses_open_session(isolated_users_file, monkeypatch):
+    record = auth_service.authenticate("admin", "admin123")
+    auth_service.establish_session(record, "password")
+    with auth_service._local_accounts_lock:
+        users = auth_service._load_users()
+        users["admin"]["role"] = "Giảng viên / CVHT"
+        auth_service._save_users(users)
+    monkeypatch.setattr(auth_service, "SESSION_RECHECK_SECONDS", 0)
+    assert not auth_service._session_still_valid(auth_service.current_user())
+
+
+def test_unknown_username_costs_one_password_hash(isolated_users_file, monkeypatch):
+    calls = []
+    real = auth_service._verify_password
+    monkeypatch.setattr(auth_service, "_verify_password", lambda *a: calls.append(1) or real(*a))
+    assert auth_service.authenticate("khong_ton_tai", "mat-khau-bat-ky") is None
+    assert calls == [1]                                                  # cùng chi phí như sai mật khẩu
+
+
+def test_autoprovisioned_first_password_is_case_insensitive_on_later_logins(isolated_users_file):
+    assert auth_service.authenticate("SV123", "SV123123") is not None    # lần đầu gõ hoa
+    assert auth_service.authenticate("sv123", "sv123123") is not None    # sau đó gõ thường

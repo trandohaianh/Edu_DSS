@@ -56,6 +56,7 @@ _IMPLEMENTED_POSTGRES_FEATURES = {
     "PREDICTIONS", "CONSULTATIONS", "SUBSCRIPTION", "RAG", "ACADEMIC", "CMS",
     # Phase 1C additions:
     "ACTIVITY", "ADMIN_AI_CONFIG", "AI_TOKEN_USAGE",
+    "LEARNING_PLANS",  # Structured plans stored in the tenant-scoped Recommendation table.
     # Workstream C addition: unlike every feature above, this one is NOT
     # "either local JSON or Postgres" — the joblib/JSON artifact store in
     # dss/core/warehouse.py is ALWAYS the primary store, unconditionally.

@@ -32,8 +32,20 @@ LOCK_FILE = APP_ROOT / "requirements.lock.txt"
 # Bump when a required variable is added/renamed so operators can match config to release.
 CONFIG_SCHEMA_VERSION = "2"   # 1 = pre-C1.1, 2 = EDUDSS_ENV + EDUDSS_PSEUDONYM_KEY contract
 
-EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
+LEGACY_EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
+# Mô hình đa ngôn ngữ cùng số chiều (384) nên dùng chung bảng pgvector/Chroma; phải RE-INDEX khi đổi
+# vì không gian vector khác nhau. all-MiniLM-L6-v2 chỉ học tiếng Anh: với câu tiếng Việt nó dựa vào
+# mảnh từ con, "sàn nhiễu" cosine ~0,52-0,57 ngay cả khi không liên quan.
+MULTILINGUAL_EMBEDDING_MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+EMBEDDING_MODEL = os.environ.get("EDUDSS_EMBEDDING_MODEL", "").strip() or LEGACY_EMBEDDING_MODEL
 EMBEDDING_DIM = 384
+
+
+def resolve_embedding_model(name: str | None) -> str:
+    """Tên mặc định cũ được hard-code ở nhiều chỗ: ánh xạ về mô hình triển khai đã cấu hình."""
+    if not name or name in (LEGACY_EMBEDDING_MODEL, "all-MiniLM-L6-v2"):
+        return EMBEDDING_MODEL
+    return name
 
 
 def app_version() -> str:

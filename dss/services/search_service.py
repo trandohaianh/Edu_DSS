@@ -19,11 +19,12 @@ mọi tab khác trong ứng dụng, xem `LMS_CMS_RAG_PRODUCT_VERIFICATION.md`):
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
 import pandas as pd
 
 from dss.core.data_helpers import feature_label
+from dss.core.target_utils import is_id_like
 
 ROLES_ALLOWED_STUDENT_SEARCH = {"Admin", "Giảng viên / CVHT"}
 
@@ -58,7 +59,7 @@ def search_students(
     if df is None or not query or not query.strip():
         return []
 
-    id_col = next((c for c in df.columns if "id" in str(c).lower()), None)
+    id_col = next((c for c in df.columns if is_id_like(c)), None)
     if id_col is None:
         return []
 

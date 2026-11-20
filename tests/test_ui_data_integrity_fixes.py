@@ -5,7 +5,6 @@ viên). Test thuần logic, không cần Streamlit runtime.
 from __future__ import annotations
 
 import pandas as pd
-import pytest
 
 
 def test_category_label_never_returns_raw_enum():

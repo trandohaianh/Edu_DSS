@@ -30,6 +30,7 @@ class ResourceItem:
     verified_at: str
     reviewed_by: str
     status: str  # "APPROVED" | "PENDING_REVIEW" | "REJECTED" | "ARCHIVED"
+    is_demo: bool = False
 
 
 class ResourceCatalog:
@@ -119,6 +120,7 @@ class ResourceCatalog:
             ),
         ]
         for res in initial_resources:
+            res.is_demo = True
             self._resources[res.resource_id] = res
 
     def get_resource(self, resource_id: str) -> Optional[ResourceItem]:

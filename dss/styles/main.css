@@ -34,9 +34,9 @@
     --border-strong: #B9CEF8;
 
     /* Brand / action */
-    --primary: #2F6FED;
-    --primary-hover: #245FD3;
-    --primary-soft: #EAF2FF;
+    --primary: #2F5BD3;
+    --primary-hover: #1F3F9E;
+    --primary-soft: #E8EEFC;
 
     /* Status (text-safe on their -soft backgrounds) */
     --success: #17A673;
@@ -122,9 +122,9 @@
     --text-inverse: #0F172A;
     --border: #273449;
     --border-strong: #3B4A63;
-    --primary: #8AB4F8;
-    --primary-hover: #AECBFA;
-    --primary-soft: rgba(138, 180, 248, 0.16);
+    --primary: #8AA8FF;
+    --primary-hover: #B8CAFF;
+    --primary-soft: rgba(138, 168, 255, 0.16);
     --success: #81C995;
     --success-soft: rgba(129, 201, 149, 0.14);
     --warning: #FDD663;
@@ -154,9 +154,9 @@
         --text-inverse: #0F172A;
         --border: #273449;
         --border-strong: #3B4A63;
-        --primary: #8AB4F8;
-        --primary-hover: #AECBFA;
-        --primary-soft: rgba(138, 180, 248, 0.16);
+        --primary: #8AA8FF;
+        --primary-hover: #B8CAFF;
+        --primary-soft: rgba(138, 168, 255, 0.16);
         --success: #81C995;
         --success-soft: rgba(129, 201, 149, 0.14);
         --warning: #FDD663;
@@ -1644,3 +1644,7 @@ div[data-testid="stAppViewContainer"]:has(.st-key-dss_loading_screen_error) [dat
     [data-testid="stHorizontalBlock"] { flex-wrap: wrap !important; }
     [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] { min-width: 100% !important; }
 }
+
+/* Google Sign-In: vạch "hoặc" giữa form mật khẩu và nút Google (auth_service.render_login_gate). */
+.dss-login-divider { display: flex; align-items: center; gap: 12px; margin: 14px 0 6px; color: #5f6368; font-size: 0.85rem; }
+.dss-login-divider::before, .dss-login-divider::after { content: ""; flex: 1; border-top: 1px solid #dadce0; }

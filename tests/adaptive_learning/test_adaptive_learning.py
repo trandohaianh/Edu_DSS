@@ -9,10 +9,23 @@ Validates:
 """
 import pytest
 from dss.services.learning_profile import StudentLearningProfile
-from dss.services.diagnosis_engine import DiagnosisEngine, CATEGORY_LOW_PRACTICE, CATEGORY_SLOW_RESPONSE, CATEGORY_KNOWLEDGE_GAP
+from dss.services.diagnosis_engine import DiagnosisEngine, CATEGORY_LOW_PRACTICE, CATEGORY_SLOW_RESPONSE
 from dss.services.learning_plan import learning_plan_generator, StudentLearningPlan
 from dss.services.resource_catalog import resource_catalog
-from dss.services.diagnostic_assessment import diagnostic_service
+
+
+
+@pytest.fixture
+def approved_cs101_resource(monkeypatch):
+    from dss.services.resource_catalog import ResourceItem
+    item = ResourceItem(
+        resource_id="cs101_python_approved", title="Python practice", type="lms_material",
+        provider="Faculty", url="https://school.example.edu/cs101/python",
+        course="CS101", topic="Python", level="Beginner", language="vi", duration="",
+        verified_at="2026-10-20T00:00:00+00:00", reviewed_by="test_teacher", status="APPROVED",
+    )
+    monkeypatch.setattr(resource_catalog, "_resources", {item.resource_id: item})
+    return item
 
 
 def test_student_learning_profile_zero_pii():
@@ -75,15 +88,15 @@ def test_diagnosis_engine_standard_categories():
         assert d.recommended_diagnostic != ""
 
 
-def test_learning_plan_individualized_dosage():
+def test_learning_plan_individualized_dosage(approved_cs101_resource):
     """Verify that learning plans calculate dosage adaptively rather than using fixed numbers."""
-    engine = DiagnosisEngine()
+    DiagnosisEngine()
     
     # Student A: mild gap, fast velocity
     profile_a = StudentLearningProfile.build_from_lms_records(
         student_id="SV_A",
         course_id="CS101",
-        raw_lms_data={"quiz_score": 7.0, "assignment_score": 6.5, "exam_score": 6.0, "learning_velocity": 1.4, "practice_freq": 2.5},
+        raw_lms_data={"quiz_score": 7.0, "assignment_score": 6.5, "exam_score": 6.0, "learning_velocity": 1.4, "practice_freq": 2.5, "session_duration": 45, "topic_scores": {"Python": 4}},
     )
     plan_a = learning_plan_generator.generate_plan(profile_a)
     
@@ -91,7 +104,7 @@ def test_learning_plan_individualized_dosage():
     profile_b = StudentLearningProfile.build_from_lms_records(
         student_id="SV_B",
         course_id="CS101",
-        raw_lms_data={"quiz_score": 3.5, "assignment_score": 3.0, "exam_score": 3.0, "learning_velocity": 0.6, "practice_freq": 0.5, "active_days": 4},
+        raw_lms_data={"quiz_score": 3.5, "assignment_score": 3.0, "exam_score": 3.0, "learning_velocity": 0.6, "practice_freq": 0.5, "active_days": 4, "session_duration": 45, "topic_scores": {"Python": 2}},
     )
     plan_b = learning_plan_generator.generate_plan(profile_b)
     
@@ -102,17 +115,18 @@ def test_learning_plan_individualized_dosage():
     assert hours_b > hours_a, f"Expected hours_b ({hours_b}) > hours_a ({hours_a})"
 
 
-def test_verified_resource_catalog_item_urls():
+def test_verified_resource_catalog_item_urls(approved_cs101_resource):
     """Verify that all resources attached to plan activities exist in catalog with valid URLs."""
     profile = StudentLearningProfile.build_from_lms_records(
         student_id="SV_RES",
         course_id="CS101",
-        raw_lms_data={"quiz_score": 4.0, "exam_score": 4.0},
+        raw_lms_data={"quiz_score": 4.0, "exam_score": 4.0, "topic_scores": {"Python": 3}},
     )
     plan = learning_plan_generator.generate_plan(profile)
     
     assert len(plan.activities) > 0
     for act in plan.activities:
+        assert act.approved_resource_ids == [approved_cs101_resource.resource_id]
         for res_id in act.approved_resource_ids:
             res = resource_catalog.get_resource(res_id)
             assert res is not None, f"Resource {res_id} not found in catalog"

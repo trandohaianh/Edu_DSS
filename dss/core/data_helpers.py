@@ -1,7 +1,6 @@
 """Sample data generation and loading."""
 from __future__ import annotations
 
-import os
 
 import numpy as np
 import pandas as pd
@@ -12,14 +11,9 @@ from dss.config import (
     ColumnTransformer, RobustScaler, MinMaxScaler, StandardScaler,
     Pipeline, KNNImputer, SimpleImputer, OneHotEncoder,
 )
-from dss.core.trainers import DataPreprocessor
 from dss.security.upload_security import UploadValidationError, parse_tabular_upload
 from dss.core.target_utils import (
     score_to_xep_loai,
-    CANONICAL_TARGET_REGRESSION,
-    CANONICAL_TARGET_CLASSIFICATION,
-    LEGACY_ALIAS_REGRESSION,
-    LEGACY_ALIAS_CLASSIFICATION,
 )
 
 try:

@@ -6,11 +6,9 @@ Validates:
 3. Quantile latencies (p50, p95, p99) and predictions/sec telemetry.
 """
 import time
-import os
 import tracemalloc
 import numpy as np
 import pandas as pd
-import pytest
 
 from dss.core.warehouse import DataWarehouse
 from dss.services.model_service import resolve_production_for_prediction

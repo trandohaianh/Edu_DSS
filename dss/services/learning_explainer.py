@@ -34,6 +34,7 @@ from dss.services import cms_lecture_repository as cms_repository
 from dss.services import citation_service, prompt_security
 from dss.services import learning_explainer_policy as policy
 from dss.services.learning_explainer_policy import CMS_ONLY, CMS_PLUS_SUPPLEMENTARY, NO_CMS_CONTENT_MESSAGE
+from dss.core.target_utils import is_id_like
 
 _LOG_LOCK = threading.Lock()
 _QUIZ_LOCK = threading.Lock()
@@ -121,8 +122,9 @@ def resolve_explanation_level(
     pseudonym = generate_pseudonym(str(student_id)) if student_id else "guest"
 
     if topic_id and learning_profile is not None:
+        from dss.services.learning_profile import observed_mapping
         subskill = getattr(learning_profile, "question_level", None)
-        subskill_mastery = getattr(subskill, "subskill_mastery", {}) if subskill else {}
+        subskill_mastery = observed_mapping(getattr(subskill, "subskill_mastery", {}), maximum=1.0) if subskill else {}
         if topic_id in subskill_mastery:
             value = float(subskill_mastery[topic_id])
             return ExplanationLevelResolution(
@@ -132,10 +134,10 @@ def resolve_explanation_level(
             )
 
         academic = getattr(learning_profile, "academic", None)
-        topic_scores = getattr(academic, "topic_scores", {}) if academic else {}
+        topic_scores = observed_mapping(getattr(academic, "topic_scores", {}), maximum=10.0) if academic else {}
         if topic_id in topic_scores:
             raw = float(topic_scores[topic_id])
-            normalized = raw / 10.0 if raw > 1.0 else raw
+            normalized = raw / 10.0  # AcademicEvidence.topic_scores always uses the 0..10 scale.
             return ExplanationLevelResolution(
                 level=determine_explanation_level(normalized), confidence="Medium",
                 evidence=[f"topic_scores[{topic_id}] = {raw}"], source="topic_mastery",
@@ -153,7 +155,7 @@ def resolve_explanation_level(
 
     if df is not None and topic_id:
         from dss.core.data_helpers import TOPIC_SCORE_COLUMNS
-        id_col = next((c for c in df.columns if "id" in c.lower()), None)
+        id_col = next((c for c in df.columns if is_id_like(c)), None)
         matching_col = next(
             (c for c in TOPIC_SCORE_COLUMNS if topic_id.lower() in c.lower() or topic_id.lower() in TOPIC_SCORE_COLUMNS[c].lower()),
             None,
@@ -370,6 +372,15 @@ def generate_explanation(
     'Giải thích với kiến thức bổ sung' ở UI — hàm này không tự ý bật chế độ đó.
     Mọi output đều đi qua learning_explainer_policy trước khi trả về (Mục 2) —
     không chỉ dựa vào system prompt."""
+    from dss.services import engine_gateway
+    if engine_gateway.enabled():
+        cached = engine_gateway.get_cached_explanation(course_id, lesson_id)
+        return ExplanationResult(
+            has_cms_content=cached.get("state") == "READY",
+            answer=cached["text"], explanation_level=explanation_level,
+            citations=[], hallucinated_citations=[], used_socratic_mode=False,
+        )
+
     lesson = cms_repository.get_lesson(lesson_id)
     if not lesson or not lesson.ai_enabled:
         return ExplanationResult(

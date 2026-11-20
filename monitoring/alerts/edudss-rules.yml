@@ -1,0 +1,62 @@
+# Luật cảnh báo EduDSS (Prometheus / Grafana Cloud).
+groups:
+  - name: edudss-availability
+    rules:
+      - alert: EduDSSDown
+        expr: up{job=~".*edudss.*"} == 0
+        for: 5m
+        labels: {severity: critical}
+        annotations: {summary: "Không scrape được /metrics của EduDSS 5 phút (app hoặc health server chết)"}
+      - alert: EduDSSOperationErrors
+        expr: sum(rate(edudss_operations_total{outcome="error"}[15m])) / clamp_min(sum(rate(edudss_operations_total[15m])), 1e-9) > 0.1
+        for: 15m
+        labels: {severity: warning}
+        annotations: {summary: "Hơn 10% thao tác dịch vụ lỗi trong 15 phút"}
+      - alert: EduDSSSlowOperations
+        expr: histogram_quantile(0.95, sum by (le, operation) (rate(edudss_operation_seconds_bucket[15m]))) > 30
+        for: 15m
+        labels: {severity: warning}
+        annotations: {summary: "p95 của {{ $labels.operation }} vượt 30 giây"}
+  - name: edudss-ai-cost
+    rules:
+      - alert: EduDSSAIProviderFailing
+        expr: sum by (provider) (increase(edudss_ai_requests_total{outcome!~"success|cache_hit"}[15m])) > 5
+        labels: {severity: warning}
+        annotations: {summary: "Provider AI {{ $labels.provider }} lỗi nhiều lần trong 15 phút (đang dùng dự phòng)"}
+      - alert: EduDSSAIBudget80
+        expr: max(edudss_ai_spend_usd{period="month"}) / clamp_min(max(edudss_ai_budget_usd{period="month"}), 1e-9) > 0.8
+        labels: {severity: warning}
+        annotations: {summary: "Chi phí AI tháng đã vượt 80% ngân sách"}
+      - alert: EduDSSAIDailySpike
+        expr: max(edudss_ai_spend_usd{period="today"}) > max(edudss_ai_budget_usd{period="today"})
+        labels: {severity: critical}
+        annotations: {summary: "Chi phí AI hôm nay vượt ngân sách ngày"}
+      - alert: EduDSSLoginBruteForce
+        expr: sum(increase(edudss_logins_total{result=~"failed|locked"}[15m])) > 30
+        labels: {severity: warning}
+        annotations: {summary: "Nhiều lần đăng nhập sai/bị khoá trong 15 phút"}
+  - name: edudss-pipeline
+    rules:
+      - alert: EduDSSBackupStale
+        expr: time() - max(edudss_pipeline_last_success_timestamp_seconds{task="backup"}) > 26 * 3600
+        for: 30m
+        labels: {severity: critical}
+        annotations: {summary: "Không có backup EduDSS thành công hơn 26 giờ"}
+      - alert: EduDSSRestoreDrillFailed
+        expr: max(edudss_backup_restore_verified) == 0
+        labels: {severity: critical}
+        annotations: {summary: "Backup gần nhất KHÔNG khôi phục được (checksum lệch hoặc thiếu tệp)"}
+      - alert: EduDSSKpiStale
+        expr: time() - max(edudss_pipeline_last_success_timestamp_seconds{task="kpi_snapshot"}) > 3 * 3600
+        for: 30m
+        labels: {severity: warning}
+        annotations: {summary: "Worker pipeline không chạy KPI hơn 3 giờ (container worker dừng?)"}
+      - alert: EduDSSDataQualityFail
+        expr: max(edudss_data_quality_severity) >= 2
+        labels: {severity: warning}
+        annotations: {summary: "Dataset trong kho có lỗi chất lượng (trùng mã, ngoài miền giá trị, thiếu > 20%)"}
+      - alert: EduDSSDataDrift
+        expr: max(edudss_data_drift_max_psi) >= 0.25
+        for: 1h
+        labels: {severity: warning}
+        annotations: {summary: "Dữ liệu mới lệch mạnh so với dữ liệu tham chiếu (PSI ≥ 0.25) — xem lại mô hình"}

@@ -1,6 +1,5 @@
 """AI advisor tab — LLM study plans."""
 from __future__ import annotations
-import os
 import dss.config as dss_config
 
 from datetime import datetime
@@ -54,7 +53,6 @@ from dss.services.learning_profile import StudentLearningProfile
 from dss.services import diagnosis_engine as diagnosis_engine_module
 from dss.services.diagnosis_engine import DiagnosisEngine
 from dss.services.learning_plan import learning_plan_generator, StudentLearningPlan
-from dss.services.resource_catalog import resource_catalog
 
 _logger = get_logger(__name__)
 
@@ -88,10 +86,12 @@ def _week_plan_from_structured_plan(plan: StudentLearningPlan, weeks: int = 4) -
         topic = topics[(i - 1) % len(topics)]
         if plan.activities:
             act = plan.activities[(i - 1) % len(plan.activities)]
-            action = (
-                f"{act.method} ({act.frequency_per_week} lần/tuần, {act.duration_minutes} phút/lần). "
-                f"Lý do: {act.reason}. Kỳ vọng: {act.expected_outcome}"
+            schedule = (
+                f"{act.frequency_per_week} lần/tuần, {act.duration_minutes} phút/lần"
+                if act.frequency_per_week is not None and act.duration_minutes is not None
+                else "Thời lượng và lịch học cần được xác nhận thêm"
             )
+            action = f"{act.method} ({schedule}). Lý do: {act.reason}. Kỳ vọng: {act.expected_outcome}"
         else:
             action = f"Ôn tập chủ đề: {topic}"
         result.append({"week": i, "topic": topic, "action": action, "done": False})
@@ -383,6 +383,11 @@ def _run_compare_ai(llm_integration, specs, weaknesses_llm, predicted_gpa_llm, s
 
 def ai_advisor_tab(df, llm_integration, role=None, current_student_id=None, wh=None):
     """AI advisor tab using LLM."""
+    from dss.services import engine_gateway
+    if engine_gateway.enabled():
+        from dss.tabs.engine_advisor import engine_advisor_tab
+        return engine_advisor_tab(llm_integration=llm_integration)
+
     ui_kit.render_synthetic_data_banner(df)  # E-1: cảnh báo rõ khi đang xem dữ liệu mô phỏng
     # Student Product Acceptance audit (2026-09): nhãn điều hướng (sub-tab
     # radio ở main.py) đã đổi thành "Kế hoạch học tập" cho Sinh viên từ trước,
@@ -409,6 +414,26 @@ def ai_advisor_tab(df, llm_integration, role=None, current_student_id=None, wh=N
     # đủ để biết gói CÓ CÀI hay không cho mục đích liệt kê lựa chọn ở đây. Import thật chỉ
     # thực sự cần khi người dùng BẤM dùng provider Hugging Face (Local), lúc đó
     # call_ai_provider()/load_embedding_model() đã tự gọi _ensure_local_llm_libs().
+
+    # Structured plans/history do not depend on provider readiness or a GPA column.
+    from dss.tabs.learning_plan_workspace import render_learning_plan_workspace, course_id_from_record
+    render_learning_plan_workspace(df)
+    if df is None or df.empty:
+        return
+    if role == "Sinh viên":
+        # History remains readable without a usable prediction dataset.
+        from dss.services.auth_service import current_user
+        identity = current_user() or {}
+        id_column = next((c for c in ("student_id", "id", "Student ID", "ID") if c in df.columns), None)
+        own_id = identity.get("student_id")
+        if not id_column or not own_id or not (df[id_column].astype(str) == str(own_id)).any():
+            return
+        prediction_columns = [
+            c for c in df.select_dtypes(include=[np.number]).columns
+            if "id" not in str(c).lower() and "pca" not in str(c).lower() and "cluster" not in str(c).lower()
+        ]
+        if not prediction_columns:
+            return
 
     available_map = {
         "Hugging Face (Local/Cloud)": dss_config.HF_AVAILABLE,
@@ -565,6 +590,10 @@ def ai_advisor_tab(df, llm_integration, role=None, current_student_id=None, wh=N
     )
     predicted_gpa_llm = _prediction_info["value"]
     predicted_gpa_source = _prediction_info["source"]
+    if predicted_gpa_llm is None:
+        st.info("Chưa có điểm hiện tại hay mô hình dự báo cho sinh viên này, nên chưa thể đánh giá mức rủi ro "
+                "hay tư vấn dựa trên điểm. Hãy nhập điểm (hoặc huấn luyện mô hình dự báo) rồi quay lại.")
+        return
     predicted_gpa_model_name = _prediction_info.get("model_name")
     predicted_gpa_model_version = _prediction_info.get("version")
     if predicted_gpa_source == "model":
@@ -582,7 +611,7 @@ def ai_advisor_tab(df, llm_integration, role=None, current_student_id=None, wh=N
     lms_raw_dict = student_data_llm_row.to_dict() if hasattr(student_data_llm_row, "to_dict") else dict(student_data_llm_row)
     learning_prof = StudentLearningProfile.build_from_lms_records(
         student_id=str(student_id_llm),
-        course_id="LMS_COURSE",
+        course_id=course_id_from_record(lms_raw_dict),
         raw_lms_data=lms_raw_dict,
         class_averages=avg_scores_llm.to_dict() if hasattr(avg_scores_llm, "to_dict") else dict(avg_scores_llm),
     )
@@ -599,7 +628,10 @@ def ai_advisor_tab(df, llm_integration, role=None, current_student_id=None, wh=N
     for diag in structured_diagnoses:
         top_hyp = diag.hypotheses[0] if diag.hypotheses else None
         cat = top_hyp.category if top_hyp else None
-        if cat == diagnosis_engine_module.CATEGORY_MASTERY_ON_TRACK:
+        if cat in (
+            diagnosis_engine_module.CATEGORY_MASTERY_ON_TRACK,
+            diagnosis_engine_module.CATEGORY_INSUFFICIENT_DATA,
+        ):
             continue
         cat_label = diagnosis_engine_module.category_label(cat)
         weaknesses_llm.append(f"**{cat_label}** — {diag.issue}: *{'; '.join(diag.evidence)}*")

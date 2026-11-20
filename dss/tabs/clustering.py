@@ -1,13 +1,9 @@
 """Shared runtime imports for Streamlit tab modules."""
 from dss.config import *  # noqa: F403
-from dss.core.utils import (
-    render_chart_guide,
-    render_chart_guide_advanced,
-    st_step_header,
-)
 from dss.core.feature_utils import to_excel, render_save_export_buttons
 from dss.core.data_helpers import feature_label
 from dss.core.logging_config import get_logger
+from dss.core.target_utils import is_id_like
 
 _logger = get_logger(__name__)
 
@@ -69,6 +65,8 @@ def clustering_hybrid_tab(df, wh=None, role="Giảng viên / CVHT", current_stud
                 """
             )
 
+    if len(df) > 2000:
+        st.caption("Silhouette được ước lượng trên mẫu tối đa 2.000 bản ghi để giảm thời gian tính.")
     has_results = 'cluster_results_df' in st.session_state
 
     # ============================================================================
@@ -148,10 +146,6 @@ def clustering_hybrid_tab(df, wh=None, role="Giảng viên / CVHT", current_stud
                     "Đặc trưng dùng để phân cụm:",
                     all_numeric_cols,
                     default=default_cluster_features,
-                    # feature_label là điểm gọi duy nhất cho nhãn hiển thị; trước
-                    # đây ô chọn này bỏ qua nó nên giảng viên nhìn thấy tên cột
-                    # thô kiểu "ty_le_diem_danh" ngay trên màn hình.
-                    format_func=feature_label,
                     help="Chỉ chọn cột dạng số phản ánh năng lực/hành vi học tập.",
                     key="cluster_features",
                 )
@@ -192,11 +186,14 @@ def clustering_hybrid_tab(df, wh=None, role="Giảng viên / CVHT", current_stud
                             st.session_state.cluster_k_sil_best = result["suggested_k_sil"]
                             st.session_state.cluster_k_recommended = result["recommended_k"]
                             st.session_state.cluster_k_recommended_reason = result["reason"]
+                            st.session_state.cluster_structure_warning = result.get("warning")
                             st.rerun()
 
                     rec_k_now = st.session_state.get("cluster_k_recommended")
                     if rec_k_now is not None:
                         st.success(f"K đề xuất: **{rec_k_now}**")
+                        if st.session_state.get("cluster_structure_warning"):
+                            st.warning(st.session_state.cluster_structure_warning)
                         st.caption(st.session_state.get("cluster_k_recommended_reason", ""))
                         if st.button(f"✅ Áp dụng K = {rec_k_now}", key="apply_recommended_k", width="stretch"):
                             st.session_state.k_cluster = int(rec_k_now)
@@ -342,7 +339,7 @@ def clustering_hybrid_tab(df, wh=None, role="Giảng viên / CVHT", current_stud
         return
     else:
         df_results_sv = st.session_state.cluster_results_df
-        _sv_id_col = next((c for c in df_results_sv.columns if 'id' in c.lower()), df_results_sv.columns[0])
+        _sv_id_col = next((c for c in df_results_sv.columns if is_id_like(c)), df_results_sv.columns[0])
         _sv_rows = df_results_sv[df_results_sv[_sv_id_col] == current_student_id]
         with st.container(border=True):
             if not _sv_rows.empty:
@@ -569,7 +566,7 @@ def clustering_hybrid_tab(df, wh=None, role="Giảng viên / CVHT", current_stud
                     st.warning("⚠️ Không có cụm nào để phân tích. Vui lòng chạy phân cụm trước.")
                 else:
                     if role == "Sinh viên":
-                        _sv_id_col_rec = next((c for c in df_results.columns if 'id' in c.lower()), df_results.columns[0])
+                        _sv_id_col_rec = next((c for c in df_results.columns if is_id_like(c)), df_results.columns[0])
                         _sv_rows_rec = df_results[df_results[_sv_id_col_rec] == current_student_id]
                         cluster_to_analyze = _sv_rows_rec.iloc[0]['cluster'] if not _sv_rows_rec.empty else None
                         if cluster_to_analyze is not None:

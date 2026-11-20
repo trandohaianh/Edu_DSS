@@ -62,7 +62,6 @@ Follow-up audit (2026-09, user-supplied verified facts pass):
 """
 from __future__ import annotations
 
-import os
 
 import pytest
 

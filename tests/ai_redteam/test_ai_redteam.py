@@ -5,9 +5,8 @@ Validates:
 2. PII masking and pseudonymization (zero raw student IDs/names leaked to LLM context).
 3. Failover safety: auth/PII errors do not trigger fallback cascade.
 """
-import pytest
 from dss.services.prompt_security import build_secure_rag_prompt, sanitize_untrusted_text
-from dss.services.privacy_service import generate_pseudonym, sanitize_pii_from_text
+from dss.services.privacy_service import generate_pseudonym
 from dss.services.llm_gateway import LLMGateway
 
 

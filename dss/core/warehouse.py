@@ -2,16 +2,16 @@
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
 import os
-import shutil
+import re
 import uuid
 from datetime import datetime
 
 import joblib
 import numpy as np
 import pandas as pd
-import streamlit as st
 
 from dss.config import JOBLIB_AVAILABLE
 from dss.core.data_root import get_data_root
@@ -33,6 +33,39 @@ def _current_organization_id() -> int:
             "(EDUDSS_PREDICTIONS_STORE/EDUDSS_CONSULTATIONS_STORE=postgres)."
         )
     return int(raw)
+
+
+# ------------------------------------------------------------------ ký artifact (audit 17/11/2026)
+# Trước đây mã băm SHA-256 nằm ngay trong metadata cạnh artifact, và ``model_path`` tuyệt đối trong metadata được
+# đưa thẳng vào ``joblib.load``: ai ghi được thư mục dữ liệu là thay được cả artifact lẫn mã băm, hoặc trỏ tới một
+# tệp pickle bất kỳ trên máy (joblib.load = thực thi mã). Nay:
+# - chỉ tải ``<models>/<training_id>.joblib`` (training_id phải là định danh an toàn), bỏ qua ``model_path``;
+# - metadata mang ``model_hmac`` = HMAC-SHA256(khoá, training_id + sha256) với khoá KHÔNG nằm trong thư mục dữ
+#   liệu ở production (``EDUDSS_ARTIFACT_SIGNING_KEY``, hoặc dẫn xuất từ ``EDUDSS_PSEUDONYM_KEY`` bắt buộc ở
+#   production), giống cách engine ký artifact;
+# - artifact cũ chưa ký: ngoài production vẫn tải (kiểm SHA-256 như trước, ghi cảnh báo); ở production từ chối,
+#   ký lại một lần bằng ``DataWarehouse().sign_legacy_models()`` sau khi đã kiểm chứng thư mục mô hình.
+_SAFE_ID = re.compile(r"^[A-Za-z0-9_.-]{1,128}$")
+
+
+def _artifact_key() -> bytes:
+    raw = os.environ.get("EDUDSS_ARTIFACT_SIGNING_KEY", "")
+    if len(raw.strip().encode("utf-8")) >= 32:
+        return raw.strip().encode("utf-8")
+    from dss.security.pseudonymization import _master_key
+    return hmac.new(_master_key(), b"edudss-artifact-signing-v1", hashlib.sha256).digest()
+
+
+def _artifact_tag(training_id: str, sha256_hex: str) -> str:
+    return hmac.new(_artifact_key(), f"{training_id}:{sha256_hex}".encode("utf-8"), hashlib.sha256).hexdigest()
+
+
+def _file_sha256(path: str) -> str:
+    digest = hashlib.sha256()
+    with open(path, "rb") as f:
+        for block in iter(lambda: f.read(1 << 20), b""):
+            digest.update(block)
+    return digest.hexdigest()
 
 
 class DataWarehouse:
@@ -457,10 +490,10 @@ class DataWarehouse:
         )
         
         # Tính mã băm SHA-256 cho artifact mô hình (Mục 28: Artifact Safety)
-        model_sha256 = None
+        model_sha256 = model_hmac = None
         if os.path.exists(model_path):
-            with open(model_path, 'rb') as f:
-                model_sha256 = hashlib.sha256(f.read()).hexdigest()
+            model_sha256 = _file_sha256(model_path)
+            model_hmac = _artifact_tag(training_id, model_sha256)
 
         model_key = f"{dataset_id}::{target_col}"
         # MỤC 4: LOẠI BỎ hoàn toàn tự động promote Production khi huấn luyện
@@ -477,6 +510,7 @@ class DataWarehouse:
             'metrics': metrics,
             'model_path': model_path,
             'model_sha256': model_sha256,
+            'model_hmac': model_hmac,
             'trusted_origin': 'local_training',
             'train_data_id': train_id,
             'test_data_id': test_id,
@@ -786,6 +820,56 @@ class DataWarehouse:
         except Exception as e:
             return None, f"Lỗi khi tải dataset: {str(e)}"
 
+    def _verify_artifact(self, training_id, model_path, metadata, blob=None):
+        """None nếu artifact đáng tin; ngược lại là thông báo lỗi (không tải)."""
+        from dss.core.runtime_mode import is_production
+        actual = hashlib.sha256(blob).hexdigest() if blob is not None else _file_sha256(model_path)
+        expected_sha = metadata.get('model_sha256')
+        if expected_sha and not hmac.compare_digest(actual, str(expected_sha)):
+            _logger.error("Mã băm SHA-256 không khớp cho model %s", training_id)
+            return "Lỗi bảo mật: Artifact mô hình bị biến đổi hoặc hỏng (sai lệch SHA-256)."
+        tag = metadata.get('model_hmac')
+        if tag:
+            if not hmac.compare_digest(_artifact_tag(training_id, actual), str(tag)):
+                _logger.error("Chữ ký artifact không hợp lệ cho model %s", training_id)
+                return "Lỗi bảo mật: Chữ ký artifact mô hình không hợp lệ."
+            return None
+        if is_production():
+            return ("Artifact mô hình chưa được ký (bản cũ). Quản trị viên cần ký lại bằng "
+                    "DataWarehouse().sign_legacy_models() hoặc huấn luyện lại.")
+        _logger.warning("Tải artifact chưa ký (chỉ cho phép ngoài production): %s", training_id)
+        return None
+
+    def sign_legacy_models(self):
+        """Ký các artifact cũ chưa có ``model_hmac`` (chạy MỘT lần, sau khi đã kiểm chứng thư mục mô hình).
+
+        Chỉ ký artifact còn khớp SHA-256 đã lưu (nếu có). Trả về (đã ký, bỏ qua)."""
+        signed, skipped = [], []
+        if not os.path.isdir(self.metadata_path):
+            return signed, skipped
+        for name in sorted(os.listdir(self.metadata_path)):
+            if not name.endswith("_model.json"):
+                continue
+            training_id = name[:-len("_model.json")]
+            path = os.path.join(self.metadata_path, name)
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    metadata = json.load(f)
+            except (OSError, ValueError):
+                skipped.append(training_id)
+                continue
+            model_path = os.path.join(self.models_path, f"{training_id}.joblib")
+            if metadata.get("model_hmac") or not _SAFE_ID.match(training_id) or not os.path.exists(model_path):
+                continue
+            actual = _file_sha256(model_path)
+            if metadata.get("model_sha256") and metadata["model_sha256"] != actual:
+                skipped.append(training_id)
+                continue
+            metadata.update(model_sha256=actual, model_hmac=_artifact_tag(training_id, actual))
+            self._atomic_json_write(path, metadata)
+            signed.append(training_id)
+        return signed, skipped
+
     def load_model_training(self, training_id):
         """Tải mô hình và metadata từ kho."""
         metadata_path = os.path.join(self.metadata_path, f"{training_id}_model.json")
@@ -803,24 +887,20 @@ class DataWarehouse:
             return None, None, f"Lỗi đọc file metadata: {e}"
 
         try:
-            model_path = metadata.get('model_path')
-            if not model_path or not os.path.exists(model_path):
-                model_path = os.path.join(self.models_path, f"{training_id}.joblib")
-            
+            if not isinstance(training_id, str) or not _SAFE_ID.match(training_id):
+                return None, None, "Mã phiên huấn luyện không hợp lệ."
+            # Không tin ``model_path`` trong metadata (có thể trỏ ra ngoài kho): chỉ tải đúng tệp của training_id.
+            model_path = os.path.join(self.models_path, f"{training_id}.joblib")
             if os.path.exists(model_path):
                 if not JOBLIB_AVAILABLE or joblib is None:
                     return None, None, "Thiếu joblib — không thể tải mô hình (.joblib)."
-                
-                # SECTION 28: Kiểm tra mã băm SHA-256 và nguồn gốc tin cậy
-                expected_sha256 = metadata.get('model_sha256')
-                if expected_sha256:
-                    with open(model_path, 'rb') as f:
-                        actual_sha256 = hashlib.sha256(f.read()).hexdigest()
-                    if actual_sha256 != expected_sha256:
-                        _logger.error("Mã băm SHA-256 không khớp cho model %s: kỳ vọng %s, thực tế %s", training_id, expected_sha256, actual_sha256)
-                        return None, None, "Lỗi bảo mật: Artifact mô hình bị biến đổi hoặc hỏng (sai lệch SHA-256)."
-
-                pipeline = joblib.load(model_path)
+                with open(model_path, "rb") as f:
+                    blob = f.read()                   # đọc MỘT lần: kiểm và tải cùng một bản (không đổi tệp xen giữa)
+                problem = self._verify_artifact(training_id, model_path, metadata, blob)
+                if problem:
+                    return None, None, problem
+                import io as _io
+                pipeline = joblib.load(_io.BytesIO(blob))
                 return pipeline, metadata, "Thành công"
             return None, None, "File mô hình không tồn tại."
         except Exception as e:

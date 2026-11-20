@@ -15,6 +15,7 @@ inside each installed distribution (`*.dist-info/`) and at the listed upstream s
 | annotated-types | 0.8.0 | MIT | ALLOWED |
 | anyio | 4.14.2 | MIT | ALLOWED |
 | attrs | 26.1.0 | MIT | ALLOWED |
+| Authlib | 1.9.6 | BSD-3-Clause | ALLOWED |
 | blinker | 1.9.0 | MIT License | ALLOWED |
 | cachetools | 6.2.6 | MIT | ALLOWED |
 | certifi | 2026.7.22 | Mozilla Public License 2.0 (MPL 2.0); MPL-2.0 | REVIEW |
@@ -47,6 +48,7 @@ inside each installed distribution (`*.dist-info/`) and at the listed upstream s
 | Jinja2 | 3.1.6 | BSD License | ALLOWED |
 | jiter | 0.17.0 | MIT | ALLOWED |
 | joblib | 1.5.3 | BSD-3-Clause | ALLOWED |
+| joserfc | 1.8.0 | BSD-3-Clause | ALLOWED |
 | jsonschema | 4.26.0 | MIT | ALLOWED |
 | jsonschema-specifications | 2025.9.1 | MIT | ALLOWED |
 | kiwisolver | 1.5.1 | BSD License; ========================= | ALLOWED |
@@ -72,6 +74,7 @@ inside each installed distribution (`*.dist-info/`) and at the listed upstream s
 | playwright | 1.62.0 | Apache-2.0 | ALLOWED |
 | plotly | 6.5.0 | MIT License | ALLOWED |
 | pluggy | 1.6.0 | MIT License; MIT | ALLOWED |
+| prometheus-client | 0.26.0 | Apache-2.0 AND BSD-2-Clause | ALLOWED |
 | protobuf | 6.33.6 | 3-Clause BSD License | ALLOWED |
 | psycopg2-binary | 2.9.13 | GNU Library or Lesser General Public License (LGPL); LGPL with exceptions | REVIEW |
 | pyarrow | 25.0.1 | Apache-2.0 | ALLOWED |

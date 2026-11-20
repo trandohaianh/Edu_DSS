@@ -72,7 +72,7 @@ def test_student_nav_has_no_dashboard_or_warehouse_tab(login):
     # line-art thay emoji, xem `roles.display_label` / `main.py` format_func) —
     # nhưng giá trị gốc (khoá TAB_ACCESS) vẫn giữ emoji, không đổi RBAC.
     page = login("sv902", "sv902123")
-    txt = page.inner_text("body")
+    page.inner_text("body")
     # "Dashboard" là từ mượn tiếng Anh xuất hiện hợp lệ ở NƠI KHÁC của trang
     # Sinh viên (vd. tiêu đề "Dashboard của bạn" ở Trang chủ) — không thể chỉ
     # tìm chuỗi con trên TOÀN trang, phải giới hạn đúng danh sách điều hướng

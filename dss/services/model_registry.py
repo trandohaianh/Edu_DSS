@@ -46,6 +46,18 @@ def _resolve_organization_id_best_effort() -> int | None:
         return None
 
 
+def _actor() -> str:
+    """Người đang thực hiện thao tác, để ghi vào nhật ký kiểm toán.
+
+    Khoá phiên do auth_service đặt là `_auth_username` (xem auth_service.current_user).
+    Trước đây hàm promote/rollback đọc nhầm khoá `_auth_user` — khoá đó không tồn tại ở
+    bất kỳ đâu khác trong mã nguồn, nên `.get()` luôn trượt và nhật ký ghi đúng một chuỗi
+    "admin" cho mọi lần duyệt, bất kể ai bấm. Dùng chung một khoá với tenant_service và
+    user_management_service để nhật ký nêu đúng tên người chịu trách nhiệm.
+    """
+    return str(st.session_state.get("_auth_username") or "admin")
+
+
 def get_production(wh, dataset_id, target_col):
     """Trả (pipeline, metadata) của bản Production hiện tại, hoặc (None, None)."""
     return wh.get_production_model(dataset_id, target_col)
@@ -240,7 +252,7 @@ def promote(wh, training_id, promoted_by=None, promotion_reason=None):
     UI đọc field `status` này qua warehouse_tab._model_lifecycle_badge_text().
     """
     if promoted_by is None:
-        promoted_by = st.session_state.get("_auth_user", "admin")
+        promoted_by = _actor()
     if promotion_reason is None:
         promotion_reason = "Admin manual promotion via Model Registry"
     return _set_production_with_audit(wh, training_id, promoted_by, promotion_reason, action="model.promoted")
@@ -250,7 +262,7 @@ def promote(wh, training_id, promoted_by=None, promotion_reason=None):
 def rollback(wh, training_id, promoted_by=None, promotion_reason=None):
     """Quay lại 1 version cũ hơn làm Production — CHỈ Quản trị viên (Admin)."""
     if promoted_by is None:
-        promoted_by = st.session_state.get("_auth_user", "admin")
+        promoted_by = _actor()
     if promotion_reason is None:
         promotion_reason = "Admin manual rollback via Model Registry"
     return _set_production_with_audit(wh, training_id, promoted_by, promotion_reason, action="model.rolled_back")

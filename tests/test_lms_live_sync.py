@@ -2,8 +2,7 @@
 import hashlib
 import hmac
 import pandas as pd
-import pytest
-from dss.services.lms_live_sync import LMSLiveEvent, LMSLiveSyncManager, lms_live_sync_manager
+from dss.services.lms_live_sync import LMSLiveEvent, LMSLiveSyncManager
 
 
 def test_webhook_signature_verification():

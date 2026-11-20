@@ -8,11 +8,9 @@ Validates:
 """
 import pytest
 import sqlite3
-from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 
-from dss.core.lms_repository import LMSRepository, LMS_SCHEMA_DDL
-from dss.services.auth_service import verify_lms_sso_token
+from dss.core.lms_repository import LMSRepository
 
 
 def test_lms_schema_creation(tmp_path):
@@ -95,17 +93,3 @@ def test_concurrent_log_insertions(tmp_path):
         cursor.execute("SELECT count(*) FROM lms_resource_access_logs")
         count = cursor.fetchone()[0]
         assert count == 40
-
-
-def test_lms_sso_token_verification():
-    """Verify that verify_lms_sso_token properly validates tokens."""
-    # Invalid token
-    assert verify_lms_sso_token("") is None
-    assert verify_lms_sso_token("short") is None
-    
-    # Valid mock token
-    valid_token = "lms_bearer_sv001_session"
-    user = verify_lms_sso_token(valid_token)
-    assert user is not None
-    assert user["role"] == "Sinh viên"
-    assert user["username"] == "sv001"

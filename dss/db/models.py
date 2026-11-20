@@ -577,6 +577,7 @@ class RagDocument(Base, TimestampMixin):
     course_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("courses.id", ondelete="SET NULL"), nullable=True
     )
+    course_code: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
     source_type: Mapped[str] = mapped_column(String(64), nullable=False)  # COURSE_MATERIAL|DEMO|... (see source_classification.py)
     namespace: Mapped[str] = mapped_column(String(64), nullable=False, default="student_learning")
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)

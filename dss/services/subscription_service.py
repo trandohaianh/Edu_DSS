@@ -14,10 +14,6 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import streamlit as st
-from dss.core.display_mapper import (
-    SUBSCRIPTION_STATUS_TO_VIETNAMESE,
-    SUBSCRIPTION_PLAN_TO_VIETNAMESE,
-)
 from dss.core.data_root import get_data_root
 from dss.core.logging_config import get_logger
 from dss.core.persistence_config import is_postgres_enabled

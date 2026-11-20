@@ -23,6 +23,7 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 import streamlit as st
+from dss.core.target_utils import is_id_like
 
 
 def drop_near_duplicate_columns(df, cols, corr_threshold=0.98):
@@ -343,6 +344,22 @@ def _resolve_shap_feature_names(preprocessor, feature_names, n_fallback):
     return [n.split("__", 1)[1] if "__" in n else n for n in names]
 
 
+def _shap_input_transformer(pipeline):
+    """Toàn bộ các bước TRƯỚC 'model' (preprocessor -> feature_selection...) dưới dạng 1
+    Pipeline chỉ-transform, bỏ bước sinh mẫu (SMOTE/ADASYN: chỉ chạy lúc fit, không có
+    transform). Trước đây SHAP chỉ chạy preprocessor rồi đưa thẳng vào model, bỏ qua bước
+    chọn đặc trưng (MI/RFE) -> model nhận sai số cột (lỗi shape) hoặc tên cột lệch."""
+    from sklearn.pipeline import Pipeline as _SkPipeline
+
+    steps = [
+        (name, step) for name, step in pipeline.steps[:-1]
+        if step is not None and step != "passthrough" and not hasattr(step, "fit_resample")
+    ]
+    if len(steps) == 1:
+        return steps[0][1]
+    return _SkPipeline(steps)
+
+
 def compute_shap_local_explanation(pipeline, input_df, background_data, feature_names, problem_type="classification"):
     """Tính SHAP values cho 1 dòng dữ liệu (local explanation) — THUẦN TÍNH
     TOÁN, không vẽ biểu đồ. Trước đây nằm lẫn với code render trong
@@ -364,13 +381,14 @@ def compute_shap_local_explanation(pipeline, input_df, background_data, feature_
         if not model or not preprocessor:
             return None, "Pipeline không theo chuẩn chung (thiếu 'model' hoặc 'preprocessor'). Không thể dùng SHAP."
 
-        input_transformed = preprocessor.transform(input_df)
-        background_transformed = preprocessor.transform(background_data)
+        transformer = _shap_input_transformer(pipeline)
+        input_transformed = transformer.transform(input_df)
+        background_transformed = transformer.transform(background_data)
 
         if background_transformed.shape[0] > 100:
             background_transformed = shap.sample(background_transformed, 100)
 
-        feature_names_out = _resolve_shap_feature_names(preprocessor, feature_names, input_transformed.shape[1])
+        feature_names_out = _resolve_shap_feature_names(transformer, feature_names, input_transformed.shape[1])
 
         if type(model).__name__ in _SHAP_TREE_MODEL_NAMES:
             explainer = shap.TreeExplainer(model)
@@ -433,9 +451,10 @@ def compute_shap_summary(pipeline, background_data, feature_names, problem_type=
         if not model or not preprocessor:
             return None, "Pipeline không theo chuẩn chung. Không thể dùng SHAP."
 
-        background_transformed = preprocessor.transform(background_data)
+        transformer = _shap_input_transformer(pipeline)
+        background_transformed = transformer.transform(background_data)
 
-        feature_names_out = _resolve_shap_feature_names(preprocessor, feature_names, background_transformed.shape[1])
+        feature_names_out = _resolve_shap_feature_names(transformer, feature_names, background_transformed.shape[1])
 
         if type(model).__name__ in _SHAP_TREE_MODEL_NAMES:
             explainer = shap.TreeExplainer(model)
@@ -683,7 +702,7 @@ def compute_lecturer_dashboard_overview(df, wh, dataset_id, target_col, gpa_refe
             return "trung bình"
         return "thấp"
 
-    id_col = next((c for c in df.columns if "id" in str(c).lower()), df.columns[0])
+    id_col = next((c for c in df.columns if is_id_like(c)), df.columns[0])
     overall_avg = df[feature_cols].mean(numeric_only=True)
 
     risk_counts = {"cao": 0, "trung bình": 0, "thấp": 0}
@@ -811,7 +830,8 @@ def predict_for_student(wh, dataset_id, target_col, student_row):
             observed_col = cand
             break
     if observed_col is None:
-        return {"value": 0.0, "source": "observed", "model_name": None, "version": None}
+        # Không có căn cứ nào: trả None, KHÔNG trả 0.0 (trước đây giao diện và prompt LLM coi như GPA 0 = rủi ro cao).
+        return {"value": None, "source": "unavailable", "model_name": None, "version": None}
     raw_value = float(student_row[observed_col])
     # gpa_previous có thể ở thang 4 — quy đổi về thang 10 để cùng đơn vị với target.
     if observed_col in ("gpa_previous", "prior_gpa") and raw_value <= 4.0:
@@ -956,21 +976,22 @@ def build_metrics_dataframe(results, hub_type):
             if np.isnan(f1_weighted):
                 f1_weighted = safe_metric_value(weighted_avg.get("f1-score", macro_avg.get("f1-score")))
 
-            # PR-AUC là tiêu chí CHỌN mô hình khi lớp thiểu số quá ít mẫu
-            # (xem PR_AUC_SELECTION_THRESHOLD trong dss/core/trainers.py). Tiêu chí
-            # dùng để chọn thì phải hiện trong bảng, nếu không người đọc báo cáo
-            # không có cách nào kiểm lại vì sao mô hình này được chọn.
-            pr_auc_val = safe_metric_value(m.get("PR-AUC (Macro)"))
-
             rows.append(
                 {
                     "Model": name,
                     "F1 Score (Macro)": f1_macro if not np.isnan(f1_macro) else f1_weighted,
-                    "PR-AUC (Macro)": pr_auc_val,
+                    # PR-AUC là tiêu chí CHỌN mô hình khi lớp thiểu số quá ít mẫu
+                    # (xem PR_AUC_SELECTION_THRESHOLD trong dss/core/trainers.py).
+                    # Tiêu chí dùng để chọn thì phải hiện trong bảng, nếu không
+                    # người đọc báo cáo không kiểm lại được lựa chọn.
+                    "PR-AUC (Macro)": safe_metric_value(m.get("PR-AUC (Macro)")),
                     "Accuracy": acc,
                     "Precision": precision_val,
                     "Recall": recall_val,
                     "F1 Score (Weighted)": f1_weighted,
+                    # Điểm CV (trung bình các fold trên tập TRAIN, đúng tiêu chí GridSearchCV
+                    # đã tối ưu) — dùng để CHỌN mô hình, xem resolve_ranking_col.
+                    CV_SCORE_COL: safe_metric_value(m.get("cv_mean")),
                 }
             )
         else:
@@ -986,11 +1007,21 @@ def build_metrics_dataframe(results, hub_type):
                     "R2 Score": r2,
                     "RMSE": rmse,
                     "MAE": mae,
+                    # MAE trung bình CV trên tập TRAIN (tiêu chí tuning) — dùng để CHỌN mô hình.
+                    CV_MAE_COL: safe_metric_value(m.get("cv_mean")),
                 }
             )
     if not rows:
         return pd.DataFrame()
     return pd.DataFrame(rows).set_index("Model")
+
+
+CV_SCORE_COL = "CV Score (Train)"
+CV_MAE_COL = "CV MAE (Train)"
+
+
+def _has_complete_cv(metrics_df, col):
+    return col in metrics_df.columns and len(metrics_df) > 0 and bool(metrics_df[col].notna().all())
 
 
 def resolve_ranking_col(metrics_df, hub_type):
@@ -1007,11 +1038,24 @@ def resolve_ranking_col(metrics_df, hub_type):
     comment "HỢP ĐỒNG METRIC TƯỜNG MINH" tại đó) — RMSE phạt sai số lớn nặng hơn,
     phù hợp bài toán cảnh báo rủi ro học tập. MAE/R2 Score là SECONDARY, vẫn hiển
     thị song song. Test: test_regression_metric_contract.py.
+
+    Cập nhật 2026-11: khi MỌI mô hình trong bảng có điểm CV (cv_mean), xếp hạng theo điểm CV
+    đó (phân loại: tiêu chí GridSearchCV, cao hơn tốt hơn; hồi quy: CV MAE, thấp hơn tốt hơn).
+    Các tiêu chí test ở trên chỉ còn là phương án dự phòng khi thiếu điểm CV.
     """
+    # Chọn mô hình theo điểm CROSS-VALIDATION trên tập train (đã tính khi GridSearchCV), KHÔNG
+    # theo điểm test: chọn theo test rồi báo cáo chính điểm test đó là lạc quan có hệ thống (người
+    # thắng được chọn vì may mắn trên đúng tập test). Chỉ số test vẫn hiển thị nguyên vẹn. Chỉ
+    # rơi về tiêu chí test cũ khi có mô hình THIẾU điểm CV (vd. XGBoost train trực tiếp, Ensemble)
+    # — trộn mô hình có/không có CV trong một bảng xếp hạng thì không so sánh được.
     if hub_type == "clf":
+        if _has_complete_cv(metrics_df, CV_SCORE_COL):
+            return CV_SCORE_COL, False
         if "F1 Score (Macro)" in metrics_df.columns and metrics_df["F1 Score (Macro)"].notna().any():
             return "F1 Score (Macro)", False
         return "Accuracy", False
+    if _has_complete_cv(metrics_df, CV_MAE_COL):
+        return CV_MAE_COL, True
     sort_col = "RMSE" if "RMSE" in metrics_df.columns and metrics_df["RMSE"].notna().any() else "R2 Score"
     return sort_col, sort_col == "RMSE"
 
@@ -1049,7 +1093,9 @@ def update_hub_benchmark_and_build_comparison(results, hub_type, target_col):
         "RMSE": safe_metric_value(best_row.get("RMSE")),
         "MAE": safe_metric_value(best_row.get("MAE")),
         "Accuracy": safe_metric_value(best_row.get("Accuracy")),
-        "F1 Score": safe_metric_value(best_row.get("F1 Score")),
+        # Trainer chỉ sinh "F1 Score (Macro)"/"(Weighted)"; đọc khoá "F1 Score" trần luôn ra NaN.
+        # Dùng Macro — cùng tiêu chí resolve_ranking_col dùng để chọn mô hình tốt nhất.
+        "F1 Score": safe_metric_value(best_row.get("F1 Score (Macro)", best_row.get("F1 Score"))),
     }
 
     history = st.session_state.get("hub_benchmark_history", [])
@@ -1206,7 +1252,7 @@ def training_target_change_handler(key_prefix: str, all_cols: list) -> None:
     st.session_state.target_imp_select = val
     av = [c for c in all_cols if c != val]
     id_cols = [
-        c for c in all_cols if "id" in str(c).lower() or "name" in str(c).lower()
+        c for c in all_cols if is_id_like(c) or "name" in str(c).lower()
     ]
     leaky_cols = []
     _cur_df = st.session_state.get("current_df")

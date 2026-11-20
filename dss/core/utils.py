@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
-import plotly.express as px
 import streamlit as st
 from sklearn.metrics import f1_score, precision_score, recall_score
 from sklearn.model_selection import KFold, StratifiedKFold
@@ -36,6 +35,60 @@ def _make_safe_cv_strategy(y, desired_folds=5, is_classification=False, random_s
             return StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
         return KFold(n_splits=n_splits, shuffle=True, random_state=random_state)
     return KFold(n_splits=n_splits, shuffle=True, random_state=random_state)
+
+
+def find_repeated_group_column(df, index=None, exclude=()):
+    """Cột mã sinh viên dùng làm NHÓM khi chia dữ liệu, hoặc None.
+
+    Dữ liệu dọc (prepare_longitudinal_dataset) có 1 dòng / (sinh viên, học kỳ): chia ngẫu nhiên
+    theo dòng làm các học kỳ của CÙNG một sinh viên rơi vào cả train lẫn test (và mọi fold CV),
+    điểm đánh giá lạc quan giả. Chỉ trả về cột khi có ít nhất một sinh viên xuất hiện > 1 dòng
+    trong `index` — mỗi sinh viên 1 dòng thì giữ nguyên cách chia cũ."""
+    from dss.core.target_utils import is_id_like
+
+    excluded = {str(c) for c in exclude}
+    rows = df if index is None else df.loc[index]
+    for col in df.columns:
+        if str(col) in excluded or not is_id_like(col):
+            continue
+        values = rows[col]
+        if values.isna().any():
+            continue
+        if values.duplicated().any() and values.nunique() >= 2:
+            return col
+    return None
+
+
+def group_holdout_split(n_samples, groups, test_size, random_state=42):
+    """Chia train/test theo NHÓM (GroupShuffleSplit): mọi dòng của một sinh viên nằm trọn một phía.
+    Trả về (train_pos, test_pos) là vị trí dòng."""
+    from sklearn.model_selection import GroupShuffleSplit
+
+    splitter = GroupShuffleSplit(n_splits=1, test_size=test_size, random_state=random_state)
+    train_pos, test_pos = next(splitter.split(np.zeros((n_samples, 1)), groups=np.asarray(groups)))
+    return train_pos, test_pos
+
+
+def make_group_cv_splits(y, groups, desired_folds=5, is_classification=False, random_state=42):
+    """Danh sách split CV theo NHÓM (StratifiedGroupKFold cho phân loại, GroupKFold cho hồi quy),
+    tính sẵn thành list (train_pos, val_pos) để truyền thẳng vào GridSearchCV/cross_val_score —
+    tương đương truyền `groups=` vào fit nhưng không phải đổi chữ ký các hàm dùng chung."""
+    from sklearn.model_selection import GroupKFold, StratifiedGroupKFold
+
+    groups = np.asarray(groups)
+    n_groups = len(pd.unique(groups))
+    if n_groups < 2:
+        return None
+    n_splits = max(2, min(int(desired_folds), n_groups))
+    X_dummy = np.zeros((len(groups), 1))
+    if is_classification:
+        class_counts = pd.Series(np.asarray(y)).value_counts()
+        if not class_counts.empty and int(class_counts.min()) >= 2:
+            n_splits = max(2, min(n_splits, int(class_counts.min())))
+            cv = StratifiedGroupKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
+            return [(tr, va) for tr, va in cv.split(X_dummy, np.asarray(y), groups)]
+    cv = GroupKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
+    return [(tr, va) for tr, va in cv.split(X_dummy, np.asarray(y), groups)]
 
 
 def _normalize_labels_for_metrics(y_true, y_pred):

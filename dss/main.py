@@ -11,10 +11,8 @@ _root_str = str(_PROJECT_ROOT)
 if _root_str not in sys.path:
     sys.path.insert(0, _root_str)
 
-import os
 from datetime import datetime, timedelta
 
-import numpy as np
 import pandas as pd
 import plotly.express as px
 import streamlit as st
@@ -37,7 +35,7 @@ from dss.tabs.ml_hub import (
     personal_prediction_tab,
     render_training_config_ui,
 )
-from dss.core.roles import ALL_TABS, HOME_TAB_LABEL, filter_tabs_for_role, display_label, nav_label
+from dss.core.roles import CLASSROOM_TAB_LABEL, PROGRAM_TAB_LABEL, MATERIALS_TAB_LABEL, ALL_TABS, HOME_TAB_LABEL, filter_tabs_for_role, display_label, nav_label
 from dss.config import THEME_LABELS, THEME_MODES, current_theme
 from dss.services import auth_service, search_service, subscription_service
 from dss.services import model_service
@@ -98,8 +96,15 @@ from dss.core.runtime_mode import synthetic_data_allowed
 if not subscription_service.render_subscription_gate(current_role):
     if current_role == "Admin":
         st.warning("Thuê bao của tổ chức đang tạm khoá hoặc đã hết hạn. Vui lòng cập nhật thông tin hợp đồng.")
+        # Lưu lựa chọn vào session_state: st.button chỉ True ở đúng một lần chạy lại, nên trước đây trang cài đặt
+        # biến mất ngay ở thao tác kế tiếp (gõ vào ô, bấm Lưu) và Admin không gia hạn được.
         if st.button("Mở cài đặt thuê bao", type="primary"):
+            st.session_state["_subscription_settings_open"] = True
+        if st.session_state.get("_subscription_settings_open"):
             admin_settings_tab()
+    if st.button("Đăng xuất", key="locked_logout"):          # màn khoá không có sidebar, nên cần nút riêng
+        auth_service.logout()
+        st.rerun()
     st.stop()
 
 # Tự động nạp dữ liệu mẫu nếu CHƯA có dữ liệu nào trong phiên, bất kể vai trò
@@ -120,22 +125,12 @@ if 'current_df' not in st.session_state:
     # số liệu thật. Hành vi DEMO_SYNTHETIC (mặc định, dev/test) giữ nguyên 100%.
     from dss.core.runtime_mode import synthetic_data_allowed
     if not synthetic_data_allowed():
-        ui_kit.page_header("Chưa có dữ liệu học tập")
-        ui_kit.error_state(
-            "Chưa kết nối dữ liệu LMS",
-            "Hệ thống đang chạy ở chế độ REAL_LMS nhưng chưa có dữ liệu LMS thật nào được "
-            "kết nối cho phiên này. Không có dữ liệu mô phỏng nào được hiển thị thay thế.",
-            support_hint="Vui lòng liên hệ Quản trị viên để hoàn tất tích hợp LMS trước khi sử dụng.",
-        )
-        if st.button("Đăng xuất", key="btn_logout_no_data"):
-            auth_service.logout()
-            st.rerun()
-        st.stop()
-    # Dữ liệu demo mặc định của ứng dụng phải khớp với benchmark quy mô LMS giả lập:
-    # 20.000 sinh viên mô phỏng. Dữ liệu này vẫn là synthetic/demo và phải được
-    # nhãn rõ ràng trong UI theo chính sách minh bạch dữ liệu.
-    st.session_state.current_df = generate_data(n_students=20000, random_state=42)
-    st.session_state.current_dataset_id = "sample_data_lms_scale_v1"
+        # Classroom and programme records do not depend on an ML dataframe.
+        st.session_state.current_df = None
+        st.session_state.current_dataset_id = None
+    else:
+        st.session_state.current_df = generate_data(n_students=20000, random_state=42)
+        st.session_state.current_dataset_id = "sample_data_lms_scale_v1"
 
 # ============================================================================
 # MÀN TẢI EDUDSS — thay thế TOÀN BỘ sidebar + log kỹ thuật bootstrap/huấn
@@ -203,19 +198,19 @@ SIDEBAR_NAV_GROUPS = {
         ("TỔNG QUAN", [HOME_TAB_LABEL]),
         # "Lịch sử tư vấn" là lịch sử các lượt dùng Trợ lý AI — đi cùng nhóm
         # TRỢ LÝ AI (gom theo mục tiêu người dùng, không theo thứ tự tạo tab).
-        ("HỌC TẬP & PHÂN TÍCH", ["🧪 Huấn luyện — Dự đoán", "🔬 Phân cụm — Gợi ý"]),
+        ("HỌC TẬP & PHÂN TÍCH", [CLASSROOM_TAB_LABEL, "🧪 Huấn luyện — Dự đoán", "🔬 Phân cụm — Gợi ý"]),
         ("TRỢ LÝ AI", ["🤖 Tư vấn — AI (LLM)", "📝 Lịch sử tư vấn"]),
     ],
     "Giảng viên / CVHT": [
         ("TỔNG QUAN", [HOME_TAB_LABEL, "📊 Dashboard"]),
-        ("PHÂN TÍCH LỚP HỌC", ["🔍 Khám phá — Xử lý dữ liệu", "🧪 Huấn luyện — Dự đoán", "🔬 Phân cụm — Gợi ý"]),
-        ("HỖ TRỢ & TÀI LIỆU", ["🤖 Tư vấn — AI (LLM)", "📄 Duyệt tài liệu", "📦 Kho dữ liệu"]),
+        ("PHÂN TÍCH LỚP HỌC", [CLASSROOM_TAB_LABEL, "🔍 Khám phá — Xử lý dữ liệu", "🧪 Huấn luyện — Dự đoán", "🔬 Phân cụm — Gợi ý"]),
+        ("HỖ TRỢ & TÀI LIỆU", [PROGRAM_TAB_LABEL, "🤖 Tư vấn — AI (LLM)", "📄 Duyệt tài liệu", "📦 Kho dữ liệu"]),
     ],
     "Admin": [
         ("TỔNG QUAN", [HOME_TAB_LABEL]),
-        ("NGƯỜI DÙNG & DỮ LIỆU", ["👥 Người dùng", "📦 Kho dữ liệu", "🔍 Khám phá — Xử lý dữ liệu"]),
-        ("TRI THỨC & AI", ["📚 Quản lý tri thức (RAG)", "⚙️ Cấu hình AI", "🤖 Tư vấn — AI (LLM)"]),
-        ("VẬN HÀNH", ["🔗 Tích hợp LMS/CMS", "🗄️ Model Registry", "📈 Báo cáo hệ thống", "🔧 Cài đặt"]),
+        ("NGƯỜI DÙNG & DỮ LIỆU", [CLASSROOM_TAB_LABEL, "👥 Người dùng", "📦 Kho dữ liệu", "🔍 Khám phá — Xử lý dữ liệu"]),
+        ("TRI THỨC & AI", [MATERIALS_TAB_LABEL, "📚 Quản lý tri thức (RAG)", "⚙️ Cấu hình AI", "🤖 Tư vấn — AI (LLM)"]),
+        ("VẬN HÀNH", [PROGRAM_TAB_LABEL, "🔗 Tích hợp LMS/CMS", "🗄️ Model Registry", "📈 Báo cáo hệ thống", "🔧 Cài đặt"]),
     ],
 }
 
@@ -325,6 +320,9 @@ def _render_no_data_state(action_text: str) -> None:
 
 if True:  # khối nội dung trang (giữ thụt lề cũ để diff gọn)
     selected_main_tab = selected_nav_tab if selected_nav_tab in tabs_list else (tabs_list[0] if tabs_list else None)
+    if selected_main_tab:
+        from dss.core import metrics as _metrics
+        _metrics.record_page_view(selected_main_tab, current_role)
 
     # Thanh công cụ phía trên — CHỈ có ô tìm sinh viên cho vai trò được phép
     # (search_service.ROLES_ALLOWED_STUDENT_SEARCH). Không còn chấm "Hệ thống
@@ -369,14 +367,29 @@ if True:  # khối nội dung trang (giữ thụt lề cũ để diff gọn)
 
     # --- TAB TRANG CHỦ ---
     if selected_main_tab == HOME_TAB_LABEL:
-        render_home_tab(
-            current_role,
-            wh,
-            dashboard_mode=True,
-            current_student_id=st.session_state.get("current_student_id"),
-            df=df,
-            llm_integration=llm_integration,
-        )
+        if df is None:
+            ui_kit.page_header("Không gian học tập")
+            st.info("Chưa kết nối dữ liệu LMS. Bạn vẫn có thể sử dụng lớp học, bài đánh giá và kế hoạch đã lưu.")
+            if current_role == "Sinh viên":
+                from dss.tabs.learning_plan_workspace import render_learning_plan_workspace
+                render_learning_plan_workspace(None)
+            if CLASSROOM_TAB_LABEL in tabs_list and st.button("Mở lớp học", key="home_open_classroom"):
+                st.session_state["_pending_nav_target"] = CLASSROOM_TAB_LABEL
+                st.rerun()
+        else:
+            render_home_tab(
+                current_role, wh, dashboard_mode=True,
+                current_student_id=st.session_state.get("current_student_id"),
+                df=df, llm_integration=llm_integration,
+            )
+    elif selected_main_tab == CLASSROOM_TAB_LABEL:
+        from dss.tabs.classroom_tab import classroom_tab
+        classroom_tab()
+    elif selected_main_tab == MATERIALS_TAB_LABEL:
+        learning_explainer_tab(None, role=current_role, llm_integration=llm_integration)
+    elif selected_main_tab == PROGRAM_TAB_LABEL:
+        from dss.tabs.programs_tab import programs_tab
+        programs_tab()
 
     # --- TAB DASHBOARD (không gian phân tích chuyên sâu — TÁCH BIỆT với
     # HOME_TAB_LABEL "Trang chủ" phía trên, xem home.py::render_lecturer_home) ---
@@ -718,7 +731,11 @@ if True:  # khối nội dung trang (giữ thụt lề cũ để diff gọn)
     # --- TAB TƯ VẤN AI ---
     # --- TAB TƯ VẤN AI ---
     elif selected_main_tab == "🤖 Tư vấn — AI (LLM)":
-        if df is not None:
+        from dss.services import engine_gateway
+        if engine_gateway.enabled():
+            from dss.tabs.engine_advisor import engine_advisor_tab
+            engine_advisor_tab(llm_integration=llm_integration)
+        elif df is not None:
             llm_tabs_list = [
                 "🤖 Tư vấn — AI (LLM)",
                 "🧭 Tư vấn — Định hướng",

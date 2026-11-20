@@ -53,8 +53,19 @@ _logger = get_logger(__name__)
 # across ML observability tooling).
 DEFAULT_PSI_WARNING_THRESHOLD = 0.10
 DEFAULT_PSI_DRIFT_THRESHOLD = 0.25
-DEFAULT_MIN_SAMPLES = 20
+DEFAULT_MIN_SAMPLES = 20          # drift hiệu năng (performance drift)
+# Drift dữ liệu (PSI): dưới 100 mẫu ở mỗi phía, nhiễu lấy mẫu của PSI cỡ ~(bins-1)·(1/n1+1/n2)
+# đã vượt ngưỡng 0.10/0.25 -> trả INSUFFICIENT_DATA thay vì một kết luận drift giả.
+DEFAULT_DATA_DRIFT_MIN_SAMPLES = 100
 DEFAULT_NUMERIC_BINS = 10
+# Mỗi bin phân vị (theo baseline) cần ~>= 20 mẫu ở phía NHỎ hơn: số bin thực dùng là
+# clamp(n_min // 20, 5, numeric_bins).
+_MIN_ROWS_PER_BIN = 20
+_MIN_NUMERIC_BINS = 5
+# Ngưỡng PSI tự điều chỉnh theo nhiễu lấy mẫu: dưới H0 (cùng phân bố), PSI ≈ (1/n1+1/n2)·χ²(bins-1).
+# WARNING chỉ khi PSI vượt cả 0.10 lẫn phân vị 99% của nhiễu; DRIFT khi vượt cả 0.25 lẫn phân vị 99.9%.
+PSI_NOISE_QUANTILE_WARNING = 0.99
+PSI_NOISE_QUANTILE_DRIFT = 0.999
 
 # Performance-drift thresholds — relative degradation (e.g. 0.10 = a metric
 # dropping by 10% *relative to its baseline value* triggers WARNING).
@@ -221,6 +232,36 @@ def _psi_from_proportions(baseline_props: list[float], current_props: list[float
     return psi
 
 
+def _psi_noise_floor(n_bins: int, n1: int, n2: int, quantile: float) -> float:
+    """Phân vị `quantile` của PSI khi HAI mẫu cùng phân bố (chỉ do lấy mẫu ngẫu nhiên):
+    PSI là J-divergence nên xấp xỉ (1/n1 + 1/n2)·χ²(bins-1); trung bình ≈ (bins-1)·(1/n1+1/n2)."""
+    dof = max(int(n_bins) - 1, 1)
+    scale = 1.0 / max(int(n1), 1) + 1.0 / max(int(n2), 1)
+    try:
+        from scipy.stats import chi2
+
+        return float(chi2.ppf(quantile, dof)) * scale
+    except Exception:  # pragma: no cover - scipy là phụ thuộc cố định; dự phòng thô
+        return (dof + 3.0 * math.sqrt(2.0 * dof)) * scale
+
+
+def _effective_psi_thresholds(warning_threshold, drift_threshold, n_bins, n1, n2) -> dict:
+    """Ngưỡng thực dùng. Ngưỡng do NGƯỜI GỌI truyền rõ (khác None) được dùng nguyên vẹn; ngưỡng
+    mặc định (None) = max(0.10/0.25, mức nhiễu lấy mẫu) — 0.10/0.25 cố định cờ drift trên dữ
+    liệu cùng phân bố khi n <= ~500."""
+    out = {}
+    for key, given, default, q in (
+        ("warning", warning_threshold, DEFAULT_PSI_WARNING_THRESHOLD, PSI_NOISE_QUANTILE_WARNING),
+        ("drift", drift_threshold, DEFAULT_PSI_DRIFT_THRESHOLD, PSI_NOISE_QUANTILE_DRIFT),
+    ):
+        if given is not None:
+            out[key] = float(given)
+        else:
+            out[key] = round(max(default, _psi_noise_floor(n_bins, n1, n2, q)), 6)
+    out["drift"] = max(out["drift"], out["warning"])
+    return out
+
+
 def _psi_status(psi: float, warning_threshold: float, drift_threshold: float) -> str:
     if psi >= drift_threshold:
         return STATUS_DRIFT_DETECTED
@@ -230,7 +271,8 @@ def _psi_status(psi: float, warning_threshold: float, drift_threshold: float) ->
 
 
 def _evaluate_numeric_feature_drift(
-    baseline, current, *, bins: int, warning_threshold: float, drift_threshold: float, min_samples: int
+    baseline, current, *, bins: int, warning_threshold: Optional[float], drift_threshold: Optional[float],
+    min_samples: int,
 ) -> dict[str, Any]:
     import numpy as np
 
@@ -249,6 +291,8 @@ def _evaluate_numeric_feature_drift(
             "status": STATUS_INSUFFICIENT_DATA,
         }
 
+    # Số bin theo cỡ mẫu nhỏ hơn: quá nhiều bin trên ít mẫu làm PSI phình ra vì nhiễu.
+    bins = int(max(2, min(int(bins), max(_MIN_NUMERIC_BINS, min(len(baseline), len(current)) // _MIN_ROWS_PER_BIN))))
     # Quantile bin edges from the BASELINE only (current is measured against
     # the baseline's own distribution shape, which is the point of PSI).
     quantiles = np.linspace(0, 1, bins + 1)
@@ -263,6 +307,7 @@ def _evaluate_numeric_feature_drift(
     baseline_props = (baseline_counts / baseline_counts.sum()).tolist()
     current_props = (current_counts / current_counts.sum()).tolist()
     psi = _psi_from_proportions(baseline_props, current_props)
+    thr = _effective_psi_thresholds(warning_threshold, drift_threshold, len(baseline_props), len(baseline), len(current))
 
     ks_statistic = ks_pvalue = None
     try:
@@ -288,13 +333,13 @@ def _evaluate_numeric_feature_drift(
         "drift_metric": round(psi, 6),
         "drift_metric_name": "PSI",
         "secondary_metric": {"ks_statistic": ks_statistic, "ks_pvalue": ks_pvalue} if ks_statistic is not None else None,
-        "threshold": {"warning": warning_threshold, "drift": drift_threshold},
-        "status": _psi_status(psi, warning_threshold, drift_threshold),
+        "threshold": {"warning": thr["warning"], "drift": thr["drift"], "bins": len(baseline_props)},
+        "status": _psi_status(psi, thr["warning"], thr["drift"]),
     }
 
 
 def _evaluate_categorical_feature_drift(
-    baseline, current, *, warning_threshold: float, drift_threshold: float, min_samples: int
+    baseline, current, *, warning_threshold: Optional[float], drift_threshold: Optional[float], min_samples: int
 ) -> dict[str, Any]:
     import pandas as pd
 
@@ -317,6 +362,7 @@ def _evaluate_categorical_feature_drift(
     baseline_props = [baseline_counts.get(c, 0) / len(baseline) for c in categories]
     current_props = [current_counts.get(c, 0) / len(current) for c in categories]
     psi = _psi_from_proportions(baseline_props, current_props)
+    thr = _effective_psi_thresholds(warning_threshold, drift_threshold, len(categories), len(baseline), len(current))
 
     return {
         "feature_type": "categorical",
@@ -325,8 +371,8 @@ def _evaluate_categorical_feature_drift(
         "drift_metric": round(psi, 6),
         "drift_metric_name": "PSI",
         "secondary_metric": None,
-        "threshold": {"warning": warning_threshold, "drift": drift_threshold},
-        "status": _psi_status(psi, warning_threshold, drift_threshold),
+        "threshold": {"warning": thr["warning"], "drift": thr["drift"], "bins": len(categories)},
+        "status": _psi_status(psi, thr["warning"], thr["drift"]),
     }
 
 
@@ -335,9 +381,9 @@ def evaluate_data_drift(
     current_df,
     feature_roles: Optional[dict[str, str]] = None,
     *,
-    warning_threshold: float = DEFAULT_PSI_WARNING_THRESHOLD,
-    drift_threshold: float = DEFAULT_PSI_DRIFT_THRESHOLD,
-    min_samples: int = DEFAULT_MIN_SAMPLES,
+    warning_threshold: Optional[float] = None,
+    drift_threshold: Optional[float] = None,
+    min_samples: int = DEFAULT_DATA_DRIFT_MIN_SAMPLES,
     numeric_bins: int = DEFAULT_NUMERIC_BINS,
 ) -> dict[str, Any]:
     """Deterministic, PSI-based data-drift evaluation between a baseline and
@@ -348,6 +394,10 @@ def evaluate_data_drift(
 
     This is a deterministic statistic, not a random score: calling this
     twice with the same two DataFrames always returns the same PSI values.
+
+    Ngưỡng: để None (mặc định) thì mỗi đặc trưng dùng max(0.10/0.25, mức nhiễu lấy mẫu
+    theo số bin và cỡ hai mẫu) — xem _effective_psi_thresholds; truyền số cụ thể thì
+    dùng đúng số đó. Ngưỡng thực dùng nằm ở per_feature[col]["threshold"].
     """
     columns = [c for c in baseline_df.columns if c in current_df.columns]
     roles = feature_roles or infer_feature_roles(baseline_df, columns)
@@ -381,7 +431,12 @@ def evaluate_data_drift(
         "drifted_features": drifted_features,
         "warning_features": warning_features,
         "overall_status": overall_status,
-        "thresholds": {"warning": warning_threshold, "drift": drift_threshold, "min_samples": min_samples, "numeric_bins": numeric_bins},
+        "thresholds": {
+            "warning": DEFAULT_PSI_WARNING_THRESHOLD if warning_threshold is None else warning_threshold,
+            "drift": DEFAULT_PSI_DRIFT_THRESHOLD if drift_threshold is None else drift_threshold,
+            "noise_adjusted": warning_threshold is None or drift_threshold is None,
+            "min_samples": min_samples, "numeric_bins": numeric_bins,
+        },
     }
 
 

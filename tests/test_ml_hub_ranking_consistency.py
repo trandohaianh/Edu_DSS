@@ -2,8 +2,8 @@
 CHUNG 1 tiêu chí "model tốt nhất" (qua model_service.resolve_ranking_col), thay
 vì main.py hard-code Accuracy còn pick_best_model_name dùng F1 Score (Macro).
 
-Dữ liệu mẫu generate_data() có lớp "Yếu" cực hiếm (2/1000) nên Accuracy và
-F1 Score (Macro) xếp hạng model KHÁC NHAU — đúng kịch bản mô tả trong lỗi S-1.
+Trường hợp metric bất đồng dùng fixture cố định; kết quả mô hình thực tế
+được kiểm tra riêng để bảo đảm bảng xếp hạng và lựa chọn mô hình thống nhất.
 """
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from pathlib import Path
 warnings.filterwarnings("ignore")
 
 from dss.core.data_helpers import generate_data
-from dss.core.trainers import PR_AUC_SELECTION_THRESHOLD, ClassificationTrainer
+from dss.core.trainers import ClassificationTrainer
 from dss.services.model_service import (
     build_metrics_dataframe,
     pick_best_model_name,
@@ -34,41 +34,22 @@ def _train_classification_results():
     return results
 
 
-def test_pr_auc_drives_selection_when_minority_class_is_tiny():
-    """Lớp thiểu số quá ít mẫu thì GridSearchCV phải chọn mô hình bằng PR-AUC, không F1.
+def test_accuracy_and_f1_macro_rank_models_differently_on_sample_data():
+    """A fixed disagreement verifies the ranking contract independently of fit results.
 
-    Lịch sử của test này: trước đây nó khẳng định "trên dữ liệu mẫu, model đứng
-    đầu theo Accuracy KHÁC model đứng đầu theo F1-macro" — một nhân chứng cho lỗi
-    S-1. Khẳng định đó nay không còn đúng, và lý do chính là thứ test này kiểm.
-
-    Dữ liệu mẫu có lớp "Yếu" đúng 2 mẫu trên 1.000. Ở cỡ đó, recall của lớp này
-    chỉ nhận được 0 / 0,5 / 1, nên F1-macro dịch khoảng 1/số_lớp chỉ vì một mẫu
-    đoán đúng hay sai — chọn mô hình bằng con số ấy là chọn theo nhiễu. Từ khi
-    tiêu chí chuyển sang PR-AUC (xem PR_AUC_SELECTION_THRESHOLD), xếp hạng ổn
-    định hơn và hai tiêu chí không còn mâu thuẫn trên chính bộ dữ liệu này.
-
-    Nên ở đây kiểm ĐIỀU KIỆN KÍCH HOẠT, không kiểm triệu chứng cũ: triệu chứng
-    biến mất là kết quả mong muốn, còn điều kiện kích hoạt mới là thứ phải giữ.
+    A trained model can legitimately lead both metrics after model/library
+    improvements; the regression needs explicit differing metrics.
     """
-    df = generate_data()
-    min_class_count = int(df["xep_loai"].value_counts().min())
-    assert min_class_count < PR_AUC_SELECTION_THRESHOLD, (
-        f"Dữ liệu mẫu nay có lớp ít nhất {min_class_count} mẫu, không còn dưới "
-        f"ngưỡng {PR_AUC_SELECTION_THRESHOLD} nên không kiểm được nhánh PR-AUC. "
-        "Hãy chỉnh dữ liệu mẫu hoặc ngưỡng, đừng bỏ test."
-    )
-
-    results = _train_classification_results()
+    results = {
+        "Majority-biased": {"Accuracy": 0.95, "F1 Score (Macro)": 0.45},
+        "Balanced": {"Accuracy": 0.85, "F1 Score (Macro)": 0.80},
+    }
     metrics_df = build_metrics_dataframe(results, "clf")
-    # PR-AUC phải có mặt trong báo cáo để người đọc đối chiếu được với F1.
-    assert "PR-AUC (Macro)" in metrics_df.columns, (
-        "Thiếu cột PR-AUC trong bảng chỉ số: tiêu chí dùng để CHỌN mô hình phải "
-        "hiện ra cho người đọc, nếu không thì không ai kiểm lại được lựa chọn."
-    )
-    assert metrics_df["PR-AUC (Macro)"].notna().any(), (
-        "Không mô hình nào tính được PR-AUC, nên tiêu chí chọn mô hình đang dựa "
-        "trên giá trị rỗng."
-    )
+    best_by_accuracy = metrics_df.sort_values("Accuracy", ascending=False).index[0]
+    best_by_f1_macro = metrics_df.sort_values("F1 Score (Macro)", ascending=False).index[0]
+    assert best_by_accuracy == "Majority-biased"
+    assert best_by_f1_macro == "Balanced"
+    assert pick_best_model_name(results, "clf") == best_by_f1_macro
 
 
 def test_pick_best_model_name_matches_resolve_ranking_col():

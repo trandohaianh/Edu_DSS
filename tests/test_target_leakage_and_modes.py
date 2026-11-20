@@ -11,21 +11,13 @@
 import pytest
 import numpy as np
 import pandas as pd
-from pathlib import Path
 
 from dss.core.target_utils import (
-    CANONICAL_TARGET_REGRESSION,
-    CANONICAL_TARGET_CLASSIFICATION,
-    LEGACY_ALIAS_REGRESSION,
-    LEGACY_ALIAS_CLASSIFICATION,
     score_to_xep_loai,
     canonicalize_columns,
     filter_leakage_features,
-    detect_temporal_column,
     prepare_longitudinal_dataset,
     temporal_train_test_split,
-    get_leaky_target_columns,
-    LEGITIMATE_PREDICTORS,
 )
 from dss.core.data_helpers import generate_data, load_data
 from dss.core.trainers import RegressionTrainer, ClassificationTrainer

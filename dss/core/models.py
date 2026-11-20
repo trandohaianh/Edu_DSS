@@ -819,6 +819,9 @@ class MultiAIProvider:
         3. Fallback: Dùng transformers trực tiếp nếu sentence-transformers không có
         """
         dss_config._ensure_local_llm_libs()
+        from dss.core.release import resolve_embedding_model
+
+        model_name = resolve_embedding_model(model_name)
         # Kiểm tra xem có thư viện cần thiết không
         if not dss_config.SENTENCE_TRANSFORMERS_AVAILABLE and not dss_config.HF_AVAILABLE:
             return None, "Chưa cài đặt sentence-transformers hoặc transformers."
@@ -868,6 +871,9 @@ class MultiAIProvider:
         """
         if not isinstance(text, str) or not text or len(text) > 12000:
             return None
+        from dss.core.release import resolve_embedding_model
+
+        embedding_model_name = resolve_embedding_model(embedding_model_name)
         try:
             # Kiểm tra xem model đã được load với đúng tên chưa (cache để tăng tốc)
             if self.embedding_model is None or self._current_embedding_model != embedding_model_name:
@@ -896,7 +902,7 @@ class MultiAIProvider:
             
             # Chuyển embedding về numpy array (từ tensor nếu cần)
             return embedding.cpu().numpy() if hasattr(embedding, 'cpu') else embedding
-        except Exception as e:
+        except Exception:
             # Nếu có lỗi, trả về None
             return None
     
@@ -989,7 +995,6 @@ class MultiAIProvider:
             # Lấy dữ liệu đánh giá để học từ kết quả
             evaluations = self.data_warehouse.get_evaluation_data_for_rag(limit=10)
             for eval_data in evaluations:
-                eval_results = eval_data.get('evaluation_results', {})
                 model_name = eval_data.get('model_name', 'Unknown')
                 metrics = eval_data.get('evaluation_results', {})
                 
@@ -1083,7 +1088,7 @@ class MultiAIProvider:
                 # không liên quan, nhất quán với nhánh embedding.
                 for i, doc in enumerate(all_documents):
                     similarities.append((doc, float(sim_scores[i])))
-            except Exception as e:
+            except Exception:
                 # Nếu vẫn lỗi, trở về phương án từ khóa đơn giản nhất
                 query_words = set(query_text.lower().split())
                 for doc in all_documents:
@@ -1387,14 +1392,19 @@ Viết tiếng Việt mạch lạc, ấm áp, không dùng giọng mệnh lệnh
                         contents=prompt,
                         config=genai.types.GenerateContentConfig(**gen_config_kwargs),
                     )
+                    usage_metadata = None
                     for chunk in response:
                         # SDK mới (google.genai): .text trả về None gọn gàng khi chunk không có
                         # phần văn bản hợp lệ (vd. chunk chỉ mang metadata) và tự loại phần "suy
                         # nghĩ" ra khỏi .text — không cần try/except như SDK cũ.
+                        usage_metadata = getattr(chunk, "usage_metadata", None) or usage_metadata
                         text = chunk.text
                         if text:
                             any_output = True
                             yield text
+                    # Số token thật (gồm token suy nghĩ) từ chunk cuối -> chi phí khớp hoá đơn.
+                    from dss.services import llm_usage
+                    llm_usage.from_gemini("gemini", candidate_model, usage_metadata)
                     return
                 except Exception as e:
                     last_err = e
@@ -1455,10 +1465,18 @@ Viết tiếng Việt mạch lạc, ấm áp, không dùng giọng mệnh lệnh
                         max_tokens=8192,
                         stream=True
                     )
+                    stream_usage = None
                     for chunk in stream:
-                        if chunk.choices[0].delta.content is not None:
+                        # Chunk cuối mang usage (OpenAI: stream_options include_usage, choices rỗng;
+                        # Groq: x_groq.usage) — không đọc choices[0] khi danh sách rỗng.
+                        stream_usage = (getattr(chunk, "usage", None)
+                                        or getattr(getattr(chunk, "x_groq", None), "usage", None) or stream_usage)
+                        choices = getattr(chunk, "choices", None) or []
+                        if choices and choices[0].delta.content is not None:
                             any_output = True
-                            yield chunk.choices[0].delta.content
+                            yield choices[0].delta.content
+                    from dss.services import llm_usage
+                    llm_usage.from_openai_compatible("groq", candidate_model, stream_usage)
                     return
                 except Exception as e:
                     last_err = e
@@ -1505,12 +1523,21 @@ Viết tiếng Việt mạch lạc, ấm áp, không dùng giọng mệnh lệnh
                         # Đã xác nhận qua thực tế với Groq: 3000 token bị cắt ngang giữa chừng với
                         # báo cáo nhiều tuần chi tiết — nâng lên 8192 cho cả OpenAI để tránh lặp lại.
                         max_tokens=8192,
-                        stream=True
+                        stream=True,
+                        stream_options={"include_usage": True}
                     )
+                    stream_usage = None
                     for chunk in stream:
-                        if chunk.choices[0].delta.content is not None:
+                        # Chunk cuối mang usage (OpenAI: stream_options include_usage, choices rỗng;
+                        # Groq: x_groq.usage) — không đọc choices[0] khi danh sách rỗng.
+                        stream_usage = (getattr(chunk, "usage", None)
+                                        or getattr(getattr(chunk, "x_groq", None), "usage", None) or stream_usage)
+                        choices = getattr(chunk, "choices", None) or []
+                        if choices and choices[0].delta.content is not None:
                             any_output = True
-                            yield chunk.choices[0].delta.content
+                            yield choices[0].delta.content
+                    from dss.services import llm_usage
+                    llm_usage.from_openai_compatible("openai", candidate_model, stream_usage)
                     return
                 except Exception as e:
                     last_err = e

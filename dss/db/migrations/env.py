@@ -30,7 +30,9 @@ if config.config_file_name is not None:
 # never hard-coded.
 config.set_main_option("sqlalchemy.url", _resolve_database_url())
 
-target_metadata = Base.metadata
+from dss.platform.models import PlatformBase
+
+target_metadata = [Base.metadata, PlatformBase.metadata]
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:

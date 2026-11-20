@@ -12,12 +12,6 @@ from dss.core.target_utils import (
     canonicalize_columns,
     filter_leakage_features,
     score_to_xep_loai,
-    CANONICAL_TARGET_REGRESSION,
-    CANONICAL_TARGET_CLASSIFICATION,
-    LEGACY_ALIAS_REGRESSION,
-    LEGACY_ALIAS_CLASSIFICATION,
-    CLASSIFICATION_BINS,
-    CLASSIFICATION_LABELS,
 )
 from dss.core.data_helpers import generate_data, load_data
 from dss.core.warehouse import DataWarehouse
@@ -182,7 +176,7 @@ def test_f_admin_promote_succeeds(tmp_path, monkeypatch):
 
     # Thiết lập phiên Admin
     monkeypatch.setitem(st.session_state, "_auth_role", "Admin")
-    monkeypatch.setitem(st.session_state, "_auth_user", "admin_lead")
+    monkeypatch.setitem(st.session_state, "_auth_username", "admin_lead")
 
     ok, msg = model_registry.promote(wh, training_id, promotion_reason="Model đạt benchmark F1 cao")
     assert ok is True

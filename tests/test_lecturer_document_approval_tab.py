@@ -19,7 +19,7 @@ from dss.services import cms_lecture_repository
 from dss.services import document_approval_service as approval
 from dss.services import vector_store as vector_store_module
 from dss.services.document_ingestion import ingest_document
-from dss.services.rag_namespaces import NAMESPACE_LECTURER_SUPPORT, NAMESPACE_STUDENT_LEARNING
+from dss.services.rag_namespaces import NAMESPACE_STUDENT_LEARNING
 
 
 @pytest.fixture(autouse=True)

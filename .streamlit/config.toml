@@ -16,7 +16,7 @@ fileWatcherType = "none"
 
 [theme]
 base = "light"
-primaryColor = "#1A73E8"
+primaryColor = "#2F5BD3"
 backgroundColor = "#FFFFFF"
 secondaryBackgroundColor = "#F8F9FA"
 textColor = "#202124"

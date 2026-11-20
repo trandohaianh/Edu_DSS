@@ -1,34 +1,76 @@
-"""Student Learning Plan — Kế hoạch học tập cá nhân hóa có cấu trúc và liều lượng thực chứng.
+"""Evidence-based structured plans. Unknown schedules remain None.
 
-Mục 8 & 9 Yêu cầu:
-- LLM TUYỆT ĐỐI không được tự bịa toàn bộ kế hoạch học tập dưới dạng văn bản tự do.
-- Kế hoạch phải được xây dựng như cấu trúc dữ liệu tường minh (Structured Data) với phiên bản:
-  + plan_id, student_id, version, created_at, valid_until
-  + strengths[], weaknesses[], diagnosis[], priority_topics[]
-  + activities[]: objective, method, duration, frequency, approved_resource_ids[], reason, expected_outcome
-  + assessment_plan, success_metrics, evidence_used[], confidence, next_review_at
-- Liều lượng học tập (Dosage) dựa trên đường cơ sở cá nhân, tốc độ học, khối lượng công việc,
-  tuyệt đối không dùng các con số cố định bịa đặt như "10 từ/ngày, 2 giờ/ngày".
-- LLM chỉ làm nhiệm vụ diễn đạt cấu trúc dữ liệu này thành văn phong sư phạm ấm áp.
+Recommendations and review dates are policy, never measured outcomes.
 """
 from __future__ import annotations
 
 import uuid
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
+from urllib.parse import urlparse
 
-from dss.services.diagnosis_engine import StructuredDiagnosis, diagnosis_engine
-from dss.services.learning_profile import StudentLearningProfile
+from dss.core.runtime_mode import synthetic_data_allowed
+from dss.services.diagnosis_engine import (
+    CATEGORY_INSUFFICIENT_DATA, CATEGORY_MASTERY_ON_TRACK, diagnosis_engine,
+)
+from dss.services.learning_profile import StudentLearningProfile, observed_number, observed_mapping
 from dss.services.resource_catalog import resource_catalog
+
+_LEGACY_DEMO_RESOURCE_IDS = {
+    "res_math_calc_01", "res_prog_python_01", "res_time_pomodoro_01",
+    "res_db_sql_01", "res_ml_eval_01",
+}
+
+
+def _key(value: Any) -> str:
+    return " ".join(str(value or "").strip().casefold().split())
+
+
+def _resource_id_for_topic(item: Any, course_id: str, topic_id: str) -> Optional[str]:
+    if not isinstance(item, dict) or not _key(course_id) or not _key(topic_id):
+        return None
+    if item.get("status") != "APPROVED":
+        return None
+    if _key(item.get("course_id") or item.get("course")) != _key(course_id):
+        return None
+    if _key(item.get("topic_id") or item.get("topic")) != _key(topic_id):
+        return None
+    resource_id = item.get("resource_id")
+    if not isinstance(resource_id, str) or not resource_id.strip():
+        return None
+    demo = (
+        item.get("is_demo") is True or resource_id in _LEGACY_DEMO_RESOURCE_IDS
+        or _key(item.get("data_source")) in {"demo", "synthetic", "seed"}
+    )
+    if demo and not synthetic_data_allowed():
+        return None
+    verified_cms = item.get("source_kind") == "cms_lesson" and item.get("verified_cms") is True
+    if not verified_cms:
+        try:
+            parsed = urlparse(str(item.get("url") or ""))
+            if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+                return None
+        except ValueError:
+            return None
+    return resource_id
+
+
+def _resources_for_topic(course_id: str, topic_id: str, extra_resources=()) -> List[str]:
+    """Return all eligible exact matches in stable order, never a global first N."""
+    return sorted({
+        resource_id
+        for item in [*resource_catalog.list_approved_resources(), *extra_resources]
+        if (resource_id := _resource_id_for_topic(item, course_id, topic_id)) is not None
+    })
 
 
 @dataclass
 class PlanActivity:
     objective: str
     method: str
-    duration_minutes: int
-    frequency_per_week: int
+    duration_minutes: Optional[int]
+    frequency_per_week: Optional[int]
     approved_resource_ids: List[str]
     reason: str
     expected_outcome: str
@@ -49,156 +91,175 @@ class StudentLearningPlan:
     assessment_plan: str
     success_metrics: Dict[str, Any]
     evidence_used: List[str]
-    # confidence: hằng số chính sách cố định (xem generate_plan) — KHÔNG PHẢI giá trị
-    # đo lường/hiệu chuẩn từ dữ liệu sinh viên. Không hiển thị trực tiếp cho người
-    # dùng như một tỷ lệ phần trăm đo được; chỉ dùng nội bộ nếu cần một mốc mặc định.
     confidence: float
     next_review_at: str
+    course_id: str = ""
+    missing_evidence: List[str] = field(default_factory=list)
+    resource_details: Dict[str, Dict[str, Any]] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
 
 
 class LearningPlanGenerator:
-    """Bộ tạo kế hoạch học tập có cấu trúc dựa trên hồ sơ và chẩn đoán định hình."""
-
-    def generate_plan(
-        self,
-        profile: StudentLearningProfile,
-        version: int = 1,
-        validity_days: int = 21,
-    ) -> StudentLearningPlan:
-        """Tạo bản kế hoạch học tập có cấu trúc hoàn chỉnh."""
+    def generate_plan(self, profile: StudentLearningProfile, version: int = 1,
+                      validity_days: int = 21, *,
+                      approved_resources: Optional[List[Dict[str, Any]]] = None) -> StudentLearningPlan:
+        if isinstance(version, bool) or not isinstance(version, int) or version < 1:
+            raise ValueError("version must be a positive integer")
+        if isinstance(validity_days, bool) or not isinstance(validity_days, int) or validity_days < 1:
+            raise ValueError("validity_days must be a positive integer")
         diagnoses = diagnosis_engine.diagnose_student(profile)
-        
-        # 1. Nhận diện điểm mạnh (Strengths) từ hồ sơ
-        strengths = []
-        if profile.behavioral.active_days_last_month >= 15:
-            strengths.append(f"Duy trì thói quen học tập đều đặn ({profile.behavioral.active_days_last_month} ngày hoạt động trong tháng)")
-        if profile.academic.quiz_average >= 7.5:
-            strengths.append(f"Điểm kiểm tra chuyên cần/quiz lý thuyết tốt ({profile.academic.quiz_average:.1f}/10)")
-        if profile.trajectory.score_trend == "improving":
-            strengths.append("Quỹ đạo điểm số đang có xu hướng tiến bộ so với đường cơ sở ban đầu")
-        if not strengths:
-            strengths.append("Có tinh thần chủ động tìm kiếm giải pháp và kế hoạch nâng cao kết quả học tập")
-
-        # 2. Điểm yếu (Weaknesses) trích xuất từ chẩn đoán
-        weaknesses = [d.issue for d in diagnoses]
-
-        # 3. Chủ đề ưu tiên (Priority topics)
-        priority_topics = []
-        if profile.academic.assignment_average < 6.5:
-            priority_topics.append("Bài tập thực hành và củng cố kỹ năng lập trình / bài tập tính toán")
-        if profile.question_level.accuracy_rate < 0.6:
-            priority_topics.append("Kỹ năng phân tích đề thi và kiểm soát độ chính xác trước khi nộp")
-        if not priority_topics:
-            priority_topics.append("Nâng cao và mở rộng các chủ đề nâng cao của học phần")
-
-        # 4. Tính toán liều lượng học tập (Dosage) dựa trên baseline và tốc độ học
-        # Sinh viên có tốc độ tiếp thu thấp hơn hoặc có nhiều lỗ hổng cần liều lượng can thiệp cao hơn
-        vel = max(0.4, min(2.0, profile.trajectory.learning_velocity))
-        gap_count = max(1, len(diagnoses))
-        recommended_freq = min(5, max(2, int(round((profile.behavioral.practice_frequency_per_week + gap_count) / vel))))
-        base_session_min = max(30, min(75, int(round((profile.behavioral.average_session_duration_minutes or 40) / min(vel, 1.0)))))
-
-        # 5. Gắn tài nguyên đã thẩm định (Resource Catalog)
-        approved_res = resource_catalog.list_approved_resources()
-        chosen_res_ids = [r["resource_id"] for r in approved_res[:3]]
-
-        activities = [
-            PlanActivity(
-                objective=f"Khắc phục điểm nghẽn: {priority_topics[0]}",
-                method="Học lý thuyết ngắn gọn theo phương pháp Pomodoro, sau đó thực hành giải bài mẫu",
-                duration_minutes=base_session_min,
-                frequency_per_week=recommended_freq,
-                approved_resource_ids=chosen_res_ids,
-                reason="Dữ liệu quan sát cho thấy sinh viên tiếp thu tốt hơn qua các phiên học tập trung ngắn hạn",
-                expected_outcome="Nâng tỷ lệ làm đúng trong các bài luyện tập lên trên 75%",
-            ),
-            PlanActivity(
-                objective="Củng cố ghi nhớ dài hạn và khắc phục quên kiến thức",
-                method="Thực hiện mini-quiz ôn tập ngắt quãng (Spaced repetition) cuối tuần",
-                duration_minutes=20,
-                frequency_per_week=1,
-                approved_resource_ids=chosen_res_ids[:1],
-                reason="Ngăn ngừa sụt giảm điểm số giữa các đợt kiểm tra lớn",
-                expected_outcome="Duy trì tỷ lệ nhớ lại kiến thức trên 80% sau 2 tuần",
-            ),
+        actionable = [
+            diagnosis for diagnosis in diagnoses
+            if any(hyp.category not in {CATEGORY_INSUFFICIENT_DATA, CATEGORY_MASTERY_ON_TRACK} for hyp in diagnosis.hypotheses)
         ]
+        quiz = observed_number(profile.academic.quiz_average, maximum=10)
+        assignment = observed_number(profile.academic.assignment_average, maximum=10)
+        exam = observed_number(profile.academic.exam_score, maximum=10)
+        accuracy = observed_number(profile.question_level.accuracy_rate, maximum=1)
+        practice = observed_number(profile.behavioral.practice_frequency_per_week)
+        session = observed_number(profile.behavioral.average_session_duration_minutes)
+        velocity = observed_number(profile.trajectory.learning_velocity)
+        active = observed_number(profile.behavioral.active_days_last_month, maximum=31, integer=True)
+        topic_scores = observed_mapping(profile.academic.topic_scores, maximum=10)
+        subskills = observed_mapping(profile.question_level.subskill_mastery, maximum=1)
+        prereqs = observed_mapping(profile.academic.prerequisite_mastery, maximum=1)
 
-        now = datetime.now()
-        valid_until_dt = now + timedelta(days=validity_days)
-        next_review_dt = now + timedelta(days=min(14, validity_days))
+        evidence = []
+        for label, value, suffix in (
+            ("Điểm quiz", quiz, "/10"), ("Điểm bài tập", assignment, "/10"),
+            ("Điểm thi", exam, "/10"), ("Tỷ lệ trả lời đúng", accuracy, ""),
+            ("Tần suất luyện tập", practice, " lần/tuần"),
+            ("Thời lượng phiên học quan sát", session, " phút"),
+            ("Tốc độ học được ghi nhận", velocity, ""),
+            ("Ngày hoạt động trong tháng", active, ""),
+        ):
+            if value is not None:
+                evidence.append(f"{label}: {value:g}{suffix}")
+        evidence += [f"Điểm chủ đề {topic}: {value:g}/10" for topic, value in sorted(topic_scores.items())]
+        evidence += [f"Thành thạo kỹ năng {topic}: {value:.1%}" for topic, value in sorted(subskills.items())]
+        evidence += [f"Kiến thức nền tảng {topic}: {value:.1%}" for topic, value in sorted(prereqs.items())]
 
+        strengths = []
+        if quiz is not None and quiz >= 7.5:
+            strengths.append(f"Điểm quiz được ghi nhận: {quiz:.1f}/10")
+        if active is not None and active >= 15:
+            strengths.append(f"Có {active} ngày hoạt động được ghi nhận trong tháng")
+        strengths += [f"Chủ đề {topic} có điểm {value:g}/10" for topic, value in sorted(topic_scores.items()) if value >= 7.5]
+        weaknesses = [diagnosis.issue for diagnosis in actionable]
+        missing = list(dict.fromkeys(item for diagnosis in diagnoses for item in diagnosis.missing_evidence))
+
+        targets: Dict[str, str] = {}
+        for topic, value in sorted(topic_scores.items()):
+            if value < 6:
+                targets[topic] = f"Điểm chủ đề {topic}: {value:g}/10"
+        for topic, value in sorted(subskills.items()):
+            if value < 0.6:
+                targets.setdefault(topic, f"Thành thạo kỹ năng {topic}: {value:.1%}")
+        for topic, value in sorted(prereqs.items()):
+            if value < 0.6:
+                targets.setdefault(topic, f"Kiến thức nền tảng {topic}: {value:.1%}")
+
+        duration = frequency = None
+        if session is not None and session > 0 and velocity is not None and velocity > 0 and practice is not None:
+            # Policy suggestion computed from observations, not a validated dosage model.
+            bounded_velocity = max(0.4, min(2.0, velocity))
+            gap_count = max(1, len(actionable))
+            frequency = min(5, max(2, int(round((min(practice, 5.0) + gap_count) / bounded_velocity))))
+            duration = max(1, min(75, int(round(min(session, 75.0) / min(bounded_velocity, 1.0)))))
+        else:
+            missing.append("Thời lượng phiên học, tần suất luyện tập và tốc độ học hợp lệ để đề xuất lịch học")
+
+        if len(targets) > 1:
+            # The same weekly budget cannot be assigned independently to every
+            # topic. An instructor must confirm its allocation across topics.
+            duration = frequency = None
+            missing.append("Lịch phân bổ thời gian giữa các chủ đề cần được giảng viên xác nhận.")
+
+        activities: List[PlanActivity] = []
+        for topic, reason in targets.items():
+            resource_ids = _resources_for_topic(profile.course_id, topic, approved_resources or ())
+            if not resource_ids:
+                missing.append(f"Học liệu đã duyệt đúng học phần {profile.course_id} và chủ đề {topic}")
+            activities.append(PlanActivity(
+                objective=f"Đánh giá lại và củng cố chủ đề {topic}",
+                method=("Ôn tập học liệu đã duyệt; trao đổi với giảng viên về bài đánh giá lại."
+                        if resource_ids else "Đề nghị giảng viên chọn học liệu và bài đánh giá phù hợp với chủ đề."),
+                duration_minutes=duration if resource_ids else None,
+                frequency_per_week=frequency if resource_ids else None,
+                approved_resource_ids=resource_ids,
+                reason=reason,
+                expected_outcome="Có kết quả đánh giá mới theo cùng chủ đề để xem xét bước học tiếp theo.",
+            ))
+        if not activities:
+            missing.append("Kết quả đánh giá có gắn chủ đề hoặc chuẩn đầu ra của học phần")
+            activities.append(PlanActivity(
+                objective=f"Thu thập bằng chứng theo chủ đề của học phần {profile.course_id}",
+                method="Đề nghị giảng viên chọn bài đánh giá đầu vào hoặc đánh giá bổ sung theo chủ đề.",
+                duration_minutes=None, frequency_per_week=None, approved_resource_ids=[],
+                reason=("Các quan sát hiện có chưa xác định được chủ đề cần hỗ trợ."
+                        if evidence else "Chưa có quan sát học tập hợp lệ để tạo hoạt động cá nhân hóa."),
+                expected_outcome="Ghi nhận kết quả theo chủ đề trước khi đề xuất học liệu và lịch học.",
+            ))
+
+        metrics: Dict[str, Any] = {}
+        scheduled = [activity for activity in activities if activity.duration_minutes is not None and activity.frequency_per_week is not None]
+        if scheduled and len(scheduled) == len(activities):
+            metrics["weekly_study_hours_target"] = round(sum(activity.duration_minutes * activity.frequency_per_week for activity in scheduled) / 60, 1)
+            metrics["target_practice_sessions_per_week"] = sum(activity.frequency_per_week for activity in scheduled)
+            metrics["schedule_policy"] = "observed_baseline_v1_unvalidated"
+        used_resource_ids = {resource_id for activity in activities for resource_id in activity.approved_resource_ids}
+        resource_details = {}
+        for item in approved_resources or ():
+            if not isinstance(item, dict):
+                continue
+            resource_id = item.get("resource_id")
+            if isinstance(resource_id, str) and resource_id in used_resource_ids and any(
+                _resource_id_for_topic(item, profile.course_id, topic) == resource_id for topic in targets
+            ):
+                resource_details[resource_id] = {
+                    key: item[key] for key in ("title", "lesson_id", "document_id")
+                    if key in item and isinstance(item[key], str)
+                }
+        now = datetime.now(timezone.utc)
         return StudentLearningPlan(
-            plan_id=f"plan_{uuid.uuid4().hex[:12]}",
-            student_pseudonym=profile.student_pseudonym,
-            version=version,
-            created_at=now.isoformat(),
-            valid_until=valid_until_dt.isoformat(),
-            strengths=strengths,
-            weaknesses=weaknesses,
-            diagnoses=[d.to_dict() for d in diagnoses],
-            priority_topics=priority_topics,
-            activities=activities,
-            assessment_plan="Thực hiện bài kiểm tra định hình sau 2 tuần để đánh giá mức độ tiến bộ và cập nhật phiên bản kế hoạch.",
-            success_metrics={
-                "target_quiz_accuracy": 0.75,
-                "target_practice_sessions_per_week": recommended_freq,
-                "target_assignment_score": min(10.0, profile.academic.assignment_average + 1.0),
-                "weekly_study_hours_target": round(sum(a.duration_minutes * a.frequency_per_week for a in activities) / 60.0, 1),
-            },
-            evidence_used=[
-                f"Quiz average: {profile.academic.quiz_average:.1f}",
-                f"Assignment average: {profile.academic.assignment_average:.1f}",
-                f"Accuracy rate: {profile.question_level.accuracy_rate:.2f}",
-                f"Practice frequency: {profile.behavioral.practice_frequency_per_week:.1f}/tuần",
-            ],
-            # confidence=0.85 là HẰNG SỐ CỐ ĐỊNH cho mọi kế hoạch, không phải giá trị
-            # được tính/hiệu chuẩn từ profile của sinh viên (không có công thức nào ở
-            # trên dùng profile để suy ra con số này). Không được diễn giải hoặc hiển
-            # thị như một tỷ lệ phần trăm đo lường được (xem test
-            # test_learning_plan_confidence_not_fabricated.py).
+            plan_id=f"plan_{uuid.uuid4().hex[:12]}", student_pseudonym=profile.student_pseudonym,
+            version=version, created_at=now.isoformat(),
+            valid_until=(now + timedelta(days=validity_days)).isoformat(),
+            strengths=strengths, weaknesses=weaknesses,
+            diagnoses=[diagnosis.to_dict() for diagnosis in diagnoses],
+            priority_topics=list(targets), activities=activities,
+            assessment_plan="Đối chiếu kết quả đánh giá theo chủ đề; giảng viên xác nhận bước hỗ trợ tiếp theo.",
+            success_metrics=metrics, evidence_used=evidence,
+            # Hằng số legacy để tương thích; không phải độ tin cậy đo được, không hiển thị như phần trăm.
             confidence=0.85,
-            next_review_at=next_review_dt.isoformat(),
+            next_review_at=(now + timedelta(days=min(14, validity_days))).isoformat(),
+            course_id=profile.course_id, missing_evidence=list(dict.fromkeys(missing)),
+            resource_details=resource_details,
         )
 
     def render_plan_to_prompt(self, plan: StudentLearningPlan) -> str:
-        """Chuyển bản kế hoạch có cấu trúc thành chỉ thị cho LLM diễn đạt tự nhiên."""
-        activities_text = "\n".join(
-            [
-                f"- Mục tiêu: {act.objective}\n"
-                f"  + Phương pháp: {act.method}\n"
-                f"  + Thời lượng khuyến nghị: {act.duration_minutes} phút/lần ({act.frequency_per_week} lần/tuần)\n"
-                f"  + Tài nguyên LMS thẩm định: {', '.join(act.approved_resource_ids)}\n"
-                f"  + Kết quả kỳ vọng: {act.expected_outcome}"
-                for act in plan.activities
-            ]
+        activities = []
+        for activity in plan.activities:
+            schedule = (
+                f"{activity.duration_minutes} phút/lần, {activity.frequency_per_week} lần/tuần (đề xuất theo quy tắc)"
+                if activity.duration_minutes is not None and activity.frequency_per_week is not None
+                else "Chưa đủ dữ liệu để đề xuất thời lượng và tần suất."
+            )
+            activities.append(
+                f"- {activity.objective}\n  Phương pháp: {activity.method}\n"
+                f"  Lịch: {schedule}\n  Học liệu: {', '.join(activity.approved_resource_ids) or 'Chưa có học liệu phù hợp đã được duyệt'}\n"
+                f"  Căn cứ: {activity.reason}\n  Kết quả cần ghi nhận: {activity.expected_outcome}"
+            )
+        return (
+            "Diễn đạt kế hoạch sau bằng tiếng Việt rõ ràng. Chỉ dùng dữ liệu được cung cấp. "
+            "Không biến thiếu dữ liệu thành điểm yếu, không bịa nguyên nhân, thời lượng, KPI, URL hoặc kết quả tiến bộ. "
+            "Lịch học là đề xuất theo quy tắc, không phải quan sát hay cam kết hiệu quả.\n"
+            f"Học phần: {plan.course_id}\nBằng chứng: {'; '.join(plan.evidence_used) or 'Chưa có'}\n"
+            f"Dữ liệu cần bổ sung: {'; '.join(plan.missing_evidence) or 'Không ghi nhận'}\n"
+            + "\n".join(activities)
         )
 
-        prompt = f"""Bạn là Cố vấn Học tập Sư phạm EduDSS. Dưới đây là BẢN KẾ HOẠCH HỌC TẬP ĐÃ ĐƯỢC CHẨN ĐOÁN CÓ CẤU TRÚC.
-Nhiệm vụ của bạn là DIỄN ĐẠT bản kế hoạch này thành văn phong tự nhiên, ấm áp, thấu cảm và mạch lạc dành cho sinh viên.
 
-TUYỆT ĐỐI TUÂN THỦ:
-1. KHÔNG tự ý bịa đặt thêm các KPI số hoặc thời lượng học khác với các số liệu đã nêu trong cấu trúc dưới đây.
-2. KHÔNG tự ý suy đoán thêm các nguyên nhân không có trong mục CHẨN ĐOÁN.
-3. KHÔNG đưa vào các đường dẫn URL ngoài danh sách tài nguyên LMS đã cung cấp.
-
-=== CẤU TRÚC KẾ HOẠCH (BẢN GỐC TỪ HỆ THỐNG) ===
-- Mã kế hoạch: {plan.plan_id} (Phiên bản: {plan.version})
-- Điểm mạnh đã ghi nhận:
-{chr(10).join(['  + ' + s for s in plan.strengths])}
-- Điểm cần khắc phục:
-{chr(10).join(['  + ' + w for w in plan.weaknesses])}
-- Chủ đề ưu tiên: {', '.join(plan.priority_topics)}
-- Hoạt động cụ thể:
-{activities_text}
-- Kế hoạch đánh giá tiếp theo: {plan.assessment_plan}
-- Đợt rà soát kế tiếp: {plan.next_review_at}
-
-Hãy viết lời tư vấn hoàn chỉnh gửi sinh viên dựa trên cấu trúc trên."""
-        return prompt
-
-
-# Singleton plan generator
 learning_plan_generator = LearningPlanGenerator()

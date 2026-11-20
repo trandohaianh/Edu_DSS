@@ -4,6 +4,7 @@ and temporal/longitudinal dataset helpers for EduDSS.
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any, Tuple, List, Set, Optional
 import numpy as np
 import pandas as pd
@@ -82,7 +83,36 @@ LEGITIMATE_PREDICTORS = {
     "study_hours",
 }
 
-ID_KEYWORDS = ["id", "code", "ma_", "_id", "stt", "no."]
+ID_KEYWORDS = ["id", "code", "ma_", "_id", "stt", "no."]   # giữ để tương thích; dùng is_identifier_column()
+
+_ID_EXACT = {"id", "uid", "uuid", "mssv", "masv", "msv", "stt"}
+
+
+def _name_tokens(name) -> list[str]:
+    """'StudentID' -> ['student', 'id']; 'video_views' -> ['video', 'views']; 'mid-term' -> ['mid', 'term']."""
+    s = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", str(name))
+    s = re.sub(r"([A-Z]+)([A-Z][a-z])", r"\1_\2", s).lower()
+    return [t for t in re.split(r"[^0-9a-zà-ỹđ]+", s) if t]
+
+
+def is_id_like(name) -> bool:
+    """Cột định danh (mã sinh viên...) theo TỪ trong tên cột, không theo chuỗi con.
+
+    Trước đây dùng ``"id" in name.lower()``, nên cột LMS thật như ``video_views``, ``mid_term``, ``valid_attempts``
+    bị coi là cột ID: bị loại khỏi đặc trưng huấn luyện, hoặc tệ hơn bị chọn làm cột mã sinh viên."""
+    tokens = _name_tokens(name)
+    if not tokens:
+        return False
+    return "id" in tokens or tokens[-1] in _ID_EXACT or "".join(tokens) in _ID_EXACT or \
+        (tokens[0] == "ma" and len(tokens) == 2 and tokens[1] in ("sv", "sinhvien", "hs"))
+
+
+def is_identifier_column(name) -> bool:
+    """Rộng hơn is_id_like: cả mã/số thứ tự (code, stt, no, ma_*) — dùng để loại khỏi đặc trưng mô hình."""
+    tokens = _name_tokens(name)
+    if not tokens:
+        return False
+    return is_id_like(name) or bool({"code", "stt", "no"} & set(tokens)) or (tokens[0] == "ma" and len(tokens) > 1)
 
 # ============================================================================
 # CLASSIFICATION BINS & LABELS (Prototype / Business Grouping)
@@ -321,7 +351,7 @@ def filter_leakage_features(
             continue
 
         # 2. Check if column is ID-like
-        if any(k in col_lower for k in ID_KEYWORDS) and col_lower not in LEGITIMATE_PREDICTORS:
+        if is_identifier_column(col_str) and col_lower not in LEGITIMATE_PREDICTORS:
             removed_features.append(col)
             continue
 
@@ -337,14 +367,46 @@ def filter_leakage_features(
 # ============================================================================
 # TEMPORAL & LONGITUDINAL HELPERS
 # ============================================================================
-TEMPORAL_KEYWORDS = ["semester", "hoc_ky", "ky_hoc", "nam_hoc", "year", "timestamp", "time", "date"]
+TEMPORAL_KEYWORDS = ["semester", "hoc_ky", "ky_hoc", "nam_hoc", "year", "timestamp", "time", "date"]   # giữ để tương thích
+
+# Tên cột được coi là mốc thời gian/học kỳ — so khớp NGUYÊN TÊN theo từ (bỏ tiền tố "ma"/"so"
+# và hậu tố "id"/"no"/"code"... nếu có), không theo chuỗi con: bản cũ dùng `"time" in name`
+# nên chọn nhầm `total_time_minutes`, `traveltime`, `studytime` (đặc trưng mô hình) làm cột
+# thời gian rồi ml_hub ép split "temporal" theo cột đó. Cũng vì vậy "mid_term_score",
+# "ngay_sinh", "date_of_birth", "semester_gpa" KHÔNG được coi là mốc thời gian.
+_TEMPORAL_NAMES = {
+    ("hoc", "ky"), ("hocky",), ("ky", "hoc"), ("kyhoc",), ("ky",),
+    ("semester",), ("term",), ("nam", "hoc"), ("namhoc",), ("academic", "year"), ("school", "year"),
+    ("timestamp",), ("date",), ("ngay",), ("thoi", "gian"), ("year",), ("time",), ("period",),
+}
+_TEMPORAL_PREFIX_STRIP = {"ma", "so"}
+_TEMPORAL_SUFFIX_STRIP = {"id", "no", "code", "idx", "index", "number", "so"}
 
 
-def detect_temporal_column(df: pd.DataFrame) -> Optional[str]:
-    """Tìm cột chứa thông tin thời gian hoặc học kỳ trong DataFrame nếu có."""
-    for col in df.columns:
-        col_lower = str(col).lower()
-        if any(k in col_lower for k in TEMPORAL_KEYWORDS):
+def _is_temporal_name(name) -> bool:
+    tokens = _name_tokens(name)
+    while len(tokens) > 1 and tokens[0] in _TEMPORAL_PREFIX_STRIP:
+        tokens = tokens[1:]
+    while len(tokens) > 1 and tokens[-1] in _TEMPORAL_SUFFIX_STRIP:
+        tokens = tokens[:-1]
+    return tuple(tokens) in _TEMPORAL_NAMES
+
+
+def detect_temporal_column(df: pd.DataFrame, feature_cols: Optional[List[str]] = None) -> Optional[str]:
+    """Tìm cột mốc thời gian/học kỳ (hoc_ky, semester, nam_hoc, timestamp, date...) nếu có.
+
+    - Ưu tiên cột kiểu datetime/period; sau đó cột có tên nằm trong danh sách cho phép.
+    - KHÔNG trả về cột đang là đặc trưng mô hình (`feature_cols`) — chia theo một đặc trưng
+      không phải chia theo thời gian.
+    - Trả None khi không có cột nào hợp lệ (nơi gọi sẽ chia ngẫu nhiên)."""
+    excluded = {str(c) for c in (feature_cols or [])}
+    candidates = [c for c in df.columns if str(c) not in excluded]
+    for col in candidates:
+        dtype = df[col].dtype
+        if pd.api.types.is_datetime64_any_dtype(dtype) or isinstance(dtype, pd.PeriodDtype):
+            return col
+    for col in candidates:
+        if _is_temporal_name(col):
             return col
     return None
 
@@ -425,8 +487,22 @@ def temporal_train_test_split(
     if t_series is None:
         t_series = pd.Series(range(len(X)), index=X.index)
 
-    sorted_idx = t_series.sort_values().index
-    split_point = int(len(sorted_idx) * (1.0 - effective_ratio))
+    if isinstance(t_series, pd.Series) and t_series.index.equals(X.index):
+        t = t_series
+    else:
+        t = pd.Series(np.asarray(t_series), index=X.index)
+    # Sắp xếp ỔN ĐỊNH và cắt ở RANH GIỚI giá trị thời gian: trước đây cắt theo vị trí dòng, nên cùng một học kỳ có thể
+    # nằm cả ở train lẫn test (thông tin "tương lai" của kỳ đó lọt vào train).
+    sorted_t = t.sort_values(kind="mergesort")
+    split_point = int(len(sorted_t) * (1.0 - effective_ratio))
+    if 0 < split_point < len(sorted_t):
+        cutoff = sorted_t.iloc[split_point]
+        train_mask = (t < cutoff).to_numpy()
+        if train_mask.any() and (~train_mask).any():
+            return X.loc[train_mask], X.loc[~train_mask], y.loc[train_mask], y.loc[~train_mask]
+    # Mọi dòng cùng một mốc thời gian (hoặc chỉ một mốc ở phía trước): không chia được theo ranh giới.
+    _logger.warning("temporal_train_test_split: không có ranh giới thời gian phù hợp; chia theo vị trí đã sắp xếp.")
+    sorted_idx = sorted_t.index
     train_idx = sorted_idx[:split_point]
     test_idx = sorted_idx[split_point:]
 
