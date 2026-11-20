@@ -36,7 +36,7 @@ import tempfile
 import threading
 import time
 import traceback
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 APP_ROOT = Path(__file__).resolve().parents[1]

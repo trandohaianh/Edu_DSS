@@ -20,7 +20,7 @@ import uuid
 import xml.etree.ElementTree as ET
 import zipfile
 from dataclasses import asdict, dataclass
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 

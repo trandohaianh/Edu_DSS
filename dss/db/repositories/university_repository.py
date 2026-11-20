@@ -14,7 +14,7 @@ policy — see the `35d62f0c6002_university_onboarding` migration).
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from typing import Any, Optional
 
 from dss.db.models import LmsConnectorConfig, LmsMappingProfile, Organization

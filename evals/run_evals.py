@@ -36,7 +36,7 @@ import subprocess
 import sys
 import time
 import warnings
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 EVALS = Path(__file__).resolve().parent

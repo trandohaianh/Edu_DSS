@@ -54,7 +54,7 @@ def _business_snapshot() -> dict:
     except Exception:
         snap["budget"] = None
     try:
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         from ops import pipeline
 

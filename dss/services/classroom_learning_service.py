@@ -6,7 +6,7 @@ import os
 import uuid
 from collections import defaultdict
 from copy import deepcopy
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from urllib.parse import urlparse
 
 from sqlalchemy import func, select

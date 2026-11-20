@@ -358,7 +358,7 @@ def admin_reports_tab(warehouse, df=None, as_home=False):
 
 def _cost_and_operations_section() -> None:
     """Chi phí đầy đủ (AI + hạ tầng, tính trên mỗi người dùng) và trạng thái pipeline vận hành."""
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     from ops import pipeline
 

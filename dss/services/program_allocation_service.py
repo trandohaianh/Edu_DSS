@@ -5,7 +5,7 @@ AI budgets reserve capacity; provider usage accounting is separate.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import and_, func
 

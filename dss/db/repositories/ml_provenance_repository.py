@@ -18,7 +18,7 @@ second one; whichever call has real data "wins" over a placeholder.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from typing import Any, Optional
 
 from dss.db.models import DatasetProvenance, DriftEvaluation, FeatureSchemaProvenance, ModelMetric, ModelVersion

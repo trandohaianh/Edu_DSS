@@ -13,7 +13,7 @@ import time
 import uuid
 from collections import Counter, deque
 from contextlib import contextmanager
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 
 from dss.security.log_redaction import redact_text
 

@@ -26,7 +26,7 @@ quy chế — LLM/Agent KHÔNG BAO GIỜ tự chọn quy chế.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import UTC, date, datetime, timezone
+from datetime import UTC, date, datetime
 from typing import Any, Dict, List, Optional
 
 STATUS_DRAFT = "DRAFT"

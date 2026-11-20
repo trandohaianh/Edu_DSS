@@ -34,7 +34,7 @@ from __future__ import annotations
 import os
 import secrets
 from dataclasses import dataclass, field
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any, Dict, Optional
 
 ACADEMIC_RECORD = "ACADEMIC_RECORD"

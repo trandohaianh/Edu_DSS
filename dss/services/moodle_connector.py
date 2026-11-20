@@ -22,7 +22,7 @@ from __future__ import annotations
 import os
 import time
 from dataclasses import dataclass
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from typing import Any, Dict, Iterable, List, Optional
 from urllib.parse import urlparse
 

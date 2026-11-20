@@ -25,7 +25,7 @@ backend lưu trữ để dễ thay thế sau."""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import UTC, date, datetime, timezone
+from datetime import UTC, date, datetime
 from typing import Any, Dict, Optional
 
 STATUS_ALLOW = "ALLOW"
