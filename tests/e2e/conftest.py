@@ -176,6 +176,13 @@ def login(browser, base_url):
         page.wait_for_timeout(2000)
 
         if not expect_success:
+            # Đăng nhập sai vẫn băm mật khẩu (chống dò tên tài khoản theo thời gian), nên
+            # trên máy chậm 2 giây chưa đủ: trang còn hiện "Đang xác thực…". Chờ xác thực
+            # xong (tối đa 30 giây) rồi mới trả trang cho test đọc thông báo lỗi.
+            deadline = time.time() + 30
+            while time.time() < deadline and "Đang xác thực" in page.inner_text("body"):
+                page.wait_for_timeout(500)
+            _wait_ready(page)
             return page
 
         # C1.3: không còn màn giới thiệu "Bắt đầu khám phá" — sau đăng nhập
