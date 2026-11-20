@@ -2,6 +2,7 @@
 integration tests (Phase 1B, migration order item 7). Skipped (not faked)
 without a configured database.
 """
+
 from __future__ import annotations
 
 import uuid

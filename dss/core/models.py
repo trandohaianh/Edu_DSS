@@ -1,4 +1,5 @@
 """Ensemble trainer and LLM / multi-provider AI."""
+
 from __future__ import annotations
 
 import json
@@ -11,35 +12,36 @@ import pandas as pd
 import streamlit as st
 from scipy.spatial.distance import cosine
 from sklearn.metrics.pairwise import cosine_similarity
-
 from tenacity import Retrying, retry_if_exception, stop_after_attempt, wait_exponential
 
-from dss.core.warehouse import VectorStore
-from dss.core.utils import _make_safe_cv_strategy
+import dss.config as dss_config
 from dss.core.logging_config import get_logger
 from dss.core.observability import observed
+from dss.core.utils import _make_safe_cv_strategy
+from dss.core.warehouse import VectorStore
 from dss.security.prompt_boundary import (
-    AI_SYSTEM_POLICY, prompt_within_limit, render_retrieved_context, sanitize_student_text,
+    AI_SYSTEM_POLICY,
+    prompt_within_limit,
+    render_retrieved_context,
+    sanitize_student_text,
 )
-import dss.config as dss_config
 
 _logger = get_logger(__name__)
 
 from dss.config import *  # noqa: F401,F403 -- shared sklearn/math/shap/etc symbols; see dss/config.py
-
 from dss.config import (
     GEMINI_AVAILABLE,
     GROQ_AVAILABLE,
+    LIGHTGBM_AVAILABLE,
     OLLAMA_AVAILABLE,
     OPENAI_AVAILABLE,
-    genai,
+    XGBOOST_AVAILABLE,
     Groq,
+    genai,
+    lgb,
     openai,
     requests,
     xgb,
-    lgb,
-    XGBOOST_AVAILABLE,
-    LIGHTGBM_AVAILABLE,
 )
 
 
@@ -50,17 +52,10 @@ class EnsembleTrainer:
         self.models = {}
 
     @st.cache_data
-    def train_ensemble_improved(
-            _self,
-            df,
-            feature_cols,
-            target_reg,
-            target_clf,
-            random_state=42):
+    def train_ensemble_improved(_self, df, feature_cols, target_reg, target_clf, random_state=42):
         """Hàm chính để huấn luyện các mô hình ensemble cho cả hồi quy và phân loại."""
         if target_reg not in df.columns or target_clf not in df.columns:
-            raise KeyError(
-                f"Cột mục tiêu '{target_reg}' hoặc '{target_clf}' không tìm thấy.")
+            raise KeyError(f"Cột mục tiêu '{target_reg}' hoặc '{target_clf}' không tìm thấy.")
 
         X = df[feature_cols]
         y_reg = df[target_reg]
@@ -80,9 +75,11 @@ class EnsembleTrainer:
         # Xác định các cột số và cột phân loại để xử lý riêng
         numeric_features = X.select_dtypes(include=[np.number]).columns.tolist()
         categorical_features = X.select_dtypes(include=['object', 'category']).columns.tolist()
-        from dss.core.data_helpers import create_shared_preprocessor  # import trễ: tránh vòng lặp import models<->data_helpers<->trainers
-        preprocessor = create_shared_preprocessor(
-            numeric_features, categorical_features)
+        from dss.core.data_helpers import (
+            create_shared_preprocessor,  # import trễ: tránh vòng lặp import models<->data_helpers<->trainers
+        )
+
+        preprocessor = create_shared_preprocessor(numeric_features, categorical_features)
 
         # --- Xây dựng Pipeline cho Hồi quy (Stacking) ---
         # Các mô hình cơ sở (base models)
@@ -90,19 +87,15 @@ class EnsembleTrainer:
         gb_reg = GradientBoostingRegressor(random_state=random_state)
         estimators_reg = [("rf", rf_reg), ("gb", gb_reg)]
         # Mô hình Stacking: kết hợp các mô hình cơ sở và dùng một mô hình cuối (final_estimator) để đưa ra dự đoán cuối cùng
-        stack_reg = StackingRegressor(
-            estimators=estimators_reg,
-            final_estimator=Ridge(),
-            passthrough=False)
-        regression_pipeline = SklearnPipeline(
-            steps=[('preprocessor', preprocessor), ('regressor', stack_reg)])
+        stack_reg = StackingRegressor(estimators=estimators_reg, final_estimator=Ridge(), passthrough=False)
+        regression_pipeline = SklearnPipeline(steps=[('preprocessor', preprocessor), ('regressor', stack_reg)])
 
         # Tinh chỉnh tham số tự động bằng GridSearchCV
         param_grid_reg = {
             'regressor__rf__n_estimators': [100, 200, 300],
             'regressor__rf__max_depth': [5, 10, 15],
             'regressor__gb__n_estimators': [50, 100, 200],
-            'regressor__final_estimator__alpha': [0.1, 1.0, 10.0]
+            'regressor__final_estimator__alpha': [0.1, 1.0, 10.0],
         }
         cv_reg = _make_safe_cv_strategy(y_train_reg, desired_folds=5, is_classification=False)
         grid_search_reg = GridSearchCV(
@@ -111,37 +104,29 @@ class EnsembleTrainer:
             cv=cv_reg,
             scoring="neg_mean_absolute_error",
             n_jobs=-1,
-            verbose=0)
+            verbose=0,
+        )
         grid_search_reg.fit(X_train_reg, y_train_reg)
         best_reg = grid_search_reg.best_estimator_
 
         # --- Xây dựng Pipeline cho Phân loại (Stacking) ---
-        rf_clf = RandomForestClassifier(
-            n_estimators=200, random_state=random_state)
-        gb_clf = RandomForestClassifier(
-            n_estimators=200, random_state=random_state)
+        rf_clf = RandomForestClassifier(n_estimators=200, random_state=random_state)
+        gb_clf = RandomForestClassifier(n_estimators=200, random_state=random_state)
         estimators_clf = [("rf_c", rf_clf), ("gb_c", gb_clf)]
         stack_clf = StackingClassifier(
-            estimators=estimators_clf,
-            final_estimator=LogisticRegression(
-                max_iter=1000),
-            passthrough=False)
-        classification_pipeline = SklearnPipeline(
-            steps=[('preprocessor', preprocessor), ('classifier', stack_clf)])
+            estimators=estimators_clf, final_estimator=LogisticRegression(max_iter=1000), passthrough=False
+        )
+        classification_pipeline = SklearnPipeline(steps=[('preprocessor', preprocessor), ('classifier', stack_clf)])
 
         # Tinh chỉnh tham số tự động bằng GridSearchCV
         param_grid_clf = {
             'classifier__final_estimator__C': [0.1, 1.0, 10.0],
-            'classifier__rf_c__n_estimators': [100, 200, 300]
+            'classifier__rf_c__n_estimators': [100, 200, 300],
         }
         cv_clf = _make_safe_cv_strategy(y_train_clf, desired_folds=5, is_classification=True)
         grid_search_clf = GridSearchCV(
-            classification_pipeline,
-            param_grid=param_grid_clf,
-            cv=cv_clf,
-            scoring="f1_macro",
-            n_jobs=-1,
-            verbose=0)
+            classification_pipeline, param_grid=param_grid_clf, cv=cv_clf, scoring="f1_macro", n_jobs=-1, verbose=0
+        )
         grid_search_clf.fit(X_train_clf, y_train_clf)
         best_clf = grid_search_clf.best_estimator_
 
@@ -149,8 +134,7 @@ class EnsembleTrainer:
         explainer = None
         if SHAP_AVAILABLE:
             try:
-                rf_model = best_reg.named_steps['regressor'].named_estimators_[
-                    'rf']
+                rf_model = best_reg.named_steps['regressor'].named_estimators_['rf']
                 explainer = shap.TreeExplainer(rf_model)
             except Exception as e:
                 st.warning(f"Tạo SHAP explainer thất bại: {e}")
@@ -161,30 +145,16 @@ class EnsembleTrainer:
 
         # Tính toán các chỉ số cho mô hình hồi quy
         metrics_reg = {
-            "RMSE": float(
-                math.sqrt(
-                    mean_squared_error(
-                        y_test_reg, y_pred_reg))), "MAE": float(
-                mean_absolute_error(
-                    y_test_reg, y_pred_reg)), "R2": float(
-                            r2_score(
-                                y_test_reg, y_pred_reg))}
+            "RMSE": float(math.sqrt(mean_squared_error(y_test_reg, y_pred_reg))),
+            "MAE": float(mean_absolute_error(y_test_reg, y_pred_reg)),
+            "R2": float(r2_score(y_test_reg, y_pred_reg)),
+        }
         # Tính toán các chỉ số cho mô hình phân loại
         metrics_clf = {
-            "Accuracy": float(
-                accuracy_score(
-                    y_test_clf,
-                    y_pred_clf)),
-            "F1_macro": float(
-                f1_score(
-                    y_test_clf,
-                    y_pred_clf,
-                    average="macro")),
-            "classification_report": classification_report(
-                y_test_clf,
-                y_pred_clf,
-                output_dict=True,
-                zero_division=0)}
+            "Accuracy": float(accuracy_score(y_test_clf, y_pred_clf)),
+            "F1_macro": float(f1_score(y_test_clf, y_pred_clf, average="macro")),
+            "classification_report": classification_report(y_test_clf, y_pred_clf, output_dict=True, zero_division=0),
+        }
 
         # Trả về các mô hình, explainer, features và metrics đã huấn luyện
         return {
@@ -194,7 +164,8 @@ class EnsembleTrainer:
             "features": feature_cols,
             "metrics_reg": metrics_reg,
             "metrics_clf": metrics_clf,
-            "preprocessor": preprocessor}
+            "preprocessor": preprocessor,
+        }
 
 
 # Danh sách tên model theo THỨ TỰ ƯU TIÊN cho mỗi provider — NƠI DUY NHẤT cần sửa
@@ -222,9 +193,13 @@ AI_MODEL_CATALOG = {
     # flash-lite đứng ĐẦU (mặc định): đo thật 2026-10-12 cùng 1 câu tư vấn — flash-lite
     # 4.0s, flash 66.5s (63.9s mới ra chữ đầu tiên), chất lượng trả lời tương đương.
     "gemini": _get_model_list("gemini", ["gemini-flash-lite-latest", "gemini-flash-latest", "gemini-pro-latest"]),
-    "groq": _get_model_list("groq", ["openai/gpt-oss-20b", "openai/gpt-oss-120b", "groq/compound-mini", "qwen/qwen3.6-27b"]),
+    "groq": _get_model_list(
+        "groq", ["openai/gpt-oss-20b", "openai/gpt-oss-120b", "groq/compound-mini", "qwen/qwen3.6-27b"]
+    ),
     "openai": _get_model_list("openai", ["gpt-4o-mini", "gpt-4o", "gpt-3.5-turbo"]),
-    "huggingface": _get_model_list("huggingface", ["Qwen/Qwen2.5-7B-Instruct", "meta-llama/Llama-3.1-8B-Instruct", "google/gemma-2b-it"]),
+    "huggingface": _get_model_list(
+        "huggingface", ["Qwen/Qwen2.5-7B-Instruct", "meta-llama/Llama-3.1-8B-Instruct", "google/gemma-2b-it"]
+    ),
     "ollama": _get_model_list("ollama", ["qwen2.5:7b", "llama3.2", "llama3", "mistral"]),
 }
 
@@ -237,9 +212,9 @@ AI_MODEL_CATALOG = {
 # _resolve_gemini_thinking_level() trả về None -> KHÔNG gửi thinking_config,
 # an toàn hơn là đoán bừa.
 _GEMINI_THINKING_LEVEL_BY_MODEL = {
-    "gemini-flash-latest": "LOW",          # xác nhận qua audit: KHÔNG hỗ trợ MINIMAL
-    "gemini-flash-lite-latest": "MINIMAL", # xác nhận qua audit: hỗ trợ cả MINIMAL và LOW
-    "gemini-pro-latest": "LOW",            # dòng Pro chỉ hỗ trợ LOW/HIGH, không có MINIMAL
+    "gemini-flash-latest": "LOW",  # xác nhận qua audit: KHÔNG hỗ trợ MINIMAL
+    "gemini-flash-lite-latest": "MINIMAL",  # xác nhận qua audit: hỗ trợ cả MINIMAL và LOW
+    "gemini-pro-latest": "LOW",  # dòng Pro chỉ hỗ trợ LOW/HIGH, không có MINIMAL
     "gemini-2.5-flash": "MINIMAL",
     "gemini-2.5-pro": "LOW",
     "gemini-2.5-flash-lite": "MINIMAL",
@@ -258,8 +233,14 @@ def _is_model_unavailable_error(err_text):
     model kế tiếp trong AI_MODEL_CATALOG), False nếu là lỗi khác (sai API key, hết
     quota, mất mạng...) — thử model khác không giải quyết được các lỗi đó."""
     keywords = [
-        "not found", "404", "does not exist", "decommissioned",
-        "deprecated", "invalid model", "unknown model", "model_not_found",
+        "not found",
+        "404",
+        "does not exist",
+        "decommissioned",
+        "deprecated",
+        "invalid model",
+        "unknown model",
+        "model_not_found",
     ]
     text = str(err_text).lower()
     return any(k in text for k in keywords)
@@ -280,8 +261,12 @@ def _is_billing_required_error(err) -> bool:
     nạp thêm tiền/tín dụng vào tài khoản). Phải kiểm tra loại này TRƯỚC
     _is_rate_limit_error vì cùng có mã 429."""
     keywords = [
-        "insufficient_quota", "credit_balance_exhausted", "no credits remaining",
-        "add credits", "billing", "exceeded your current quota",
+        "insufficient_quota",
+        "credit_balance_exhausted",
+        "no credits remaining",
+        "add credits",
+        "billing",
+        "exceeded your current quota",
     ]
     text = str(err).lower()
     return any(k in text for k in keywords)
@@ -299,8 +284,13 @@ def _is_rate_limit_error(err) -> bool:
     if _is_billing_required_error(err):
         return False
     keywords = [
-        "429", "rate limit", "rate_limit", "too many requests",
-        "quota exceeded", "resource_exhausted", "resource exhausted",
+        "429",
+        "rate limit",
+        "rate_limit",
+        "too many requests",
+        "quota exceeded",
+        "resource_exhausted",
+        "resource exhausted",
     ]
     text = str(err).lower()
     return any(k in text for k in keywords)
@@ -363,8 +353,9 @@ def _ollama_headers() -> dict:
 def list_ollama_models(base_url=None, timeout=2.0) -> list:
     """Tên các model đã `ollama pull` trên server (rỗng nếu server không chạy)."""
     try:
-        resp = requests.get(f"{(base_url or ollama_base_url()).rstrip('/')}/api/tags",
-                            headers=_ollama_headers(), timeout=timeout)
+        resp = requests.get(
+            f"{(base_url or ollama_base_url()).rstrip('/')}/api/tags", headers=_ollama_headers(), timeout=timeout
+        )
         if resp.status_code == 200:
             return [m.get("name") for m in resp.json().get("models", []) if m.get("name")]
     except Exception:
@@ -422,7 +413,7 @@ class MultiAIProvider:
     Thực tế: HF local mặc định Qwen2.5-1.5B (CPU). Đặt DSS_HF_MODEL nếu cần model lớn + đủ GPU/RAM.
     RAG có thể tắt trong UI nếu máy yếu (tránh OOM).
     """
-    
+
     def __init__(self, data_warehouse=None):
         """Khởi tạo MultiAIProvider.
 
@@ -432,20 +423,24 @@ class MultiAIProvider:
         data_warehouse: Kho dữ liệu để lấy dữ liệu lịch sử cho RAG
         vector_store: Vector store để cache embeddings
         """
-        self.embedding_model = None  # Mô hình embedding hiện tại (dss_config.SentenceTransformer hoặc tuple tokenizer+model)
+        self.embedding_model = (
+            None  # Mô hình embedding hiện tại (dss_config.SentenceTransformer hoặc tuple tokenizer+model)
+        )
         self._current_embedding_model = None  # Tên mô hình embedding đang dùng (để cache)
-        self.knowledge_base = self._init_enhanced_knowledge_base()  # Khởi tạo knowledge base với 19 tài liệu học tập (doc_001 đến doc_019)
+        self.knowledge_base = (
+            self._init_enhanced_knowledge_base()
+        )  # Khởi tạo knowledge base với 19 tài liệu học tập (doc_001 đến doc_019)
         self.data_warehouse = data_warehouse  # Kho dữ liệu
         self.vector_store = VectorStore()  # Vector store để cache embeddings
-    
+
     def _init_enhanced_knowledge_base(self):
         """
         Khởi tạo knowledge base mở rộng về tài liệu và môn học.
-        
+
         Knowledge base chứa:
         - documents: Danh sách tài liệu học tập với title, content, tags, subject
         - courses: Danh sách khóa học gợi ý
-        
+
         Mỗi document có:
         - id: Mã định danh duy nhất
         - title: Tiêu đề tài liệu
@@ -518,7 +513,6 @@ class MultiAIProvider:
                     "source_verified": True,
                     "permission_scope": "student_learning",
                 },
-
                 {
                     "id": "doc_005",
                     "title": "Cải thiện điểm Vật lý",
@@ -691,63 +685,62 @@ class MultiAIProvider:
                     "status": "DRAFT",
                     "source_verified": False,
                     "permission_scope": "student_learning",
-                }
-
+                },
             ],
             "courses": [
                 {
                     "id": "course_001",
                     "name": "Toán cơ bản",
                     "description": "Khóa học bổ trợ toán cơ bản cho sinh viên yếu",
-                    "difficulty": "beginner"
+                    "difficulty": "beginner",
                 },
                 {
                     "id": "course_002",
                     "name": "Lập trình Python",
                     "description": "Khóa học lập trình Python từ cơ bản đến nâng cao",
-                    "difficulty": "intermediate"
+                    "difficulty": "intermediate",
                 },
                 {
                     "id": "course_003",
                     "name": "Kỹ năng học tập",
                     "description": "Khóa học về phương pháp và kỹ năng học tập hiệu quả",
-                    "difficulty": "beginner"
+                    "difficulty": "beginner",
                 },
                 {
                     "id": "course_004",
                     "name": "Tiếng Anh giao tiếp học thuật",
                     "description": "Khóa học tiếng Anh tập trung kỹ năng đọc-viết học thuật và giao tiếp cơ bản",
-                    "difficulty": "beginner"
+                    "difficulty": "beginner",
                 },
                 {
                     "id": "course_005",
                     "name": "Xác suất thống kê ứng dụng",
                     "description": "Khóa học xác suất thống kê qua ví dụ thực tế, ít nặng lý thuyết hàn lâm",
-                    "difficulty": "intermediate"
+                    "difficulty": "intermediate",
                 },
                 {
                     "id": "course_006",
                     "name": "SQL & Phân tích dữ liệu cơ bản",
                     "description": "Khóa học thực hành truy vấn SQL và làm sạch dữ liệu cho người mới bắt đầu",
-                    "difficulty": "beginner"
-                }
-            ]
+                    "difficulty": "beginner",
+                },
+            ],
         }
 
     def get_api_key_from_secrets(self, provider_name):
         """
         Lấy API key từ Streamlit secrets hoặc environment variables.
         Ưu tiên secrets (an toàn hơn), sau đó là environment variables.
-        
+
         Parameters:
         -----------
         provider_name : str
             Tên provider: "huggingface", "gemini", "groq", "ollama"
-        
+
         Returns:
         --------
         str : API key nếu tìm thấy, chuỗi rỗng nếu không
-        
+
         Quy trình:
         1. Thử lấy từ Streamlit secrets (ưu tiên - an toàn nhất)
         2. Thử các tên key thay thế (HF_TOKEN, GEMINI_API_KEY, etc.)
@@ -762,7 +755,7 @@ class MultiAIProvider:
                 key_name = f"{provider_name.upper()}_API_KEY"  # Tạo tên key mặc định
                 if key_name in secrets_dict:
                     return secrets_dict[key_name]  # Trả về key nếu tìm thấy
-                
+
                 # Bước 2: Thử với các tên key thay thế (vì mỗi provider có thể có nhiều tên)
                 alt_names = {
                     "huggingface": ["HF_TOKEN", "HUGGINGFACE_TOKEN", "HF_API_KEY"],  # Các tên key cho Hugging Face
@@ -778,7 +771,7 @@ class MultiAIProvider:
         except Exception:
             # Nếu có lỗi khi đọc secrets (ví dụ: không có secrets), bỏ qua
             pass
-        
+
         # Bước 3: Fallback - lấy từ environment variables (cho môi trường local)
         env_keys = {
             "huggingface": ["HF_TOKEN", "HUGGINGFACE_TOKEN"],  # Environment variables cho Hugging Face
@@ -792,27 +785,27 @@ class MultiAIProvider:
                 value = os.getenv(key, "")  # Lấy giá trị từ environment variable
                 if value:  # Nếu tìm thấy giá trị
                     return value  # Trả về key
-        
+
         return ""  # Trả về chuỗi rỗng nếu không tìm thấy key nào
-    
+
     @st.cache_resource  # Cache resource để không phải tải lại model mỗi lần
     def load_embedding_model(_self, model_name="sentence-transformers/all-MiniLM-L6-v2", hf_token=None):
         """
         Tải mô hình embedding để tìm tài liệu phù hợp (RAG).
-        
+
         Parameters:
         -----------
         model_name : str
             Tên mô hình embedding (ví dụ: "sentence-transformers/all-MiniLM-L6-v2")
         hf_token : str, optional
             Hugging Face token để tải các model private
-        
+
         Returns:
         --------
         tuple : (model, error)
             - model: Mô hình embedding (dss_config.SentenceTransformer hoặc tuple (tokenizer, model))
             - error: Thông báo lỗi nếu có, None nếu thành công
-        
+
         Quy trình:
         1. Kiểm tra thư viện có sẵn không
         2. Ưu tiên dùng sentence-transformers (nhanh và dễ dùng hơn)
@@ -825,30 +818,30 @@ class MultiAIProvider:
         # Kiểm tra xem có thư viện cần thiết không
         if not dss_config.SENTENCE_TRANSFORMERS_AVAILABLE and not dss_config.HF_AVAILABLE:
             return None, "Chưa cài đặt sentence-transformers hoặc transformers."
-        
+
         try:
             # Ưu tiên 1: Dùng sentence-transformers (nhanh và dễ dùng hơn)
             if dss_config.SENTENCE_TRANSFORMERS_AVAILABLE and dss_config.SentenceTransformer is not None:
                 model = dss_config.SentenceTransformer(model_name, token=hf_token)  # Tải mô hình với token nếu cần
                 return model, None  # Trả về model và None (không có lỗi)
-            
+
             # Ưu tiên 2: Dùng transformers trực tiếp (fallback)
             if dss_config.HF_AVAILABLE and dss_config.AutoTokenizer is not None and dss_config.AutoModel is not None:
                 tokenizer = dss_config.AutoTokenizer.from_pretrained(model_name, token=hf_token)  # Tải tokenizer
                 model = dss_config.AutoModel.from_pretrained(model_name, token=hf_token)  # Tải model
                 return (tokenizer, model), None  # Trả về tuple (tokenizer, model) và None
-            
+
             # Nếu không có thư viện nào
             return None, "Thư viện cần thiết chưa được cài đặt"
         except Exception as e:
             # Bắt lỗi và trả về thông báo lỗi
             return None, str(e)
-    
+
     @observed("rag.embedding")
     def get_embedding(self, text, embedding_model_name="sentence-transformers/all-MiniLM-L6-v2", hf_token=None):
         """
         Tạo vector embedding cho văn bản.
-        
+
         Parameters:
         -----------
         text : str
@@ -857,12 +850,12 @@ class MultiAIProvider:
             Tên mô hình embedding để sử dụng
         hf_token : str, optional
             Hugging Face token nếu cần
-        
+
         Returns:
         --------
         numpy.ndarray hoặc None
             Vector embedding của văn bản, None nếu có lỗi
-        
+
         Quy trình:
         1. Kiểm tra xem model đã được load chưa (cache để tăng tốc)
         2. Nếu chưa hoặc khác model, tải model mới
@@ -882,15 +875,13 @@ class MultiAIProvider:
                 if err:  # Nếu có lỗi khi tải model
                     return None  # Trả về None
                 self._current_embedding_model = embedding_model_name  # Lưu tên model hiện tại
-            
+
             # Xử lý tùy theo loại model được tải
             if isinstance(self.embedding_model, tuple):
                 if not dss_config.TORCH_AVAILABLE:
                     return None
                 tokenizer, model = self.embedding_model
-                inputs = tokenizer(
-                    text, return_tensors="pt", padding=True, truncation=True, max_length=512
-                )
+                inputs = tokenizer(text, return_tensors="pt", padding=True, truncation=True, max_length=512)
                 if dss_config.TORCH_AVAILABLE:
                     inputs = {k: v.to(model.device) for k, v in inputs.items()}
                 with dss_config.torch.no_grad():
@@ -899,21 +890,30 @@ class MultiAIProvider:
             else:
                 # Trường hợp 2: Model là dss_config.SentenceTransformer (dễ dùng hơn)
                 embedding = self.embedding_model.encode(text, convert_to_tensor=True)  # Encode text thành vector
-            
+
             # Chuyển embedding về numpy array (từ tensor nếu cần)
             return embedding.cpu().numpy() if hasattr(embedding, 'cpu') else embedding
         except Exception:
             # Nếu có lỗi, trả về None
             return None
-    
-    def find_relevant_documents_rag(self, query_text, top_k=dss_config.RAG_TOP_K_DEFAULT, embedding_model_name="sentence-transformers/all-MiniLM-L6-v2",
-                                     hf_token=None, use_warehouse_data=True, runtime_documents=None,
-                                     role="Sinh viên", namespace="student_learning", mode=None):
+
+    def find_relevant_documents_rag(
+        self,
+        query_text,
+        top_k=dss_config.RAG_TOP_K_DEFAULT,
+        embedding_model_name="sentence-transformers/all-MiniLM-L6-v2",
+        hf_token=None,
+        use_warehouse_data=True,
+        runtime_documents=None,
+        role="Sinh viên",
+        namespace="student_learning",
+        mode=None,
+    ):
         """
         Tìm tài liệu phù hợp nhất sử dụng RAG (Retrieval-Augmented Generation).
         Sử dụng embedding để tìm các tài liệu có độ tương đồng cao nhất với điểm yếu của sinh viên.
         TÍCH HỢP: Sử dụng dữ liệu từ kho (warehouse) để học từ lịch sử.
-        
+
         Parameters:
         -----------
         query_text : str
@@ -926,11 +926,11 @@ class MultiAIProvider:
             Hugging Face token nếu cần
         use_warehouse_data : bool
             Có sử dụng dữ liệu từ kho để học không
-        
+
         Returns:
         --------
         list : Danh sách các tài liệu phù hợp nhất (top_k documents)
-        
+
         Quy trình RAG nâng cấp:
         1. Tạo embedding cho câu truy vấn
         2. Lấy tài liệu từ knowledge base + dữ liệu từ kho (nếu bật)
@@ -944,8 +944,9 @@ class MultiAIProvider:
             return []
         active_mode = mode or os.environ.get("EDUDSS_MODE", "DEMO_SYNTHETIC")
         from dss.core.runtime_mode import is_production as _is_production
+
         all_documents = []
-        
+
         # 1a. Thêm tài liệu từ knowledge base
         for doc in self.knowledge_base["documents"]:
             # MỤC 11 & 12: Trong REAL_LMS mode, chỉ tài liệu APPROVED và có source_verified mới được truy xuất
@@ -953,91 +954,105 @@ class MultiAIProvider:
                 if doc.get("status") != "APPROVED" or not doc.get("source_verified"):
                     continue
 
-            all_documents.append({
-                'id': doc['id'],
-                'title': doc['title'],
-                'content': doc['content'],
-                'tags': doc.get('tags', []),
-                'source': 'knowledge_base',
-                'reference': doc.get('reference', ''),
-                'status': doc.get('status', 'DRAFT'),
-                'source_verified': doc.get('source_verified', False),
-                'permission_scope': doc.get('permission_scope', 'student_learning'),
-                'text': f"{doc['title']} {doc['content']} {' '.join(doc.get('tags', []))}"
-            })
-
+            all_documents.append(
+                {
+                    'id': doc['id'],
+                    'title': doc['title'],
+                    'content': doc['content'],
+                    'tags': doc.get('tags', []),
+                    'source': 'knowledge_base',
+                    'reference': doc.get('reference', ''),
+                    'status': doc.get('status', 'DRAFT'),
+                    'source_verified': doc.get('source_verified', False),
+                    'permission_scope': doc.get('permission_scope', 'student_learning'),
+                    'text': f"{doc['title']} {doc['content']} {' '.join(doc.get('tags', []))}",
+                }
+            )
 
         # 1b. Thêm tài liệu runtime từ dataset đang upload (nếu có)
         for i, doc in enumerate((runtime_documents or [])[:20]):
-            title = str(doc.get("title", f"Ngữ cảnh dataset #{i+1}"))
+            title = str(doc.get("title", f"Ngữ cảnh dataset #{i + 1}"))
             content = str(doc.get("content", ""))[:4000].strip()
             if not content:
                 continue
             tags = doc.get("tags", [])
             if not isinstance(tags, list):
                 tags = [str(tags)]
-            all_documents.append({
-                "id": str(doc.get("id", f"runtime_{i}")),
-                "title": title,
-                "content": content,
-                "tags": tags,
-                "source": doc.get("source", "uploaded_dataset"),
-                "text": f"{title} {content} {' '.join(tags)}",
-            })
-            
+            all_documents.append(
+                {
+                    "id": str(doc.get("id", f"runtime_{i}")),
+                    "title": title,
+                    "content": content,
+                    "tags": tags,
+                    "source": doc.get("source", "uploaded_dataset"),
+                    "text": f"{title} {content} {' '.join(tags)}",
+                }
+            )
+
         # Bước 2: Tạo embedding cho câu truy vấn
         query_embedding = self.get_embedding(query_text, embedding_model_name, hf_token)
-        
+
         # 2b. Thêm dữ liệu từ kho (warehouse) nếu bật VÀ thuộc namespace admin_operations
         # MỤC 13: Cố vấn học tập sinh viên tuyệt đối KHÔNG trộn lịch sử đánh giá mô hình / huấn luyện vào tài liệu học tập
         if use_warehouse_data and self.data_warehouse and namespace == "admin_operations" and role == "Admin":
-
             # Lấy dữ liệu đánh giá để học từ kết quả
             evaluations = self.data_warehouse.get_evaluation_data_for_rag(limit=10)
             for eval_data in evaluations:
                 model_name = eval_data.get('model_name', 'Unknown')
                 metrics = eval_data.get('evaluation_results', {})
-                
+
                 # Tạo document từ dữ liệu đánh giá
                 content = f"Mô hình {model_name} đã được huấn luyện với kết quả: "
                 if isinstance(metrics, dict):
-                    metric_str = ", ".join([f"{k}: {v:.4f}" if isinstance(v, (int, float)) else f"{k}: {v}" 
-                                           for k, v in list(metrics.items())[:5]])
+                    metric_str = ", ".join(
+                        [
+                            f"{k}: {v:.4f}" if isinstance(v, (int, float)) else f"{k}: {v}"
+                            for k, v in list(metrics.items())[:5]
+                        ]
+                    )
                     content += metric_str
-                
-                all_documents.append({
-                    'id': f"eval_{eval_data.get('evaluation_id', '')}",
-                    'title': f"Kết quả đánh giá mô hình {model_name}",
-                    'content': content,
-                    'tags': ['đánh giá', 'mô hình', model_name.lower()],
-                    'source': 'warehouse_evaluation',
-                    'text': f"Kết quả đánh giá mô hình {model_name} {content}"
-                })
-            
+
+                all_documents.append(
+                    {
+                        'id': f"eval_{eval_data.get('evaluation_id', '')}",
+                        'title': f"Kết quả đánh giá mô hình {model_name}",
+                        'content': content,
+                        'tags': ['đánh giá', 'mô hình', model_name.lower()],
+                        'source': 'warehouse_evaluation',
+                        'text': f"Kết quả đánh giá mô hình {model_name} {content}",
+                    }
+                )
+
             # Lấy lịch sử huấn luyện
             training_history = self.data_warehouse.get_training_history_for_rag(limit=5)
             for train_data in training_history:
                 model_name = train_data.get('model_name', 'Unknown')
                 metrics = train_data.get('metrics', {})
-                
+
                 content = f"Mô hình {model_name} đã được huấn luyện. "
                 if isinstance(metrics, dict):
-                    metric_str = ", ".join([f"{k}: {v:.4f}" if isinstance(v, (int, float)) else f"{k}: {v}" 
-                                           for k, v in list(metrics.items())[:3]])
+                    metric_str = ", ".join(
+                        [
+                            f"{k}: {v:.4f}" if isinstance(v, (int, float)) else f"{k}: {v}"
+                            for k, v in list(metrics.items())[:3]
+                        ]
+                    )
                     content += f"Metrics: {metric_str}"
-                
-                all_documents.append({
-                    'id': f"train_{train_data.get('training_id', '')}",
-                    'title': f"Lịch sử huấn luyện {model_name}",
-                    'content': content,
-                    'tags': ['huấn luyện', 'lịch sử', model_name.lower()],
-                    'source': 'warehouse_training',
-                    'text': f"Lịch sử huấn luyện {model_name} {content}"
-                })
-        
+
+                all_documents.append(
+                    {
+                        'id': f"train_{train_data.get('training_id', '')}",
+                        'title': f"Lịch sử huấn luyện {model_name}",
+                        'content': content,
+                        'tags': ['huấn luyện', 'lịch sử', model_name.lower()],
+                        'source': 'warehouse_training',
+                        'text': f"Lịch sử huấn luyện {model_name} {content}",
+                    }
+                )
+
         # Bước 3: Tính toán điểm tương đồng
         similarities = []
-        
+
         if query_embedding is not None:
             # 3a. Dùng Embeddings
             for doc in all_documents:
@@ -1048,11 +1063,12 @@ class MultiAIProvider:
                 # dùng cache trên đĩa (vĩnh viễn theo doc_id) cho loại này, nếu không lần tư
                 # vấn sau sẽ so khớp bằng embedding cũ dù nội dung đã khác.
                 is_persistent_doc = doc.get('source') in (
-                    'knowledge_base', 'warehouse_evaluation', 'warehouse_training'
+                    'knowledge_base',
+                    'warehouse_evaluation',
+                    'warehouse_training',
                 )
                 doc_embedding = (
-                    self.vector_store.load_embedding(doc_id, embedding_model_name)
-                    if is_persistent_doc else None
+                    self.vector_store.load_embedding(doc_id, embedding_model_name) if is_persistent_doc else None
                 )
 
                 if doc_embedding is None:
@@ -1072,16 +1088,16 @@ class MultiAIProvider:
             try:
                 from sklearn.feature_extraction.text import TfidfVectorizer
                 from sklearn.metrics.pairwise import cosine_similarity as tfidf_cossim
-                
+
                 corpus = [doc['text'] for doc in all_documents]
-                corpus.append(query_text) # document cuối cùng là câu truy vấn
+                corpus.append(query_text)  # document cuối cùng là câu truy vấn
 
                 vectorizer = TfidfVectorizer().fit_transform(corpus)
                 vectors = vectorizer.toarray()
-                
-                query_vec = vectors[-1:] # vector truy vấn
+
+                query_vec = vectors[-1:]  # vector truy vấn
                 doc_vecs = vectors[:-1]  # vector tài liệu
-                
+
                 sim_scores = tfidf_cossim(query_vec, doc_vecs)[0]
                 # Không lọc cứng theo % ở đây nữa — bước lọc TƯƠNG ĐỐI dùng chung
                 # bên dưới (RAG_RELATIVE_THRESHOLD) đã xử lý việc loại tài liệu
@@ -1093,7 +1109,8 @@ class MultiAIProvider:
                 query_words = set(query_text.lower().split())
                 for doc in all_documents:
                     score = sum(1 for w in query_words if len(w) > 3 and w in doc['text'].lower())
-                    if score > 0: similarities.append((doc, float(score)))
+                    if score > 0:
+                        similarities.append((doc, float(score)))
 
         # Bước 4: Sắp xếp theo độ tương đồng giảm dần
         similarities.sort(key=lambda x: x[1], reverse=True)
@@ -1121,7 +1138,6 @@ class MultiAIProvider:
             doc_out['low_confidence'] = False
             results.append(doc_out)
         return results
-
 
     # Các cột điểm số trong dataset mẫu là chỉ số tổng hợp (không gắn với 1 môn học cụ
     # thể), nên không thể tìm tài liệu RAG theo môn (Toán/Hóa/Sinh...) từ tên cột thô —
@@ -1154,12 +1170,9 @@ class MultiAIProvider:
         # bao giờ khớp, là code chết trong luồng thật. Tra thêm theo NHÃN tiếng Việt
         # (feature_label(col)) để khớp đúng định dạng thật; vẫn giữ tra theo tên cột
         # kỹ thuật để tương thích ngược với nơi gọi truyền thẳng tên cột.
-        label_hints = {
-            feature_label(col).strip().lower(): hint
-            for col, hint in self._COLUMN_RAG_TOPIC_HINTS.items()
-        }
+        label_hints = {feature_label(col).strip().lower(): hint for col, hint in self._COLUMN_RAG_TOPIC_HINTS.items()}
         cleaned_topics = []
-        for weakness in (student_weaknesses or []):
+        for weakness in student_weaknesses or []:
             base = str(weakness).split("(")[0].strip().strip("*").strip().lower()
             # Nếu là tên cột/nhãn điểm số tổng hợp (không phải tên môn học), dịch
             # sang chủ đề kỹ năng liên quan để RAG không khớp nhầm sang tài liệu
@@ -1206,8 +1219,12 @@ class MultiAIProvider:
         # gọi đây là "dự đoán" khi không chắc số liệu có qua mô hình hay không.
         gpa_label = sanitize_student_text(profile.get("gpa_label", "Điểm dự đoán (GPA)"), max_chars=100)
         risk_level = sanitize_student_text(profile.get("risk_level", "trung bình"), max_chars=100)
-        progress_note = sanitize_student_text(profile.get("progress_note", "chưa có dữ liệu tiến bộ rõ ràng"), max_chars=300)
-        plan_weeks = int(profile.get("plan_weeks") or self._estimate_study_weeks(predicted_gpa, len(student_weaknesses or [])))
+        progress_note = sanitize_student_text(
+            profile.get("progress_note", "chưa có dữ liệu tiến bộ rõ ràng"), max_chars=300
+        )
+        plan_weeks = int(
+            profile.get("plan_weeks") or self._estimate_study_weeks(predicted_gpa, len(student_weaknesses or []))
+        )
 
         weaknesses_str = (
             "\n".join([f"- {sanitize_student_text(w, max_chars=200)}" for w in (student_weaknesses or [])[:10]])
@@ -1216,8 +1233,11 @@ class MultiAIProvider:
         )
         relevant_docs_str = (
             "\n".join(
-                [f"- **{sanitize_student_text(doc.get('title', ''), max_chars=150)}**: "
-                 f"{sanitize_student_text(doc.get('content', ''), max_chars=500)}..." for doc in relevant_docs[:5]]
+                [
+                    f"- **{sanitize_student_text(doc.get('title', ''), max_chars=150)}**: "
+                    f"{sanitize_student_text(doc.get('content', ''), max_chars=500)}..."
+                    for doc in relevant_docs[:5]
+                ]
             )
             if relevant_docs
             else "- Không có tài liệu gợi ý"
@@ -1257,14 +1277,24 @@ Viết một báo cáo phân tích và kế hoạch học tập CHI TIẾT trong
 6. KPI theo dõi tiến độ mỗi tuần (ví dụ số giờ học, số bài tập, mini test) — đưa con số cụ thể, không nói chung chung.
 
 Viết tiếng Việt mạch lạc, ấm áp, không dùng giọng mệnh lệnh kiểu "phải/lập tức", hạn chế văn phong máy móc. Ưu tiên tính cụ thể/hành động được ngay hơn là câu chữ hoa mỹ — mỗi gợi ý nên có ví dụ hoặc con số đi kèm."""
-        return prompt, weaknesses_str, relevant_docs_str, {
-            "plan_weeks": plan_weeks,
-            "risk_level": risk_level,
-            "progress_note": progress_note,
-        }
-    
-    @observed("ai.provider", metadata=lambda self, prompt, provider="huggingface", model_name=None, **kwargs: {
-        "provider": provider, "model": model_name or "default"})
+        return (
+            prompt,
+            weaknesses_str,
+            relevant_docs_str,
+            {
+                "plan_weeks": plan_weeks,
+                "risk_level": risk_level,
+                "progress_note": progress_note,
+            },
+        )
+
+    @observed(
+        "ai.provider",
+        metadata=lambda self, prompt, provider="huggingface", model_name=None, **kwargs: {
+            "provider": provider,
+            "model": model_name or "default",
+        },
+    )
     def call_ai_provider(self, prompt, provider="huggingface", model_name=None, **kwargs):
         """
         Gọi AI provider để tạo phản hồi (Streaming).
@@ -1280,25 +1310,20 @@ Viết tiếng Việt mạch lạc, ấm áp, không dùng giọng mệnh lệnh
         if provider == "huggingface" and dss_config.HF_AVAILABLE:
             hf_token = kwargs.get("hf_token", self.get_api_key_from_secrets("huggingface"))
             # Mặc định nhẹ cho CPU; đặt DSS_HF_MODEL (env) nếu có GPU/RAM lớn (vd. Llama-8B).
-            model_name = model_name or os.environ.get(
-                "DSS_HF_MODEL", "Qwen/Qwen2.5-1.5B-Instruct"
-            )
+            model_name = model_name or os.environ.get("DSS_HF_MODEL", "Qwen/Qwen2.5-1.5B-Instruct")
             try:
                 if not dss_config.TORCH_AVAILABLE:
                     yield "Lỗi Hugging Face: cần cài PyTorch (torch) để chạy model cục bộ."
                     return
                 try:
-                    from transformers import TextIteratorStreamer
                     from threading import Thread
+
+                    from transformers import TextIteratorStreamer
                 except ImportError:
                     yield "Lỗi Hugging Face: thiếu TextIteratorStreamer (transformers quá cũ?)."
                     return
-                if not getattr(self, "hf_tokenizer", None) or getattr(
-                    self, "_hf_loaded_name", None
-                ) != model_name:
-                    self.hf_tokenizer = dss_config.AutoTokenizer.from_pretrained(
-                        model_name, token=hf_token
-                    )
+                if not getattr(self, "hf_tokenizer", None) or getattr(self, "_hf_loaded_name", None) != model_name:
+                    self.hf_tokenizer = dss_config.AutoTokenizer.from_pretrained(model_name, token=hf_token)
                     load_kw = dict(
                         token=hf_token,
                         low_cpu_mem_usage=True,
@@ -1310,15 +1335,15 @@ Viết tiếng Việt mạch lạc, ấm áp, không dùng giọng mệnh lệnh
                         load_kw["torch_dtype"] = dss_config.torch.float32
                         load_kw["device_map"] = None
                     try:
-                        self.hf_model = dss_config.AutoModelForCausalLM.from_pretrained(
-                            model_name, **load_kw
-                        )
+                        self.hf_model = dss_config.AutoModelForCausalLM.from_pretrained(model_name, **load_kw)
                     except Exception as load_err:
                         for attr in ("hf_model", "hf_tokenizer"):
                             if hasattr(self, attr):
                                 delattr(self, attr)
                         self._hf_loaded_name = None
-                        _logger.warning("Hugging Face model load failed (model=%s): %s", model_name, type(load_err).__name__)
+                        _logger.warning(
+                            "Hugging Face model load failed (model=%s): %s", model_name, type(load_err).__name__
+                        )
                         yield "Lỗi Hugging Face: không tải được model — thử model nhỏ hơn hoặc dùng Groq/Gemini."
                         return
                     if load_kw.get("device_map") is None:
@@ -1327,12 +1352,8 @@ Viết tiếng Việt mạch lạc, ấm áp, không dùng giọng mệnh lệnh
                 inputs = self.hf_tokenizer(
                     f"{AI_SYSTEM_POLICY}\n\n{prompt}", return_tensors="pt", truncation=True, max_length=2048
                 )
-                inputs = {
-                    k: v.to(self.hf_model.device) for k, v in inputs.items()
-                }
-                streamer = TextIteratorStreamer(
-                    self.hf_tokenizer, skip_prompt=True, skip_special_tokens=True
-                )
+                inputs = {k: v.to(self.hf_model.device) for k, v in inputs.items()}
+                streamer = TextIteratorStreamer(self.hf_tokenizer, skip_prompt=True, skip_special_tokens=True)
                 gen_kw = dict(
                     **inputs,
                     streamer=streamer,
@@ -1340,9 +1361,7 @@ Viết tiếng Việt mạch lạc, ấm áp, không dùng giọng mệnh lệnh
                     temperature=0.7,
                     do_sample=True,
                     top_p=0.9,
-                    pad_token_id=getattr(
-                        self.hf_tokenizer, "pad_token_id", None
-                    )
+                    pad_token_id=getattr(self.hf_tokenizer, "pad_token_id", None)
                     or getattr(self.hf_tokenizer, "eos_token_id", None),
                 )
                 thread = Thread(target=self.hf_model.generate, kwargs=gen_kw)
@@ -1404,6 +1423,7 @@ Viết tiếng Việt mạch lạc, ấm áp, không dùng giọng mệnh lệnh
                             yield text
                     # Số token thật (gồm token suy nghĩ) từ chunk cuối -> chi phí khớp hoá đơn.
                     from dss.services import llm_usage
+
                     llm_usage.from_gemini("gemini", candidate_model, usage_metadata)
                     return
                 except Exception as e:
@@ -1411,18 +1431,26 @@ Viết tiếng Việt mạch lạc, ấm áp, không dùng giọng mệnh lệnh
                     if _is_billing_required_error(e):
                         # KHÁC HẲN rate-limit tạm thời — tài khoản hết hạn mức thanh toán/tín
                         # dụng, retry/đổi model không giải quyết được. Chỉ log LOẠI lỗi.
-                        _logger.warning("Gemini billing/quota het han muc (model=%s): %s", candidate_model, type(e).__name__)
-                        yield ("💳 Hệ thống AI (Gemini) hiện không thể dùng do tài khoản đã hết hạn mức thanh toán/tín dụng. "
-                               "Vui lòng liên hệ Admin để nạp thêm hoặc chọn nguồn AI khác.")
+                        _logger.warning(
+                            "Gemini billing/quota het han muc (model=%s): %s", candidate_model, type(e).__name__
+                        )
+                        yield (
+                            "💳 Hệ thống AI (Gemini) hiện không thể dùng do tài khoản đã hết hạn mức thanh toán/tín dụng. "
+                            "Vui lòng liên hệ Admin để nạp thêm hoặc chọn nguồn AI khác."
+                        )
                         return
                     if not any_output and _is_rate_limit_error(e):
                         # Đã thử lại (exponential backoff) qua _call_with_rate_limit_retry
                         # nhưng vẫn bị giới hạn tần suất — báo thân thiện, không lộ lỗi thô.
                         # Chỉ log LOẠI lỗi (không log str(e) đầy đủ — một số SDK có thể vô
                         # tình chèn thông tin request vào message lỗi).
-                        _logger.warning("Gemini rate-limit sau khi đã retry (model=%s): %s", candidate_model, type(e).__name__)
-                        yield ("⏳ Hệ thống AI (Gemini) đang bị giới hạn tần suất truy cập. "
-                               "Đã tự động thử lại nhiều lần nhưng chưa thành công — vui lòng thử lại sau ít phút.")
+                        _logger.warning(
+                            "Gemini rate-limit sau khi đã retry (model=%s): %s", candidate_model, type(e).__name__
+                        )
+                        yield (
+                            "⏳ Hệ thống AI (Gemini) đang bị giới hạn tần suất truy cập. "
+                            "Đã tự động thử lại nhiều lần nhưng chưa thành công — vui lòng thử lại sau ít phút."
+                        )
                         return
                     if any_output or not (_is_model_unavailable_error(e) or _is_timeout_error(e)):
                         # Đã lỡ trả ra nội dung (không đổi model giữa chừng) hoặc lỗi không
@@ -1432,7 +1460,11 @@ Viết tiếng Việt mạch lạc, ấm áp, không dùng giọng mệnh lệnh
                         _logger.exception("Lỗi Gemini (model=%s)", candidate_model)
                         yield "⚠️ Hệ thống AI (Gemini) hiện gặp sự cố. Vui lòng thử lại sau hoặc chọn nguồn AI khác."
                         return
-            _logger.error("Gemini: hết danh sách model dự phòng (%s). Lỗi cuối: %s", ", ".join(candidates), type(last_err).__name__ if last_err else "—")
+            _logger.error(
+                "Gemini: hết danh sách model dự phòng (%s). Lỗi cuối: %s",
+                ", ".join(candidates),
+                type(last_err).__name__ if last_err else "—",
+            )
             yield f"Lỗi Gemini: không gọi được model nào trong danh sách dự phòng ({', '.join(candidates)}). Vui lòng thử lại sau."
 
         elif provider == "groq" and GROQ_AVAILABLE:
@@ -1440,9 +1472,7 @@ Viết tiếng Việt mạch lạc, ấm áp, không dùng giọng mệnh lệnh
             if not api_key:
                 yield "Lỗi Groq: chưa tìm thấy API key. Vui lòng nhập key hoặc cấu hình GROQ_API_KEY."
                 return
-            candidates = ([model_name] if model_name else []) + [
-                m for m in AI_MODEL_CATALOG["groq"] if m != model_name
-            ]
+            candidates = ([model_name] if model_name else []) + [m for m in AI_MODEL_CATALOG["groq"] if m != model_name]
             last_err = None
             for candidate_model in candidates:
                 any_output = False
@@ -1457,44 +1487,60 @@ Viết tiếng Việt mạch lạc, ấm áp, không dùng giọng mệnh lệnh
                             # "UnicodeEncodeError: 'ascii' codec can't encode character...". Ngôn ngữ
                             # đầu ra vẫn là tiếng Việt vì đã được yêu cầu rõ trong nội dung prompt chính.
                             {"role": "system", "content": AI_SYSTEM_POLICY},
-                            {"role": "user", "content": prompt}
+                            {"role": "user", "content": prompt},
                         ],
                         temperature=0.7,
                         # Đã xác nhận qua thực tế: 3000 token bị cắt ngang giữa chừng với báo cáo
                         # nhiều tuần chi tiết — model hỗ trợ tới 65.536 token nên nâng lên 8192.
                         max_tokens=8192,
-                        stream=True
+                        stream=True,
                     )
                     stream_usage = None
                     for chunk in stream:
                         # Chunk cuối mang usage (OpenAI: stream_options include_usage, choices rỗng;
                         # Groq: x_groq.usage) — không đọc choices[0] khi danh sách rỗng.
-                        stream_usage = (getattr(chunk, "usage", None)
-                                        or getattr(getattr(chunk, "x_groq", None), "usage", None) or stream_usage)
+                        stream_usage = (
+                            getattr(chunk, "usage", None)
+                            or getattr(getattr(chunk, "x_groq", None), "usage", None)
+                            or stream_usage
+                        )
                         choices = getattr(chunk, "choices", None) or []
                         if choices and choices[0].delta.content is not None:
                             any_output = True
                             yield choices[0].delta.content
                     from dss.services import llm_usage
+
                     llm_usage.from_openai_compatible("groq", candidate_model, stream_usage)
                     return
                 except Exception as e:
                     last_err = e
                     if _is_billing_required_error(e):
-                        _logger.warning("Groq billing/quota het han muc (model=%s): %s", candidate_model, type(e).__name__)
-                        yield ("💳 Hệ thống AI (Groq) hiện không thể dùng do tài khoản đã hết hạn mức thanh toán/tín dụng. "
-                               "Vui lòng liên hệ Admin để nạp thêm hoặc chọn nguồn AI khác.")
+                        _logger.warning(
+                            "Groq billing/quota het han muc (model=%s): %s", candidate_model, type(e).__name__
+                        )
+                        yield (
+                            "💳 Hệ thống AI (Groq) hiện không thể dùng do tài khoản đã hết hạn mức thanh toán/tín dụng. "
+                            "Vui lòng liên hệ Admin để nạp thêm hoặc chọn nguồn AI khác."
+                        )
                         return
                     if not any_output and _is_rate_limit_error(e):
-                        _logger.warning("Groq rate-limit sau khi đã retry (model=%s): %s", candidate_model, type(e).__name__)
-                        yield ("⏳ Hệ thống AI (Groq) đang bị giới hạn tần suất truy cập. "
-                               "Đã tự động thử lại nhiều lần nhưng chưa thành công — vui lòng thử lại sau ít phút.")
+                        _logger.warning(
+                            "Groq rate-limit sau khi đã retry (model=%s): %s", candidate_model, type(e).__name__
+                        )
+                        yield (
+                            "⏳ Hệ thống AI (Groq) đang bị giới hạn tần suất truy cập. "
+                            "Đã tự động thử lại nhiều lần nhưng chưa thành công — vui lòng thử lại sau ít phút."
+                        )
                         return
                     if any_output or not (_is_model_unavailable_error(e) or _is_timeout_error(e)):
                         _logger.exception("Lỗi Groq (model=%s)", candidate_model)
                         yield "⚠️ Hệ thống AI (Groq) hiện gặp sự cố. Vui lòng thử lại sau hoặc chọn nguồn AI khác."
                         return
-            _logger.error("Groq: hết danh sách model dự phòng (%s). Lỗi cuối: %s", ", ".join(candidates), type(last_err).__name__ if last_err else "—")
+            _logger.error(
+                "Groq: hết danh sách model dự phòng (%s). Lỗi cuối: %s",
+                ", ".join(candidates),
+                type(last_err).__name__ if last_err else "—",
+            )
             yield f"Lỗi Groq: không gọi được model nào trong danh sách dự phòng ({', '.join(candidates)}). Vui lòng thử lại sau."
 
         elif provider == "openai" and OPENAI_AVAILABLE:
@@ -1517,45 +1563,61 @@ Viết tiếng Việt mạch lạc, ấm áp, không dùng giọng mệnh lệnh
                             # Dùng tiếng Anh thuần ASCII cho system prompt, đồng bộ với nhánh Groq —
                             # tránh mọi rủi ro encoding tương tự dù OpenAI chưa ghi nhận lỗi này.
                             {"role": "system", "content": AI_SYSTEM_POLICY},
-                            {"role": "user", "content": prompt}
+                            {"role": "user", "content": prompt},
                         ],
                         temperature=0.7,
                         # Đã xác nhận qua thực tế với Groq: 3000 token bị cắt ngang giữa chừng với
                         # báo cáo nhiều tuần chi tiết — nâng lên 8192 cho cả OpenAI để tránh lặp lại.
                         max_tokens=8192,
                         stream=True,
-                        stream_options={"include_usage": True}
+                        stream_options={"include_usage": True},
                     )
                     stream_usage = None
                     for chunk in stream:
                         # Chunk cuối mang usage (OpenAI: stream_options include_usage, choices rỗng;
                         # Groq: x_groq.usage) — không đọc choices[0] khi danh sách rỗng.
-                        stream_usage = (getattr(chunk, "usage", None)
-                                        or getattr(getattr(chunk, "x_groq", None), "usage", None) or stream_usage)
+                        stream_usage = (
+                            getattr(chunk, "usage", None)
+                            or getattr(getattr(chunk, "x_groq", None), "usage", None)
+                            or stream_usage
+                        )
                         choices = getattr(chunk, "choices", None) or []
                         if choices and choices[0].delta.content is not None:
                             any_output = True
                             yield choices[0].delta.content
                     from dss.services import llm_usage
+
                     llm_usage.from_openai_compatible("openai", candidate_model, stream_usage)
                     return
                 except Exception as e:
                     last_err = e
                     if _is_billing_required_error(e):
-                        _logger.warning("OpenAI billing/quota het han muc (model=%s): %s", candidate_model, type(e).__name__)
-                        yield ("💳 Hệ thống AI (OpenAI) hiện không thể dùng do tài khoản đã hết hạn mức thanh toán/tín dụng. "
-                               "Vui lòng liên hệ Admin để nạp thêm hoặc chọn nguồn AI khác.")
+                        _logger.warning(
+                            "OpenAI billing/quota het han muc (model=%s): %s", candidate_model, type(e).__name__
+                        )
+                        yield (
+                            "💳 Hệ thống AI (OpenAI) hiện không thể dùng do tài khoản đã hết hạn mức thanh toán/tín dụng. "
+                            "Vui lòng liên hệ Admin để nạp thêm hoặc chọn nguồn AI khác."
+                        )
                         return
                     if not any_output and _is_rate_limit_error(e):
-                        _logger.warning("OpenAI rate-limit sau khi đã retry (model=%s): %s", candidate_model, type(e).__name__)
-                        yield ("⏳ Hệ thống AI (OpenAI) đang bị giới hạn tần suất truy cập. "
-                               "Đã tự động thử lại nhiều lần nhưng chưa thành công — vui lòng thử lại sau ít phút.")
+                        _logger.warning(
+                            "OpenAI rate-limit sau khi đã retry (model=%s): %s", candidate_model, type(e).__name__
+                        )
+                        yield (
+                            "⏳ Hệ thống AI (OpenAI) đang bị giới hạn tần suất truy cập. "
+                            "Đã tự động thử lại nhiều lần nhưng chưa thành công — vui lòng thử lại sau ít phút."
+                        )
                         return
                     if any_output or not (_is_model_unavailable_error(e) or _is_timeout_error(e)):
                         _logger.exception("Lỗi OpenAI (model=%s)", candidate_model)
                         yield "⚠️ Hệ thống AI (OpenAI) hiện gặp sự cố. Vui lòng thử lại sau hoặc chọn nguồn AI khác."
                         return
-            _logger.error("OpenAI: hết danh sách model dự phòng (%s). Lỗi cuối: %s", ", ".join(candidates), type(last_err).__name__ if last_err else "—")
+            _logger.error(
+                "OpenAI: hết danh sách model dự phòng (%s). Lỗi cuối: %s",
+                ", ".join(candidates),
+                type(last_err).__name__ if last_err else "—",
+            )
             yield f"Lỗi OpenAI: không gọi được model nào trong danh sách dự phòng ({', '.join(candidates)}). Vui lòng thử lại sau."
 
         elif provider == "ollama" and OLLAMA_AVAILABLE:
@@ -1563,8 +1625,10 @@ Viết tiếng Việt mạch lạc, ấm áp, không dùng giọng mệnh lệnh
             # tường minh; khi đó dùng URL cấu hình trong .env (ollama_base_url()).
             base_url = (kwargs.get("base_url") or ollama_base_url()).rstrip("/")
             if not _check_ollama_running(base_url):
-                yield (f"Lỗi Ollama: không kết nối được tới {base_url}. Hãy cài và mở Ollama "
-                       "(https://ollama.com/download) hoặc đặt OLLAMA_BASE_URL trong .env.")
+                yield (
+                    f"Lỗi Ollama: không kết nối được tới {base_url}. Hãy cài và mở Ollama "
+                    "(https://ollama.com/download) hoặc đặt OLLAMA_BASE_URL trong .env."
+                )
                 return
             model_name = resolve_ollama_model(model_name, base_url)
             try:
@@ -1595,25 +1659,39 @@ Viết tiếng Việt mạch lạc, ấm áp, không dùng giọng mệnh lệnh
                         if chunk:
                             yield chunk
                 elif response.status_code == 404:
-                    yield (f"Lỗi Ollama: chưa có model '{model_name}' trên máy. "
-                           f"Chạy lệnh `ollama pull {model_name}` rồi thử lại.")
+                    yield (
+                        f"Lỗi Ollama: chưa có model '{model_name}' trên máy. "
+                        f"Chạy lệnh `ollama pull {model_name}` rồi thử lại."
+                    )
                 elif response.status_code in (401, 403):
                     yield "Lỗi Ollama: OLLAMA_API_KEY không hợp lệ hoặc thiếu quyền."
                 else:
                     yield f"Lỗi Ollama: HTTP {response.status_code}"
             except requests.exceptions.ConnectionError:
-                yield (f"Lỗi Ollama: không kết nối được tới {base_url}. Hãy cài và mở Ollama "
-                       "(https://ollama.com/download) hoặc đặt OLLAMA_BASE_URL trong .env.")
+                yield (
+                    f"Lỗi Ollama: không kết nối được tới {base_url}. Hãy cài và mở Ollama "
+                    "(https://ollama.com/download) hoặc đặt OLLAMA_BASE_URL trong .env."
+                )
             except Exception as e:
                 _logger.warning("Ollama provider failed: error_type=%s", type(e).__name__)
                 yield "Lỗi Ollama: không thể hoàn tất yêu cầu."
         else:
             yield "Provider không khả dụng hoặc chưa được cấu hình đúng."
-    
-    def generate_personalized_advice(self, student_weaknesses, predicted_gpa, provider="huggingface",
-                                     use_rag=True, embedding_model_name="sentence-transformers/all-MiniLM-L6-v2",
-                                     use_warehouse_data=True, student_profile=None, runtime_documents=None,
-                                     role="Sinh viên", prefetched_relevant_docs=None, **kwargs):
+
+    def generate_personalized_advice(
+        self,
+        student_weaknesses,
+        predicted_gpa,
+        provider="huggingface",
+        use_rag=True,
+        embedding_model_name="sentence-transformers/all-MiniLM-L6-v2",
+        use_warehouse_data=True,
+        student_profile=None,
+        runtime_documents=None,
+        role="Sinh viên",
+        prefetched_relevant_docs=None,
+        **kwargs,
+    ):
         """
         Tạo lời khuyên học tập cá nhân hóa sử dụng RAG và AI provider (Streaming).
 
@@ -1665,27 +1743,35 @@ Viết tiếng Việt mạch lạc, ấm áp, không dùng giọng mệnh lệnh
             rag_query = self._build_rag_query_from_weaknesses(student_weaknesses, student_profile=student_profile)
             hf_token = kwargs.get("hf_token", self.get_api_key_from_secrets("huggingface"))
             from dss.services import rag_service as _rag_service
+
             _unified = _rag_service.retrieve_unified_context(
-                self, rag_query, role=role, namespace=_rag_service.NAMESPACE_STUDENT_LEARNING,
-                top_k=5, embedding_model_name=embedding_model_name, hf_token=hf_token,
+                self,
+                rag_query,
+                role=role,
+                namespace=_rag_service.NAMESPACE_STUDENT_LEARNING,
+                top_k=5,
+                embedding_model_name=embedding_model_name,
+                hf_token=hf_token,
             )
             relevant_docs = _unified.get("chunks", [])
 
         prompt, weaknesses_str, relevant_docs_str, advice_meta = self._prepare_personalized_advice_prompt(
             student_weaknesses, predicted_gpa, relevant_docs, student_profile=student_profile
         )
-        
+
         response_stream = self.call_ai_provider(prompt, provider=provider, **kwargs)
-        
+
         has_error = False
         first_chunk = True
         generated_chunks = []
-        
+
         err_markers = ("Lỗi", "Provider không khả dụng")
         for chunk in response_stream:
             if first_chunk and chunk and str(chunk).startswith(err_markers):
                 has_error = True
-                fallback_chunk = f"**[CHẾ ĐỘ GIẢ LẬP AI - DO {provider.upper()} API CHƯA ĐƯỢC CẤU HÌNH HOẶC LỖI]**\n\n*{chunk}*\n\n"
+                fallback_chunk = (
+                    f"**[CHẾ ĐỘ GIẢ LẬP AI - DO {provider.upper()} API CHƯA ĐƯỢC CẤU HÌNH HOẶC LỖI]**\n\n*{chunk}*\n\n"
+                )
                 generated_chunks.append(fallback_chunk)
                 yield fallback_chunk
                 break
@@ -1703,8 +1789,7 @@ Viết tiếng Việt mạch lạc, ấm áp, không dùng giọng mệnh lệnh
         if not has_error:
             full_text = "".join(generated_chunks).strip()
             looks_truncated = full_text and (
-                len(full_text) < 800
-                or not full_text.endswith((".", "!", "?", '"', "”", ")", "*", ":", "-"))
+                len(full_text) < 800 or not full_text.endswith((".", "!", "?", '"', "”", ")", "*", ":", "-"))
             )
             if looks_truncated:
                 warning_chunk = (
@@ -1718,17 +1803,19 @@ Viết tiếng Việt mạch lạc, ấm áp, không dùng giọng mệnh lệnh
 
         if has_error:
             yield "Chào bạn, tôi là trợ lý ảo hỗ trợ học tập. Vì kết nối tới mô hình AI hiện đang gặp gián đoạn, tôi gửi bạn một số phân tích nhanh dựa trên hệ thống RAG:\n\n"
-            yield f"**1. Tóm tắt tình trạng:**\n"
+            yield "**1. Tóm tắt tình trạng:**\n"
             yield f"- GPA dự đoán hiện tại của bạn: **{predicted_gpa:.2f}**\n"
             yield f"- Bạn cần cải thiện các môn sau:\n{weaknesses_str}\n\n"
             yield f"**2. Tài liệu học tập được RAG đề xuất:**\n{relevant_docs_str}\n\n"
             yield "**3. Lời khuyên chung:**\n- Dành thêm thời gian ôn tập lại kiến thức nền tảng.\n- Tham khảo tài liệu gợi ý bên trên."
-            generated_chunks.extend([
-                "Chào bạn, tôi là trợ lý ảo hỗ trợ học tập. Vì kết nối tới mô hình AI hiện đang gặp gián đoạn, tôi gửi bạn một số phân tích nhanh dựa trên hệ thống RAG:\n\n",
-                f"**1. Tóm tắt tình trạng:**\n- GPA dự đoán hiện tại của bạn: **{predicted_gpa:.2f}**\n- Bạn cần cải thiện các môn sau:\n{weaknesses_str}\n\n",
-                f"**2. Tài liệu học tập được RAG đề xuất:**\n{relevant_docs_str}\n\n",
-                "**3. Lời khuyên chung:**\n- Dành thêm thời gian ôn tập lại kiến thức nền tảng.\n- Tham khảo tài liệu gợi ý bên trên."
-            ])
+            generated_chunks.extend(
+                [
+                    "Chào bạn, tôi là trợ lý ảo hỗ trợ học tập. Vì kết nối tới mô hình AI hiện đang gặp gián đoạn, tôi gửi bạn một số phân tích nhanh dựa trên hệ thống RAG:\n\n",
+                    f"**1. Tóm tắt tình trạng:**\n- GPA dự đoán hiện tại của bạn: **{predicted_gpa:.2f}**\n- Bạn cần cải thiện các môn sau:\n{weaknesses_str}\n\n",
+                    f"**2. Tài liệu học tập được RAG đề xuất:**\n{relevant_docs_str}\n\n",
+                    "**3. Lời khuyên chung:**\n- Dành thêm thời gian ôn tập lại kiến thức nền tảng.\n- Tham khảo tài liệu gợi ý bên trên.",
+                ]
+            )
 
         if self.data_warehouse is not None:
             try:
@@ -1751,12 +1838,14 @@ Viết tiếng Việt mạch lạc, ấm áp, không dùng giọng mệnh lệnh
                 pass
         return
 
-    def find_relevant_documents(self, query, top_k=3, embedding_model_name="sentence-transformers/all-MiniLM-L6-v2", hf_token=None):
+    def find_relevant_documents(
+        self, query, top_k=3, embedding_model_name="sentence-transformers/all-MiniLM-L6-v2", hf_token=None
+    ):
         """Wrapper cho find_relevant_documents_rag."""
         return self.find_relevant_documents_rag(
             query_text=query,
             top_k=top_k,
             embedding_model_name=embedding_model_name,
             hf_token=hf_token,
-            use_warehouse_data=True # Default to True for advanced RAG
+            use_warehouse_data=True,  # Default to True for advanced RAG
         )

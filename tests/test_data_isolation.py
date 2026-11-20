@@ -11,6 +11,7 @@
    thực sự active trong phiên hiện tại — nếu ai đó vô tình xoá/tắt fixture đó,
    test này phải FAIL ngay thay vì để PERF-002 âm thầm tái diễn.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -51,8 +52,10 @@ def test_cms_repository_writes_into_isolated_root_not_real_app():
 
     probe_course_id = "ISOLATION_PROBE_COURSE_do_not_leak"
     lesson = cms_repository.create_or_get_lesson(
-        course_id=probe_course_id, lesson_id="isolation_probe_lesson",
-        topic_id="probe", lecturer_id="probe_lecturer",
+        course_id=probe_course_id,
+        lesson_id="isolation_probe_lesson",
+        topic_id="probe",
+        lecturer_id="probe_lecturer",
         title="Isolation probe — should never reach the real app",
     )
     assert lesson.course_id == probe_course_id

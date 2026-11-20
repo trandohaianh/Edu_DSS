@@ -4,6 +4,7 @@ tạo danh sách FEATURE MẶC ĐỊNH, cả 2 cột gần như trùng lặp nà
 (chúng chỉ trùng lặp VỚI NHAU, không phải với target), gây dư thừa/đa cộng
 tuyến không cần thiết. Không xóa khỏi LEGITIMATE_PREDICTORS — người dùng vẫn
 chọn tay được cả 2 nếu muốn."""
+
 from __future__ import annotations
 
 import warnings

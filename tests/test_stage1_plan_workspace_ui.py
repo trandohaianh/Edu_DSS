@@ -1,4 +1,5 @@
 """Exercise the student workspace with the real Streamlit runtime."""
+
 from pathlib import Path
 
 from streamlit.testing.v1 import AppTest
@@ -64,9 +65,11 @@ render_learning_plan_workspace(pd.DataFrame([{"student_id": "SV2", "course_id": 
 
 def test_fresh_production_session_can_read_history_without_lms_dataset(monkeypatch, tmp_path):
     from unittest.mock import Mock
-    from dss.core import init_app, data_helpers
-    from dss.services import auth_service, subscription_service, learning_plan_history
+
     import streamlit as st
+
+    from dss.core import data_helpers, init_app
+    from dss.services import auth_service, learning_plan_history, subscription_service
 
     monkeypatch.setenv("EDUDSS_DATA_ROOT", str(tmp_path))
     monkeypatch.setenv("EDUDSS_ENV", "production")
@@ -74,6 +77,7 @@ def test_fresh_production_session_can_read_history_without_lms_dataset(monkeypat
     monkeypatch.setenv("EDUDSS_ORGANIZATION_ID", "1")
     monkeypatch.setenv("EDUDSS_LEARNING_PLANS_STORE", "postgres")
     monkeypatch.setenv("EDUDSS_PSEUDONYM_KEY", "stage1-test-only-key-not-for-deployment-123456")
+
     def login():
         st.session_state["_authenticated"] = True
         st.session_state["_auth_username"] = "sv1"
@@ -86,11 +90,23 @@ def test_fresh_production_session_can_read_history_without_lms_dataset(monkeypat
     monkeypatch.setattr(subscription_service, "render_subscription_gate", lambda role: True)
     sample = Mock(side_effect=AssertionError("Production must not create a synthetic dataset"))
     monkeypatch.setattr(data_helpers, "generate_data", sample)
-    monkeypatch.setattr(learning_plan_history, "list_learning_plans", lambda sid: [{
-        "schema_version": 1, "completion": {},
-        "plan": {"plan_id": "saved", "course_id": "CS101", "version": 1,
-                 "created_at": "2026-10-20T00:00:00+00:00", "activities": []},
-    }])
+    monkeypatch.setattr(
+        learning_plan_history,
+        "list_learning_plans",
+        lambda sid: [
+            {
+                "schema_version": 1,
+                "completion": {},
+                "plan": {
+                    "plan_id": "saved",
+                    "course_id": "CS101",
+                    "version": 1,
+                    "created_at": "2026-10-20T00:00:00+00:00",
+                    "activities": [],
+                },
+            }
+        ],
+    )
     # AppTest in this Streamlit version serializes single segmented controls as characters.
     # Theme selection is outside this dataset-independent navigation check.
     monkeypatch.setattr(st, "segmented_control", lambda *args, **kwargs: None)
@@ -102,6 +118,7 @@ def test_fresh_production_session_can_read_history_without_lms_dataset(monkeypat
     sample.assert_not_called()
     # Classroom navigation must remain available before an external dataset arrives.
     from dss.services import classroom_service
+
     monkeypatch.setattr(classroom_service, "list_my_classes", lambda actor: [])
     next(button for button in app.button if button.label == "Mở lớp học").click().run(timeout=30)
     assert not app.exception

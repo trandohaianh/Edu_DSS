@@ -3,6 +3,7 @@ not just VERIFY-AFTER. Confirms ai_advisor.py blocks the LLM call entirely
 for RAG_QA questions with zero retrieved evidence, rather than asking the
 LLM and only flagging the answer as hallucinated afterward (source-
 inspection, same convention as other wiring tests this session)."""
+
 from __future__ import annotations
 
 import inspect
@@ -25,7 +26,7 @@ def test_rag_qa_with_empty_retrieval_short_circuits_before_llm_call():
 def test_prevent_before_block_reruns_without_calling_llm():
     source = inspect.getsource(ai_advisor.ai_advisor_tab)
     idx = source.index("if _route_decision.intent == ai_router.INTENT_RAG_QA and not _chat_docs:")
-    block = source[idx: idx + 1000]
+    block = source[idx : idx + 1000]
     assert "st.rerun()" in block
     assert "KHÔNG" in block or "khong" in block.lower()
 

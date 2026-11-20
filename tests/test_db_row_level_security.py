@@ -22,6 +22,7 @@ To run locally (mirrors this session's own verification):
     DATABASE_APP_ROLE_URL=postgresql+psycopg2://edudss_app:app_role_devtest_only@localhost:55433/edudss_db \\
       pytest tests/test_db_row_level_security.py -v
 """
+
 from __future__ import annotations
 
 import os
@@ -62,6 +63,7 @@ def _ensure_schema_and_rls():
     from sqlalchemy import text as sa_text
 
     import dss.db.models  # noqa: F401 — registers all tables on Base.metadata;
+
     # without this import, drop_all below silently no-ops when this file runs
     # standalone/first (Base.metadata starts empty until some module imports
     # dss.db.models — previously only true by accident of test collection order).
@@ -101,13 +103,17 @@ def two_orgs():
     suffix = uuid.uuid4().hex[:8]
     with engine.begin() as conn:
         org_a_id = conn.execute(
-            text("INSERT INTO organizations (org_code, name, is_active, created_at, updated_at) "
-                 "VALUES (:code, :name, true, now(), now()) RETURNING id"),
+            text(
+                "INSERT INTO organizations (org_code, name, is_active, created_at, updated_at) "
+                "VALUES (:code, :name, true, now(), now()) RETURNING id"
+            ),
             {"code": f"RLS_A_{suffix}", "name": "RLS Test Org A"},
         ).scalar_one()
         org_b_id = conn.execute(
-            text("INSERT INTO organizations (org_code, name, is_active, created_at, updated_at) "
-                 "VALUES (:code, :name, true, now(), now()) RETURNING id"),
+            text(
+                "INSERT INTO organizations (org_code, name, is_active, created_at, updated_at) "
+                "VALUES (:code, :name, true, now(), now()) RETURNING id"
+            ),
             {"code": f"RLS_B_{suffix}", "name": "RLS Test Org B"},
         ).scalar_one()
     yield org_a_id, org_b_id
@@ -120,8 +126,10 @@ def _insert_student_as(engine, organization_id: int, student_code: str) -> None:
     with engine.begin() as conn:
         conn.execute(text("SET LOCAL app.organization_id = :org_id"), {"org_id": str(organization_id)})
         conn.execute(
-            text("INSERT INTO students (organization_id, student_code, full_name, is_active, created_at, updated_at) "
-                 "VALUES (:org_id, :code, 'RLS Test Student', true, now(), now())"),
+            text(
+                "INSERT INTO students (organization_id, student_code, full_name, is_active, created_at, updated_at) "
+                "VALUES (:org_id, :code, 'RLS Test Student', true, now(), now())"
+            ),
             {"org_id": organization_id, "code": student_code},
         )
 
@@ -176,9 +184,7 @@ def test_cross_tenant_delete_affects_zero_rows(app_engine, two_orgs):
 
     with app_engine.begin() as conn:
         conn.execute(text("SET LOCAL app.organization_id = :org_id"), {"org_id": str(org_b_id)})
-        result = conn.execute(
-            text("DELETE FROM students WHERE student_code = :code"), {"code": student_code}
-        )
+        result = conn.execute(text("DELETE FROM students WHERE student_code = :code"), {"code": student_code})
         assert result.rowcount == 0, "RLS FAILED: tenant B's session deleted tenant A's student row"
 
     # Sanity: the row still exists for the correct tenant.
@@ -233,9 +239,7 @@ def test_superuser_connection_is_not_protected_by_rls():
     reset_engine_for_tests()
     engine = get_engine()
     with engine.connect() as conn:
-        is_super = conn.execute(
-            text("SELECT usesuper FROM pg_user WHERE usename = current_user")
-        ).scalar_one()
+        is_super = conn.execute(text("SELECT usesuper FROM pg_user WHERE usename = current_user")).scalar_one()
     assert is_super is True, (
         "DATABASE_URL's role is not a superuser in this environment — good for production, "
         "but this test's own assumption (that DATABASE_URL is the unrestricted schema-owner "

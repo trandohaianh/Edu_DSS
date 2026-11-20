@@ -2,6 +2,7 @@
 thiểu — PASS/FAIL/PARTIAL/NEEDS_HUMAN_REVIEW. Test bắt buộc quan trọng
 nhất: "test that an intentionally wrong LLM answer cannot override the
 Calculator result" (Phần 1h)."""
+
 from __future__ import annotations
 
 import pytest
@@ -9,10 +10,10 @@ import pytest
 from dss.services import validator as v
 from dss.services.gpa_calculator import compute_required_remaining_gpa
 from dss.services.regulation_resolver import RegulationResolution, RegulationVersion
-from dss.services.rule_engine import AcademicRule, RULE_TYPE_CREDIT_LIMIT, evaluate_credit_limit
-
+from dss.services.rule_engine import RULE_TYPE_CREDIT_LIMIT, AcademicRule, evaluate_credit_limit
 
 # --- GPA scale ---------------------------------------------------------
+
 
 def test_gpa_within_scale_passes():
     result = v.validate_gpa_value(3.2, scale_min=0.0, scale_max=4.0)
@@ -32,11 +33,18 @@ def test_gpa_negative_fails():
 
 # --- Rule Engine result consistency ----------------------------------------
 
+
 def test_rule_engine_deny_with_reason_passes():
     rule = AcademicRule(
-        rule_id="r1", regulation_id="QC-1", regulation_version=1, organization_id="org-1",
-        rule_type=RULE_TYPE_CREDIT_LIMIT, effective_from="2024-01-01", effective_to=None,
-        status="APPROVED", params={"max_credits": 24},
+        rule_id="r1",
+        regulation_id="QC-1",
+        regulation_version=1,
+        organization_id="org-1",
+        rule_type=RULE_TYPE_CREDIT_LIMIT,
+        effective_from="2024-01-01",
+        effective_to=None,
+        status="APPROVED",
+        params={"max_credits": 24},
     )
     deny_result = evaluate_credit_limit(rule, requested_credits=30)
     result = v.validate_rule_engine_result(deny_result)
@@ -47,6 +55,7 @@ def test_rule_engine_result_with_invalid_status_fails():
     class _FakeBadResult:
         status = "MAYBE"
         reason = "..."
+
     result = v.validate_rule_engine_result(_FakeBadResult())
     assert result.status == v.STATUS_FAIL
 
@@ -55,6 +64,7 @@ def test_rule_engine_deny_without_reason_fails():
     class _FakeDenyNoReason:
         status = "DENY"
         reason = ""
+
     result = v.validate_rule_engine_result(_FakeDenyNoReason())
     assert result.status == v.STATUS_FAIL
     assert "không có căn cứ" in result.reason
@@ -62,11 +72,19 @@ def test_rule_engine_deny_without_reason_fails():
 
 # --- Regulation Resolver result consistency --------------------------------
 
+
 def test_regulation_ok_with_regulation_object_passes():
     reg = RegulationVersion(
-        regulation_id="QC-1", organization_id="org-1", program_id="cntt", cohort="k66",
-        version=1, effective_from="2024-01-01", effective_to=None, status="APPROVED",
-        approved_by="admin", source_document_id=None,
+        regulation_id="QC-1",
+        organization_id="org-1",
+        program_id="cntt",
+        cohort="k66",
+        version=1,
+        effective_from="2024-01-01",
+        effective_to=None,
+        status="APPROVED",
+        approved_by="admin",
+        source_document_id=None,
     )
     resolution = RegulationResolution(status="ok", regulation=reg, message="ok", candidates_considered=1)
     result = v.validate_regulation_resolution(resolution)
@@ -89,12 +107,16 @@ def test_regulation_not_found_passes_consistency_check():
 
 # --- CRITICAL: LLM must never override the Calculator's real number -------
 
+
 def test_llm_wrong_number_vs_calculator_result_fails_and_blocks():
     """Test bắt buộc: Calculator tính ra 1 con số ĐÚNG, LLM (do ảo giác) "nói"
     ra 1 con số KHÁC — Validator PHẢI FAIL, nơi gọi PHẢI dùng Safe Fallback,
     KHÔNG được hiển thị con số sai của LLM."""
     real_result = compute_required_remaining_gpa(
-        current_gpa=6.0, credits_done=20, target_gpa=7.5, credits_remaining=20,
+        current_gpa=6.0,
+        credits_done=20,
+        target_gpa=7.5,
+        credits_remaining=20,
     )
     assert real_result.status == "ok"
     correct_value = real_result.rounded_value  # 9.0 theo cong thuc

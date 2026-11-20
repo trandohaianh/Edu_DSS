@@ -10,6 +10,7 @@ Nguyên tắc bắt buộc:
 3. Mọi điểm số đều trả kèm evidence cụ thể có nguồn gốc, không số ảo.
 4. Phát hiện xung đột năng lực cao vs vướng ràng buộc cá nhân (Câu hỏi 5).
 """
+
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
@@ -50,9 +51,9 @@ assert abs(sum(CAREER_READINESS_WEIGHTS.values()) - 1.0) < 1e-6, "Tổng trọng
 
 @dataclass
 class ScoreResult:
-    score: float                                      # 0.0 - 1.0
-    evidence: List[str] = field(default_factory=list) # Danh sách minh chứng
-    is_estimated: bool = False                        # True nếu thiếu dữ liệu và dùng giá trị trung tính
+    score: float  # 0.0 - 1.0
+    evidence: List[str] = field(default_factory=list)  # Danh sách minh chứng
+    is_estimated: bool = False  # True nếu thiếu dữ liệu và dùng giá trị trung tính
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -171,7 +172,9 @@ def compute_constraint_match(profile: StudentCareerProfile, role: CareerRole) ->
     # 2. Ràng buộc địa điểm / hình thức làm việc
     if role.remote_friendly == "on_site" and c.remote_preference == "remote":
         score -= 0.25
-        evidence.append("Vai trò thường yêu cầu làm việc tại chỗ (On-site), trong khi bạn ưu tiên làm từ xa (Remote) (-0.25)")
+        evidence.append(
+            "Vai trò thường yêu cầu làm việc tại chỗ (On-site), trong khi bạn ưu tiên làm từ xa (Remote) (-0.25)"
+        )
     else:
         evidence.append("Hình thức làm việc (On-site/Remote/Flexible) tương thích (+)")
 
@@ -181,12 +184,19 @@ def compute_constraint_match(profile: StudentCareerProfile, role: CareerRole) ->
     if actual_eng < required_eng:
         penalty = min(0.30, round(required_eng - actual_eng, 2))
         score -= penalty
-        evidence.append(f"Tiếng Anh yêu cầu tối thiểu {role.minimum_english}, bạn tự đánh giá {c.english_level} (-{penalty:.2f})")
+        evidence.append(
+            f"Tiếng Anh yêu cầu tối thiểu {role.minimum_english}, bạn tự đánh giá {c.english_level} (-{penalty:.2f})"
+        )
     else:
         evidence.append(f"Trình độ tiếng Anh ({c.english_level}) đáp ứng yêu cầu ({role.minimum_english}) (+)")
 
     # 4. Sẵn sàng chuyển chỗ ở
-    if not c.willing_to_relocate and c.desired_location and "Hồ Chí Minh" not in c.desired_location and "Hà Nội" not in c.desired_location:
+    if (
+        not c.willing_to_relocate
+        and c.desired_location
+        and "Hồ Chí Minh" not in c.desired_location
+        and "Hà Nội" not in c.desired_location
+    ):
         # Nếu ở tỉnh xa và không thể relocate mà nghề công nghệ tập trung ở đô thị
         score -= 0.15
         evidence.append(f"Không sẵn sàng chuyển nơi làm việc ngoài khu vực '{c.desired_location}' (-0.15)")
@@ -201,9 +211,9 @@ def compute_constraint_match(profile: StudentCareerProfile, role: CareerRole) ->
 class CareerFitResult:
     role_id: str
     role_name: str
-    fit_score: float                                      # 0.0 - 100.0%
+    fit_score: float  # 0.0 - 100.0%
     breakdown: Dict[str, ScoreResult]
-    confidence: str                                       # Low | Medium | High
+    confidence: str  # Low | Medium | High
     confidence_reason: str
 
     def to_dict(self) -> Dict[str, Any]:
@@ -221,10 +231,19 @@ def _estimate_confidence(profile: StudentCareerProfile) -> Tuple[str, str]:
     completeness = profile.profile_completeness()
     n_filled = sum(1 for v in completeness.values() if v)
     if n_filled >= 5:
-        return "High", "Hồ sơ có dữ liệu đầy đủ từ học tập, kỹ năng có chứng cứ, kinh nghiệm, sở thích và phong cách làm việc."
+        return (
+            "High",
+            "Hồ sơ có dữ liệu đầy đủ từ học tập, kỹ năng có chứng cứ, kinh nghiệm, sở thích và phong cách làm việc.",
+        )
     if n_filled >= 3:
-        return "Medium", "Hồ sơ có một số mảng dữ liệu (học tập/kỹ năng/sở thích) nhưng còn thiếu kinh nghiệm thực tế hoặc ràng buộc cá nhân."
-    return "Low", "Hồ sơ hiện chủ yếu dựa trên điểm số hoặc sở thích đơn lẻ — hãy bổ sung kỹ năng và kinh nghiệm để nâng cao độ chính xác của tư vấn."
+        return (
+            "Medium",
+            "Hồ sơ có một số mảng dữ liệu (học tập/kỹ năng/sở thích) nhưng còn thiếu kinh nghiệm thực tế hoặc ràng buộc cá nhân.",
+        )
+    return (
+        "Low",
+        "Hồ sơ hiện chủ yếu dựa trên điểm số hoặc sở thích đơn lẻ — hãy bổ sung kỹ năng và kinh nghiệm để nâng cao độ chính xác của tư vấn.",
+    )
 
 
 def compute_career_fit(profile: StudentCareerProfile, role: CareerRole) -> CareerFitResult:
@@ -255,7 +274,7 @@ def compute_career_fit(profile: StudentCareerProfile, role: CareerRole) -> Caree
 class CareerReadinessResult:
     role_id: str
     role_name: str
-    readiness_score: float                                # 0.0 - 100.0%
+    readiness_score: float  # 0.0 - 100.0%
     breakdown: Dict[str, ScoreResult]
 
     def to_dict(self) -> Dict[str, Any]:
@@ -269,7 +288,7 @@ class CareerReadinessResult:
 
 def compute_career_readiness(profile: StudentCareerProfile, role: CareerRole) -> CareerReadinessResult:
     """Career Readiness = 35% Required Skills + 20% Project Evidence + 15% Experience
-                        + 10% Portfolio + 10% English + 10% Interview Preparation."""
+    + 10% Portfolio + 10% English + 10% Interview Preparation."""
     # 1. Required Skill Coverage
     required_coverage, req_ev = _weighted_skill_coverage(role.required_skills, profile)
     required_score = ScoreResult(score=round(required_coverage, 4), evidence=req_ev)
@@ -289,7 +308,9 @@ def compute_career_readiness(profile: StudentCareerProfile, role: CareerRole) ->
     has_port = profile.experience.has_portfolio()
     portfolio_score = ScoreResult(
         score=1.0 if has_port else 0.0,
-        evidence=["Đã có liên kết Portfolio / Sản phẩm thực tế (+10%)"] if has_port else ["Chưa có Portfolio sản phẩm thực tế (-10%)"],
+        evidence=["Đã có liên kết Portfolio / Sản phẩm thực tế (+10%)"]
+        if has_port
+        else ["Chưa có Portfolio sản phẩm thực tế (-10%)"],
     )
 
     # 5. English
@@ -303,7 +324,8 @@ def compute_career_readiness(profile: StudentCareerProfile, role: CareerRole) ->
     is_ready = profile.experience.is_interview_ready()
     interview_score = ScoreResult(
         score=0.8 if is_ready else 0.2,
-        evidence=["Đã có kinh nghiệm phỏng vấn / làm việc thực tế"] if is_ready
+        evidence=["Đã có kinh nghiệm phỏng vấn / làm việc thực tế"]
+        if is_ready
         else ["Chưa có sự chuẩn bị hoặc kinh nghiệm phỏng vấn kỹ thuật — mức nền 20%"],
         is_estimated=not is_ready,
     )
@@ -344,9 +366,9 @@ def rank_careers(
 class ConstraintConflictItem:
     role_id: str
     role_name: str
-    capability_score: float                               # Trung bình Academic + Skill Fit (0-100%)
-    constraint_score: float                               # Điểm Constraint Match (0-100%)
-    conflict_reasons: List[str]                           # Các điểm gây xung đột
+    capability_score: float  # Trung bình Academic + Skill Fit (0-100%)
+    constraint_score: float  # Điểm Constraint Match (0-100%)
+    conflict_reasons: List[str]  # Các điểm gây xung đột
 
 
 def detect_capability_vs_constraint_conflicts(
@@ -366,17 +388,20 @@ def detect_capability_vs_constraint_conflicts(
         # Điều kiện: Năng lực khá tốt nhưng ràng buộc cá nhân bị trừ điểm rõ rệt
         if capability_score >= 60.0 and constraint_score < 75.0:
             negative_ev = [
-                ev for ev in fit.breakdown["constraint"].evidence
+                ev
+                for ev in fit.breakdown["constraint"].evidence
                 if "(-" in ev or "không" in ev.lower() or "chưa" in ev.lower()
             ]
             if negative_ev:
-                conflicts.append(ConstraintConflictItem(
-                    role_id=role.role_id,
-                    role_name=role.role_name,
-                    capability_score=capability_score,
-                    constraint_score=constraint_score,
-                    conflict_reasons=negative_ev,
-                ))
+                conflicts.append(
+                    ConstraintConflictItem(
+                        role_id=role.role_id,
+                        role_name=role.role_name,
+                        capability_score=capability_score,
+                        constraint_score=constraint_score,
+                        conflict_reasons=negative_ev,
+                    )
+                )
 
     conflicts.sort(key=lambda x: (x.capability_score - x.constraint_score), reverse=True)
     return conflicts

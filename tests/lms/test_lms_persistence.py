@@ -6,9 +6,11 @@ Validates:
 3. Concurrent student interaction log insertions.
 4. SSO token integration validation.
 """
-import pytest
+
 import sqlite3
 from concurrent.futures import ThreadPoolExecutor
+
+import pytest
 
 from dss.core.lms_repository import LMSRepository
 
@@ -18,13 +20,13 @@ def test_lms_schema_creation(tmp_path):
     db_path = tmp_path / "lms_test.db"
     repo = LMSRepository(db_path=str(db_path))
     repo.initialize_schema()
-    
+
     conn = sqlite3.connect(str(db_path))
     cursor = conn.cursor()
     cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
     tables = {row[0] for row in cursor.fetchall()}
     conn.close()
-    
+
     expected_tables = {
         "lms_users",
         "lms_courses",
@@ -44,7 +46,7 @@ def test_lms_schema_creation(tmp_path):
         "lms_structured_learning_plans",
         "lms_plan_activity_logs",
     }
-    
+
     assert expected_tables.issubset(tables), f"Missing tables: {expected_tables - tables}"
 
 
@@ -53,7 +55,7 @@ def test_transaction_rollback_on_error(tmp_path):
     db_path = tmp_path / "lms_tx_test.db"
     repo = LMSRepository(db_path=str(db_path))
     repo.initialize_schema()
-    
+
     # Inserting user then failing on bad SQL should rollback both
     with pytest.raises(Exception):
         with repo.transaction() as conn:
@@ -63,7 +65,7 @@ def test_transaction_rollback_on_error(tmp_path):
             )
             # Intentionally invalid statement to trigger rollback
             conn.execute("INSERT INTO non_existent_table VALUES (1, 2, 3)")
-            
+
     # Verify user was NOT committed
     with sqlite3.connect(str(db_path)) as conn:
         cursor = conn.cursor()
@@ -76,7 +78,7 @@ def test_concurrent_log_insertions(tmp_path):
     db_path = tmp_path / "lms_concurrent.db"
     repo = LMSRepository(db_path=str(db_path))
     repo.initialize_schema()
-    
+
     def worker(worker_id):
         repo.record_resource_access(
             student_id=f"SV_{worker_id}",
@@ -84,10 +86,10 @@ def test_concurrent_log_insertions(tmp_path):
             duration_seconds=120,
             completion_ratio=1.0,
         )
-        
+
     with ThreadPoolExecutor(max_workers=8) as executor:
         list(executor.map(worker, range(40)))
-        
+
     with sqlite3.connect(str(db_path)) as conn:
         cursor = conn.cursor()
         cursor.execute("SELECT count(*) FROM lms_resource_access_logs")

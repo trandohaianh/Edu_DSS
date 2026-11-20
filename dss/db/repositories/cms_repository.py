@@ -14,6 +14,7 @@ this engagement's rules require extra caution for). Status is
 REPOSITORY_READY: real schema, real repository, real tested import utility,
 real RLS — not yet the PRIMARY runtime backend for live CMS reads/writes.
 """
+
 from __future__ import annotations
 
 from typing import Any, Optional
@@ -32,10 +33,14 @@ def upsert_lesson(organization_id: int, lesson: dict[str, Any]) -> int:
             .one_or_none()
         )
         fields = dict(
-            course_id=lesson["course_id"], topic_id=lesson.get("topic_id"),
-            lecturer_id=lesson.get("lecturer_id"), title=lesson["title"],
-            learning_outcome=lesson.get("learning_outcome"), difficulty=lesson.get("difficulty", "Standard"),
-            ai_enabled=lesson.get("ai_enabled", True), official_source=lesson.get("official_source", True),
+            course_id=lesson["course_id"],
+            topic_id=lesson.get("topic_id"),
+            lecturer_id=lesson.get("lecturer_id"),
+            title=lesson["title"],
+            learning_outcome=lesson.get("learning_outcome"),
+            difficulty=lesson.get("difficulty", "Standard"),
+            ai_enabled=lesson.get("ai_enabled", True),
+            official_source=lesson.get("official_source", True),
             current_document_id=lesson.get("current_document_id"),
             supplementary_allowed=lesson.get("supplementary_allowed", False),
             socratic_allowed=lesson.get("socratic_allowed", True),
@@ -57,10 +62,15 @@ def upsert_lesson(organization_id: int, lesson: dict[str, Any]) -> int:
         # source JSON, not independently addressable — safe to resync fully).
         session.query(CmsLessonVersion).filter_by(lesson_id=lesson_row_id).delete()
         for v in lesson.get("versions", []):
-            session.add(CmsLessonVersion(
-                lesson_id=lesson_row_id, document_id=v["document_id"], version=v["version"],
-                uploaded_by=v["uploaded_by"], source_file=v.get("source_file"),
-            ))
+            session.add(
+                CmsLessonVersion(
+                    lesson_id=lesson_row_id,
+                    document_id=v["document_id"],
+                    version=v["version"],
+                    uploaded_by=v["uploaded_by"],
+                    source_file=v.get("source_file"),
+                )
+            )
         return lesson_row_id
 
 
@@ -74,19 +84,40 @@ def list_lessons(organization_id: int, course_id: Optional[str] = None) -> list[
 
 def _lesson_dict(r: CmsLesson) -> dict[str, Any]:
     return {
-        "lesson_id":r.lesson_id,"course_id":r.course_id,"topic_id":r.topic_id,"lecturer_id":r.lecturer_id,
-        "title":r.title,"learning_outcome":r.learning_outcome or "","difficulty":r.difficulty,
-        "ai_enabled":r.ai_enabled,"official_source":r.official_source,"current_document_id":r.current_document_id,
-        "supplementary_allowed":r.supplementary_allowed,"socratic_allowed":r.socratic_allowed,
-        "quiz_allowed":r.quiz_allowed,"quiz_requires_approval":r.quiz_requires_approval,
-        "excluded_document_ids":list(r.excluded_document_ids or []),"faq":[],"explanation_notes":[],"preferred_terminology":{},
-        "versions":[{"document_id":v.document_id,"version":v.version,"uploaded_at":v.uploaded_at.isoformat(),"uploaded_by":v.uploaded_by,"source_file":v.source_file} for v in r.versions],
+        "lesson_id": r.lesson_id,
+        "course_id": r.course_id,
+        "topic_id": r.topic_id,
+        "lecturer_id": r.lecturer_id,
+        "title": r.title,
+        "learning_outcome": r.learning_outcome or "",
+        "difficulty": r.difficulty,
+        "ai_enabled": r.ai_enabled,
+        "official_source": r.official_source,
+        "current_document_id": r.current_document_id,
+        "supplementary_allowed": r.supplementary_allowed,
+        "socratic_allowed": r.socratic_allowed,
+        "quiz_allowed": r.quiz_allowed,
+        "quiz_requires_approval": r.quiz_requires_approval,
+        "excluded_document_ids": list(r.excluded_document_ids or []),
+        "faq": [],
+        "explanation_notes": [],
+        "preferred_terminology": {},
+        "versions": [
+            {
+                "document_id": v.document_id,
+                "version": v.version,
+                "uploaded_at": v.uploaded_at.isoformat(),
+                "uploaded_by": v.uploaded_by,
+                "source_file": v.source_file,
+            }
+            for v in r.versions
+        ],
     }
 
 
 def get_lesson(organization_id: int, lesson_id: str) -> Optional[dict[str, Any]]:
     with tenant_session_scope(organization_id) as session:
-        row=session.query(CmsLesson).filter_by(organization_id=organization_id,lesson_id=lesson_id).one_or_none()
+        row = session.query(CmsLesson).filter_by(organization_id=organization_id, lesson_id=lesson_id).one_or_none()
         return _lesson_dict(row) if row else None
 
 
@@ -99,10 +130,14 @@ def upsert_quiz(organization_id: int, lesson_row_id: int, queue_id: str, quiz: d
             existing.questions = quiz.get("blueprint", {}).get("questions", existing.questions)
             return existing.id
         row = CmsQuiz(
-            organization_id=organization_id, lesson_id=lesson_row_id, queue_id=queue_id,
-            course_id=quiz.get("course_id"), questions=quiz.get("blueprint", {}).get("questions", []),
+            organization_id=organization_id,
+            lesson_id=lesson_row_id,
+            queue_id=queue_id,
+            course_id=quiz.get("course_id"),
+            questions=quiz.get("blueprint", {}).get("questions", []),
             status=quiz.get("status", "PENDING_LECTURER_APPROVAL"),
-            reviewer_id=quiz.get("reviewer_id"), comment=quiz.get("comment"),
+            reviewer_id=quiz.get("reviewer_id"),
+            comment=quiz.get("comment"),
         )
         session.add(row)
         session.flush()
@@ -115,8 +150,10 @@ def record_interaction(organization_id: int, interaction: dict[str, Any]) -> int
         row = CmsStudentInteraction(
             organization_id=organization_id,
             student_pseudonym=interaction["student_pseudonym"],
-            course_id=interaction["course_id"], lesson_id=interaction.get("lesson_id"),
-            topic_id=interaction.get("topic_id"), question=interaction.get("question"),
+            course_id=interaction["course_id"],
+            lesson_id=interaction.get("lesson_id"),
+            topic_id=interaction.get("topic_id"),
+            question=interaction.get("question"),
             explanation_level=interaction.get("explanation_level"),
             has_cms_content=interaction.get("has_cms_content"),
             misconception_label=interaction.get("misconception_label"),

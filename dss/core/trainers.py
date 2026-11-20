@@ -1,4 +1,5 @@
 """Classification, regression trainers and preprocessor."""
+
 from __future__ import annotations
 
 import math
@@ -8,6 +9,7 @@ from io import BytesIO
 import numpy as np
 import pandas as pd
 import streamlit as st
+from sklearn.base import clone
 from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import (
     RandomForestClassifier,
@@ -16,7 +18,6 @@ from sklearn.ensemble import (
 from sklearn.feature_selection import RFE, SelectKBest, mutual_info_classif
 from sklearn.impute import KNNImputer, SimpleImputer
 from sklearn.linear_model import LinearRegression, LogisticRegression, Ridge
-from sklearn.base import clone
 from sklearn.metrics import (
     accuracy_score,
     average_precision_score,
@@ -31,8 +32,9 @@ from sklearn.metrics import (
     recall_score,
     roc_auc_score,
 )
-from sklearn.preprocessing import label_binarize
 from sklearn.model_selection import GridSearchCV, train_test_split  # noqa: F401
+from sklearn.preprocessing import label_binarize
+
 
 def apply_class_weight_balanced(model):
     """Trả về (model, đã_áp_dụng) với class_weight='balanced' nếu estimator hỗ trợ.
@@ -107,28 +109,41 @@ def _pr_auc_macro_scorer(y_true, y_proba):
     return 0.0 if value is None else value
 
 
-from dss.core import tuning
-from sklearn.pipeline import Pipeline, Pipeline as SklearnPipeline
+from sklearn.pipeline import Pipeline
+from sklearn.pipeline import Pipeline as SklearnPipeline
 from sklearn.preprocessing import LabelEncoder, MinMaxScaler, OneHotEncoder, StandardScaler
 
 from dss.config import (
-    IMB_LEARN_AVAILABLE,
-    ImbPipeline,
-    SMOTE,
-    BorderlineSMOTE,
     ADASYN,
+    IMB_LEARN_AVAILABLE,
+    LIGHTGBM_AVAILABLE,
     SHAP_AVAILABLE,
+    SMOTE,
+    XGBOOST_AVAILABLE,
+    BorderlineSMOTE,
+    ImbPipeline,
+    lgb,
     shap,
     st_shap,
     xgb,
-    lgb,
-    XGBOOST_AVAILABLE,
-    LIGHTGBM_AVAILABLE,
 )
+from dss.core import tuning
 from dss.core.logging_config import get_logger
 
 _logger = get_logger(__name__)
 from dss.core.feature_utils import FS_AVAILABLE, feature_selector
+from dss.core.target_utils import (
+    COLUMN_ALIASES,
+    HEURISTIC_OVERFIT_DIFF_MILD,
+    HEURISTIC_OVERFIT_DIFF_SEVERE,
+    HEURISTIC_TARGET_ACCURACY,
+    LEGITIMATE_PREDICTORS,
+    canonicalize_columns,
+    detect_temporal_column,
+    filter_leakage_features,
+    get_leaky_target_columns,
+    temporal_train_test_split,
+)
 from dss.core.utils import (
     _make_safe_cv_strategy,
     _normalize_labels_for_metrics,
@@ -136,19 +151,6 @@ from dss.core.utils import (
     group_holdout_split,
     make_group_cv_splits,
 )
-from dss.core.target_utils import (
-    canonicalize_columns,
-    COLUMN_ALIASES,
-    filter_leakage_features,
-    detect_temporal_column,
-    temporal_train_test_split,
-    get_leaky_target_columns,
-    LEGITIMATE_PREDICTORS,
-    HEURISTIC_TARGET_ACCURACY,
-    HEURISTIC_OVERFIT_DIFF_MILD,
-    HEURISTIC_OVERFIT_DIFF_SEVERE,
-)
-
 
 # Lưới Random Forest phân loại: đầy đủ (24 tổ hợp) cho dữ liệu nhỏ, gọn (8) cho dữ
 # liệu lớn — trên 20.000 SV cả 2 chọn cùng tham số tốt nhất (xem dss/core/tuning.py).
@@ -183,30 +185,33 @@ class ClassificationTrainer:
         }
         if XGBOOST_AVAILABLE:
             self.models['XGBoost Classifier'] = xgb.XGBClassifier(
-                random_state=42, use_label_encoder=False, eval_metric='mlogloss')
+                random_state=42, use_label_encoder=False, eval_metric='mlogloss'
+            )
         if LIGHTGBM_AVAILABLE:
             self.models['LightGBM Classifier'] = lgb.LGBMClassifier(
-                random_state=42, verbosity=-1)  # Thêm verbosity để tắt log
+                random_state=42, verbosity=-1
+            )  # Thêm verbosity để tắt log
 
     # Không dùng @st.cache_data: hàm gọi widget Streamlit (st.write, nút lưu/xuất, …).
     def train_and_evaluate(
-            _self,
-            df,
-            feature_cols,
-            target_col,
-            selected_models,
-            training_strategy="So sánh nhiều mô hình (Compare)", # NEW: Chiến lược huấn luyện
-            balance_method="none", # NEW: Cân bằng dữ liệu
-            fs_method="none",      # NEW: Chọn đặc trưng
-            k_features=20,         # NEW: Số đặc trưng
-            test_size=0.2,         # NEW: Tỷ lệ test
-            cv_folds=5,            # NEW: Số fold cross-validation
-            save_model=True,       # NEW: Lưu mô hình
-            _warehouse=None,       # NEW: Warehouse pipeline
-            _dataset_id=None,      # NEW: Dataset ID
-            split_strategy="random",
-            time_col=None,
-            data_source_type=None):
+        _self,
+        df,
+        feature_cols,
+        target_col,
+        selected_models,
+        training_strategy="So sánh nhiều mô hình (Compare)",  # NEW: Chiến lược huấn luyện
+        balance_method="none",  # NEW: Cân bằng dữ liệu
+        fs_method="none",  # NEW: Chọn đặc trưng
+        k_features=20,  # NEW: Số đặc trưng
+        test_size=0.2,  # NEW: Tỷ lệ test
+        cv_folds=5,  # NEW: Số fold cross-validation
+        save_model=True,  # NEW: Lưu mô hình
+        _warehouse=None,  # NEW: Warehouse pipeline
+        _dataset_id=None,  # NEW: Dataset ID
+        split_strategy="random",
+        time_col=None,
+        data_source_type=None,
+    ):
         """Huấn luyện và đánh giá các mô hình Phân loại đã chọn."""
 
         # *** FIX LỖI: Kiểm tra feature_cols không bị rỗng ***
@@ -221,7 +226,9 @@ class ClassificationTrainer:
         # thành cột chuẩn — đổi theo, thay vì KeyError khi dataset có cả hai cột.
         if target_col not in df_clean.columns and COLUMN_ALIASES.get(target_col) in df_clean.columns:
             target_col = COLUMN_ALIASES[target_col]
-        available_features, _removed_leaks = filter_leakage_features(df_clean, target_col, feature_cols, return_removed=True)
+        available_features, _removed_leaks = filter_leakage_features(
+            df_clean, target_col, feature_cols, return_removed=True
+        )
         if _removed_leaks:
             _logger.info("Đã loại bỏ các cột rò rỉ/alias khỏi Phân loại (%s): %s", target_col, _removed_leaks)
 
@@ -252,9 +259,11 @@ class ClassificationTrainer:
 
         numeric_features = X.select_dtypes(include=[np.number]).columns.tolist()
         categorical_features = X.select_dtypes(include=['object', 'category']).columns.tolist()
-        from dss.core.data_helpers import create_shared_preprocessor  # import trễ: tránh vòng lặp import trainers<->data_helpers
-        preprocessor = create_shared_preprocessor(
-            numeric_features, categorical_features)
+        from dss.core.data_helpers import (
+            create_shared_preprocessor,  # import trễ: tránh vòng lặp import trainers<->data_helpers
+        )
+
+        preprocessor = create_shared_preprocessor(numeric_features, categorical_features)
 
         # Chặn target không phù hợp cho phân loại (thường là dữ liệu kiểu hồi quy hoặc cột ID/mã).
         y_non_null = y.dropna()
@@ -278,7 +287,12 @@ class ClassificationTrainer:
             return {}, {}, [], [], pd.DataFrame(), pd.Series(dtype=object), pd.DataFrame()
 
         if is_regression_like or has_too_many_classes or has_too_many_singletons:
-            _logger.error("Cột mục tiêu `%s` không phù hợp cho bài toán phân loại (%d/%d lớp).", target_col, unique_classes, total_samples)
+            _logger.error(
+                "Cột mục tiêu `%s` không phù hợp cho bài toán phân loại (%d/%d lớp).",
+                target_col,
+                unique_classes,
+                total_samples,
+            )
             return {}, {}, [], [], pd.DataFrame(), pd.Series(dtype=object), pd.DataFrame()
 
         # Mã hóa cột target (ví dụ: 'A', 'B', 'C' -> 0, 1, 2)
@@ -288,9 +302,9 @@ class ClassificationTrainer:
 
         # Kiểm tra xem có thể thực hiện stratify không
         from collections import Counter
+
         class_counts = Counter(y_encoded)
-        stratify_param = y_encoded if all(
-            count >= 2 for count in class_counts.values()) else None
+        stratify_param = y_encoded if all(count >= 2 for count in class_counts.values()) else None
 
         # Dữ liệu dọc (1 dòng / sinh viên / học kỳ): chia theo NHÓM sinh viên để không có sinh
         # viên nào vừa ở train vừa ở test/fold kiểm định. None = mỗi SV 1 dòng -> chia như cũ.
@@ -338,15 +352,11 @@ class ClassificationTrainer:
         y_train_final = y_train
 
         train_label_mapping = {
-            int(old_label): int(new_label)
-            for new_label, old_label in enumerate(train_label_encoder.classes_)
+            int(old_label): int(new_label) for new_label, old_label in enumerate(train_label_encoder.classes_)
         }
 
         def _remap_with_unknown(arr, unknown_value=-1):
-            remapped = np.array(
-                [train_label_mapping.get(int(v), unknown_value) for v in arr],
-                dtype=int
-            )
+            remapped = np.array([train_label_mapping.get(int(v), unknown_value) for v in arr], dtype=int)
             return remapped
 
         y_test = _remap_with_unknown(y_test)
@@ -358,23 +368,22 @@ class ClassificationTrainer:
 
         # Cập nhật nhãn lớp theo encoder mới (vẫn giữ tên gốc để hiển thị).
         class_labels = le.classes_[train_label_encoder.classes_]
-        
+
         from collections import Counter
+
         class_counts = Counter(y_train_final)
         min_class_samples = min(class_counts.values()) if class_counts else 0
         # Ước lượng số mẫu thiểu số còn lại trong mỗi fold train (để SMOTE không vỡ trong CV)
         safe_cv_for_sampling = max(2, min(int(cv_folds), min_class_samples)) if min_class_samples >= 2 else 2
         min_train_samples_per_fold = (
-            min_class_samples - math.ceil(min_class_samples / safe_cv_for_sampling)
-            if min_class_samples > 0
-            else 0
+            min_class_samples - math.ceil(min_class_samples / safe_cv_for_sampling) if min_class_samples > 0 else 0
         )
         # P-3: k mặc định khuyến nghị của SMOTE là 5 — trước đây cứng min(2, ...)
         # bất kể có đủ mẫu thiểu số hay không, làm giảm chất lượng oversampling
         # không cần thiết khi dữ liệu đủ lớn. Vẫn giữ điều kiện an toàn khi quá
         # ít mẫu (>= 2 mới bật SMOTE, xem điều kiện min_train_samples_per_fold bên dưới).
         k_neighbors = max(1, min(5, min_train_samples_per_fold - 1)) if min_train_samples_per_fold >= 2 else 0
-        
+
         # Determine the Imblearn Sampler
         sampler = None
         # Lý do cân bằng lớp bị hạ cấp so với yêu cầu (None = chạy đúng như yêu cầu).
@@ -397,7 +406,8 @@ class ClassificationTrainer:
                     _logger.warning(
                         "Lớp thiểu số chỉ còn %d mẫu trong mỗi fold train nên '%s' KHÔNG chạy được; "
                         "tự hạ cấp sang class_weight='balanced' (không cần sinh mẫu).",
-                        min_train_samples_per_fold, balance_method,
+                        min_train_samples_per_fold,
+                        balance_method,
                     )
                     sampler = None
                     balance_fallback_reason = (
@@ -423,7 +433,7 @@ class ClassificationTrainer:
         elif balance_method != "none" and not IMB_LEARN_AVAILABLE:
             _logger.warning("Thư viện imbalanced-learn chưa được cài đặt, không thể cân bằng dữ liệu.")
 
-        results, trained_pipelines = {}, {} # Dùng để lưu kết quả và các pipeline đã huấn luyện
+        results, trained_pipelines = {}, {}  # Dùng để lưu kết quả và các pipeline đã huấn luyện
         failed_models = {}
 
         # P-4: mốc so sánh (baseline) — DummyClassifier đoán luôn lớp đa số, để
@@ -433,10 +443,13 @@ class ClassificationTrainer:
         # mốc này KHÔNG BAO GIỜ được chọn làm is_best/Candidate/Production).
         try:
             from sklearn.dummy import DummyClassifier
-            baseline_pipeline = SklearnPipeline(steps=[
-                ('preprocessor', preprocessor),
-                ('model', DummyClassifier(strategy="most_frequent", random_state=42)),
-            ])
+
+            baseline_pipeline = SklearnPipeline(
+                steps=[
+                    ('preprocessor', preprocessor),
+                    ('model', DummyClassifier(strategy="most_frequent", random_state=42)),
+                ]
+            )
             baseline_pipeline.fit(X_train_final, y_train_final)
             baseline_pred_full = baseline_pipeline.predict(X_test)
             if valid_test_mask.any():
@@ -445,7 +458,9 @@ class ClassificationTrainer:
                 results["__baseline__"] = {
                     'Accuracy': accuracy_score(baseline_test_eval, baseline_pred),
                     'F1 Score (Macro)': f1_score(baseline_test_eval, baseline_pred, average='macro', zero_division=0),
-                    'F1 Score (Weighted)': f1_score(baseline_test_eval, baseline_pred, average='weighted', zero_division=0),
+                    'F1 Score (Weighted)': f1_score(
+                        baseline_test_eval, baseline_pred, average='weighted', zero_division=0
+                    ),
                     'strategy': 'most_frequent',
                 }
         except Exception as e:
@@ -469,12 +484,12 @@ class ClassificationTrainer:
             try:
                 # Chọn Pipeline phù hợp (ImbPipeline nếu có SMOTE, ngược lại dùng SklearnPipeline)
                 PipelineClass = ImbPipeline if sampler is not None else SklearnPipeline
-                
+
                 # Setup steps cho pipeline
                 steps = [('preprocessor', preprocessor)]
                 if sampler:
                     steps.append(('sampler', sampler))
-                
+
                 # Áp dụng lựa chọn đặc trưng (Feature Selection)
                 if fs_method != "none":
                     if fs_method == "mi":
@@ -483,37 +498,49 @@ class ClassificationTrainer:
                         fs_step = SelectKBest(mutual_info_classif, k=min(k_features, len(X.columns)))
                         steps.append(('feature_selection', fs_step))
                         _logger.info("Đang áp dụng Mutual Information để chọn %d đặc trưng tốt nhất...", k_features)
-                    elif fs_method == "rfe" and (name in ['Random Forest Classifier', 'XGBoost Classifier', 'LightGBM Classifier', 'Logistic Regression (Softmax)']):
+                    elif fs_method == "rfe" and (
+                        name
+                        in [
+                            'Random Forest Classifier',
+                            'XGBoost Classifier',
+                            'LightGBM Classifier',
+                            'Logistic Regression (Softmax)',
+                        ]
+                    ):
                         rf_estimator = RandomForestClassifier(n_estimators=50, random_state=42, n_jobs=-1)
                         fs_step = RFE(estimator=rf_estimator, n_features_to_select=min(k_features, len(X.columns)))
                         steps.append(('feature_selection', fs_step))
                         _logger.info("Đang áp dụng RFE (với RF) để chọn %d đặc trưng tốt nhất...", k_features)
-                
+
                 steps.append(('model', model))
-                
+
                 # Tạo một pipeline hoàn chỉnh: xử lý dữ liệu -> [cân bằng] -> [chọn đặc trưng] -> huấn luyện mô hình
                 pipeline = PipelineClass(steps=steps)
-                
+
                 # --- CẬP NHẬT: Ngăn lỗi phân chia n_splits > số lượng mẫu từng class (Dữ liệu imbalanced) ---
                 # Đếm số lượng mẫu của class nhỏ nhất trong y_train_final
                 from collections import Counter
+
                 class_counts = Counter(y_train_final)
                 min_class_samples = min(class_counts.values()) if class_counts else 0
-                
-                from sklearn.model_selection import StratifiedKFold, KFold
+
+                from sklearn.model_selection import KFold, StratifiedKFold
+
                 # Dữ liệu lớn (>= tuning.LARGE_DATA_ROWS dòng train) -> tối đa 3 fold:
                 # cùng độ chính xác, nhanh hơn (xem dss/core/tuning.py).
                 cv_folds_eff = tuning.effective_cv_folds(len(X_train_final), cv_folds)
                 # Điều chỉnh cv_folds cho class thiểu số
                 safe_cv = min(cv_folds_eff, min_class_samples)
-                
+
                 train_groups = (
                     df_clean.loc[X_train_final.index, group_col].to_numpy() if group_col is not None else None
                 )
                 group_cv = (
-                    make_group_cv_splits(y_train_final, train_groups, desired_folds=max(2, cv_folds_eff),
-                                         is_classification=True)
-                    if train_groups is not None and pd.Series(train_groups).duplicated().any() else None
+                    make_group_cv_splits(
+                        y_train_final, train_groups, desired_folds=max(2, cv_folds_eff), is_classification=True
+                    )
+                    if train_groups is not None and pd.Series(train_groups).duplicated().any()
+                    else None
                 )
                 if group_cv is not None:
                     # Fold theo nhóm sinh viên (StratifiedGroupKFold/GroupKFold): các học kỳ của
@@ -525,12 +552,11 @@ class ClassificationTrainer:
                     # Rất mất cân bằng (có class chỉ 1 mẫu). Sklearn KFold sẽ lỗi. Bỏ qua KFold.
                     # Tạo duy nhất 1 split tĩnh (70% train, 30% val nội bộ cho GridSearch)
                     from sklearn.model_selection import train_test_split as tts_internal
-                    idx_train, idx_val = tts_internal(
-                        range(len(X_train_final)), test_size=0.3, random_state=42
-                    )
-                    cv_strategy = [(idx_train, idx_val)] 
+
+                    idx_train, idx_val = tts_internal(range(len(X_train_final)), test_size=0.3, random_state=42)
+                    cv_strategy = [(idx_train, idx_val)]
                     _logger.warning("Cảnh báo: Dữ liệu quá mất cân bằng. Vô hiệu hóa Cross-Validation để chống lỗi.")
-                    
+
                 # Tiêu chí chọn mô hình cho GridSearchCV.
                 #
                 # F1 được tính tại MỘT ngưỡng cố định, nên khi lớp thiểu số chỉ còn vài
@@ -547,13 +573,15 @@ class ClassificationTrainer:
                 min_class_count = int(pd.Series(y_train_final).value_counts().min())
                 if min_class_count < PR_AUC_SELECTION_THRESHOLD:
                     clf_scoring = (
-                        'average_precision' if n_classes_in_train == 2
+                        'average_precision'
+                        if n_classes_in_train == 2
                         else make_scorer(_pr_auc_macro_scorer, response_method='predict_proba')
                     )
                     _logger.info(
                         "Lớp thiểu số chỉ có %d mẫu (< %d) nên chọn mô hình bằng PR-AUC "
                         "thay vì F1: F1 tại một ngưỡng dịch quá mạnh theo từng mẫu ở cỡ này.",
-                        min_class_count, PR_AUC_SELECTION_THRESHOLD,
+                        min_class_count,
+                        PR_AUC_SELECTION_THRESHOLD,
                     )
                 else:
                     clf_scoring = 'f1_macro' if n_classes_in_train > 2 else 'f1_weighted'
@@ -568,7 +596,8 @@ class ClassificationTrainer:
                     # Lưới đầy đủ (24) cho dữ liệu nhỏ; lưới gọn (8) cho dữ liệu lớn — trên
                     # 20.000 SV cả 2 chọn cùng tham số tốt nhất (xem dss/core/tuning.py).
                     param_grid = tuning.select_grid(
-                        full=RF_CLASSIFIER_GRID_FULL, compact=RF_CLASSIFIER_GRID_COMPACT,
+                        full=RF_CLASSIFIER_GRID_FULL,
+                        compact=RF_CLASSIFIER_GRID_COMPACT,
                         n_train=len(X_train_final),
                     )
                     pipeline, cv_mean, cv_std, _ = tuning.tuned_fit(
@@ -587,20 +616,17 @@ class ClassificationTrainer:
                     _logger.warning(
                         "XGBoost Classifier tạm bỏ qua GridSearchCV để tránh lỗi nhãn không liên tiếp "
                         "(lớp nhỏ nhất=%d < số fold yêu cầu=%d). Huấn luyện trực tiếp với bộ tham số ổn định.",
-                        min_class_samples, cv_folds_eff
+                        min_class_samples,
+                        cv_folds_eff,
                     )
                     try:
-                        pipeline.set_params(
-                            model__n_estimators=200,
-                            model__max_depth=5,
-                            model__learning_rate=0.1
-                        )
+                        pipeline.set_params(model__n_estimators=200, model__max_depth=5, model__learning_rate=0.1)
                     except Exception:
                         pass
                     pipeline.fit(X_train_final, y_train_final)
                     _logger.info(
                         "%s: Huấn luyện trực tiếp (không CV) với tham số an toàn (n_estimators=200, max_depth=5, learning_rate=0.1).",
-                        name
+                        name,
                     )
                 elif name == 'XGBoost Classifier' and XGBOOST_AVAILABLE:
                     # P-1: đủ mẫu ở lớp nhỏ nhất (>= số fold yêu cầu) — an toàn để tối ưu
@@ -608,7 +634,7 @@ class ClassificationTrainer:
                     param_grid = {
                         'model__n_estimators': [100, 200],
                         'model__max_depth': [3, 5],
-                        'model__learning_rate': [0.1]
+                        'model__learning_rate': [0.1],
                     }
                     pipeline, cv_mean, cv_std, _ = tuning.tuned_fit(
                         name, pipeline, param_grid, X_train_final, y_train_final, cv_strategy, clf_scoring
@@ -617,30 +643,24 @@ class ClassificationTrainer:
                     param_grid = {
                         'model__n_estimators': [100, 200],
                         'model__max_depth': [3, 5],
-                        'model__learning_rate': [0.1]
+                        'model__learning_rate': [0.1],
                     }
                     pipeline, cv_mean, cv_std, _ = tuning.tuned_fit(
                         name, pipeline, param_grid, X_train_final, y_train_final, cv_strategy, clf_scoring
                     )
                 elif name == 'Logistic Regression (Softmax)':
-                    param_grid = {
-                        'model__C': [0.1, 1.0, 10.0],
-                        'model__solver': ['lbfgs']
-                    }
+                    param_grid = {'model__C': [0.1, 1.0, 10.0], 'model__solver': ['lbfgs']}
                     pipeline, cv_mean, cv_std, _ = tuning.tuned_fit(
                         name, pipeline, param_grid, X_train_final, y_train_final, cv_strategy, clf_scoring
                     )
                 else:
                     # Với các mô hình khác (nếu có), train trực tiếp
                     pipeline.fit(X_train_final, y_train_final)
-                
+
                 # Đánh giá cuối cùng trên test set
                 y_pred_full = pipeline.predict(X_test)
                 if not valid_test_mask.any():
-                    _logger.error(
-                        "%s: Không có mẫu test hợp lệ sau khi chuẩn hóa nhãn.",
-                        name
-                    )
+                    _logger.error("%s: Không có mẫu test hợp lệ sau khi chuẩn hóa nhãn.", name)
                     failed_models[name] = "Không có mẫu test hợp lệ để đánh giá."
                     continue
                 y_pred = np.asarray(y_pred_full)[valid_test_mask]
@@ -662,17 +682,18 @@ class ClassificationTrainer:
                     if hasattr(pipeline, 'predict_proba'):
                         proba_eval = np.asarray(pipeline.predict_proba(X_test))[valid_test_mask]
                         pr_auc = pr_auc_macro(
-                            y_test_eval, proba_eval,
+                            y_test_eval,
+                            proba_eval,
                             getattr(pipeline, 'classes_', np.unique(y_test_eval)),
                         )
                 except Exception as exc:
                     _logger.warning("%s: không lấy được xác suất để tính PR-AUC: %s", name, exc)
-                
+
                 # *** KIỂM TRA OVERFITTING DỰA TRÊN HEURISTIC DỰ ÁN ***
                 y_pred_train = pipeline.predict(X_train_final)
                 train_accuracy = accuracy_score(y_train_final, y_pred_train)
                 accuracy_diff = train_accuracy - accuracy
-                
+
                 is_overfitting = False
                 suspicious_perfect_score = False
 
@@ -680,31 +701,55 @@ class ClassificationTrainer:
                     _logger.warning("%s: UNDERFITTING! Train Accuracy = %.2f%%", name, train_accuracy * 100)
                 elif train_accuracy >= 1.0 and accuracy_diff > HEURISTIC_OVERFIT_DIFF_MILD:
                     is_overfitting = True
-                    _logger.warning("%s: DẤU HIỆU OVERFITTING! Train Accuracy = 100%%, Test = %.2f%%", name, accuracy * 100)
-                
+                    _logger.warning(
+                        "%s: DẤU HIỆU OVERFITTING! Train Accuracy = 100%%, Test = %.2f%%", name, accuracy * 100
+                    )
+
                 if accuracy >= 1.0:
                     # Test accuracy đạt 100% là tín hiệu hiệu năng cao bất thường/nghi ngờ rò rỉ dữ liệu,
                     # KHÔNG kết luận cứng là Overfitting.
                     suspicious_perfect_score = True
-                    _logger.warning("%s: CẢNH BÁO HIỆU NĂNG CAO BẤT THƯỜNG! Test Accuracy = 100%%. Đề nghị kiểm tra rò rỉ target.", name)
+                    _logger.warning(
+                        "%s: CẢNH BÁO HIỆU NĂNG CAO BẤT THƯỜNG! Test Accuracy = 100%%. Đề nghị kiểm tra rò rỉ target.",
+                        name,
+                    )
                 elif accuracy_diff > HEURISTIC_OVERFIT_DIFF_SEVERE and train_accuracy > 0.60:
                     is_overfitting = True
-                    _logger.warning("%s: DẤU HIỆU OVERFITTING (heuristic gap > %.0f%%)! Train: %.2f%%, Test: %.2f%%, Diff: %.2f%%", name, HEURISTIC_OVERFIT_DIFF_SEVERE * 100, train_accuracy * 100, accuracy * 100, accuracy_diff * 100)
+                    _logger.warning(
+                        "%s: DẤU HIỆU OVERFITTING (heuristic gap > %.0f%%)! Train: %.2f%%, Test: %.2f%%, Diff: %.2f%%",
+                        name,
+                        HEURISTIC_OVERFIT_DIFF_SEVERE * 100,
+                        train_accuracy * 100,
+                        accuracy * 100,
+                        accuracy_diff * 100,
+                    )
                 elif accuracy_diff > HEURISTIC_OVERFIT_DIFF_MILD and train_accuracy > 0.60:
-                    _logger.info("%s: Overfitting nhẹ (heuristic gap > %.0f%%). Train: %.2f%%, Test: %.2f%%, Diff: %.2f%%", name, HEURISTIC_OVERFIT_DIFF_MILD * 100, train_accuracy * 100, accuracy * 100, accuracy_diff * 100)
-                
+                    _logger.info(
+                        "%s: Overfitting nhẹ (heuristic gap > %.0f%%). Train: %.2f%%, Test: %.2f%%, Diff: %.2f%%",
+                        name,
+                        HEURISTIC_OVERFIT_DIFF_MILD * 100,
+                        train_accuracy * 100,
+                        accuracy * 100,
+                        accuracy_diff * 100,
+                    )
+
                 if accuracy < HEURISTIC_TARGET_ACCURACY:
-                    _logger.info("%s: Độ chính xác %.2f%% < %.0f%% (ngưỡng mục tiêu dự án)", name, accuracy * 100, HEURISTIC_TARGET_ACCURACY * 100)
+                    _logger.info(
+                        "%s: Độ chính xác %.2f%% < %.0f%% (ngưỡng mục tiêu dự án)",
+                        name,
+                        accuracy * 100,
+                        HEURISTIC_TARGET_ACCURACY * 100,
+                    )
                 severe_underfit = accuracy <= 0.01 or (train_accuracy <= 0.20 and accuracy <= 0.20)
 
                 if severe_underfit:
                     _logger.warning(
                         "%s: Hiệu năng quá thấp (Test Accuracy: %.2f%%, Train Accuracy: %.2f%%). Tạm loại khỏi danh sách mô hình dùng tiếp.",
-                        name, accuracy * 100, train_accuracy * 100
+                        name,
+                        accuracy * 100,
+                        train_accuracy * 100,
                     )
-                    failed_models[name] = (
-                        f"Hiệu năng quá thấp (Accuracy={accuracy:.4f}, Train={train_accuracy:.4f})"
-                    )
+                    failed_models[name] = f"Hiệu năng quá thấp (Accuracy={accuracy:.4f}, Train={train_accuracy:.4f})"
                     continue
                 # *** FIX LỖI: Tính toán labels trực tiếp từ y_test thay vì dùng toàn bộ class_labels ***
                 y_test_metric, y_pred_metric, labels_in_test = _normalize_labels_for_metrics(y_test_eval, y_pred)
@@ -714,8 +759,9 @@ class ClassificationTrainer:
                     labels=labels_in_test,
                     target_names=labels_in_test.tolist(),
                     output_dict=True,
-                    zero_division=0)
-                results[name] = { # Lưu kết quả đầy đủ
+                    zero_division=0,
+                )
+                results[name] = {  # Lưu kết quả đầy đủ
                     'Accuracy': accuracy,
                     'Accuracy (Train)': train_accuracy,
                     'F1 Score (Macro)': f1_macro,
@@ -724,7 +770,8 @@ class ClassificationTrainer:
                     # kết quả này KHÔNG phải kết quả đã cân bằng lớp, và phải nói rõ.
                     'balance_method': balance_method,
                     'balance_method_effective': (
-                        'none' if (sampler is None and balance_method_applied not in ('none', 'class_weight'))
+                        'none'
+                        if (sampler is None and balance_method_applied not in ('none', 'class_weight'))
                         else balance_method_applied
                     ),
                     'balance_fallback_reason': balance_fallback_reason,
@@ -739,31 +786,57 @@ class ClassificationTrainer:
                     # P-5: cv_mean/cv_std của tiêu chí tối ưu trên tập TRAIN (None nếu
                     # mô hình không chạy GridSearchCV, vd. XGBoost — xem P-1).
                     'cv_mean': cv_mean,
-                    'cv_std': cv_std}
+                    'cv_std': cv_std,
+                }
                 trained_pipelines[name] = pipeline
-                
+
                 if is_overfitting:
-                    _logger.warning("Mô hình '%s' bị OVERFITTING! Train: %.2f%%, Test: %.2f%%", name, train_accuracy * 100, accuracy * 100)
+                    _logger.warning(
+                        "Mô hình '%s' bị OVERFITTING! Train: %.2f%%, Test: %.2f%%",
+                        name,
+                        train_accuracy * 100,
+                        accuracy * 100,
+                    )
                 elif accuracy >= HEURISTIC_TARGET_ACCURACY and accuracy < 1.0:
-                    _logger.info("ĐẠT MỤC TIÊU! Test Accuracy của '%s' = %.2f%%, Train = %.2f%%", name, accuracy * 100, train_accuracy * 100)
+                    _logger.info(
+                        "ĐẠT MỤC TIÊU! Test Accuracy của '%s' = %.2f%%, Train = %.2f%%",
+                        name,
+                        accuracy * 100,
+                        train_accuracy * 100,
+                    )
                 elif accuracy >= 0.75:
-                    _logger.info("Mô hình '%s' gần đạt mục tiêu: Test = %.2f%%, Train = %.2f%%", name, accuracy * 100, train_accuracy * 100)
+                    _logger.info(
+                        "Mô hình '%s' gần đạt mục tiêu: Test = %.2f%%, Train = %.2f%%",
+                        name,
+                        accuracy * 100,
+                        train_accuracy * 100,
+                    )
                 else:
-                    _logger.warning("Chưa đạt mục tiêu: Test Accuracy của '%s' = %.2f%% < %.0f%%", name, accuracy * 100, HEURISTIC_TARGET_ACCURACY * 100)
+                    _logger.warning(
+                        "Chưa đạt mục tiêu: Test Accuracy của '%s' = %.2f%% < %.0f%%",
+                        name,
+                        accuracy * 100,
+                        HEURISTIC_TARGET_ACCURACY * 100,
+                    )
 
                 _logger.info(
                     "%s hoàn tất đánh giá: Train Acc=%.2f%%, Test Acc=%.2f%%, F1 Macro=%.4f, F1 Weighted=%.4f, Overfitting=%s",
-                    name, train_accuracy * 100, accuracy * 100, f1_macro, f1_weighted, is_overfitting
+                    name,
+                    train_accuracy * 100,
+                    accuracy * 100,
+                    f1_macro,
+                    f1_weighted,
+                    is_overfitting,
                 )
 
             except Exception as e:
                 _logger.error("Lỗi khi huấn luyện mô hình '%s': %s", name, str(e), exc_info=True)
                 failed_models[name] = str(e)
-                
+
         # --- NEW: Thực hiện Ensemble nếu được yêu cầu ---
         if "Kết hợp" in training_strategy and len(trained_pipelines) >= 2:
             _logger.info("Đang xây dựng Mô hình Kết hợp (Ensemble)...")
-            
+
             try:
                 # Lọc ra các model từ pipeline
                 base_models = []
@@ -783,16 +856,20 @@ class ClassificationTrainer:
                     _ens_steps.append(('sampler', sampler))
                 if fs_method != "none":
                     if fs_method == "mi":
-                        _ens_steps.append((
-                            'feature_selection',
-                            SelectKBest(mutual_info_classif, k=min(k_features, len(X.columns))),
-                        ))
+                        _ens_steps.append(
+                            (
+                                'feature_selection',
+                                SelectKBest(mutual_info_classif, k=min(k_features, len(X.columns))),
+                            )
+                        )
                     elif fs_method == "rfe":
                         _ens_rf_estimator = RandomForestClassifier(n_estimators=50, random_state=42, n_jobs=-1)
-                        _ens_steps.append((
-                            'feature_selection',
-                            RFE(estimator=_ens_rf_estimator, n_features_to_select=min(k_features, len(X.columns))),
-                        ))
+                        _ens_steps.append(
+                            (
+                                'feature_selection',
+                                RFE(estimator=_ens_rf_estimator, n_features_to_select=min(k_features, len(X.columns))),
+                            )
+                        )
                 _ens_steps.append(('model', VotingClassifier(estimators=base_models, voting='soft')))
                 voting_pipeline = _ens_pipeline_class(steps=_ens_steps)
 
@@ -811,7 +888,9 @@ class ClassificationTrainer:
                 accuracy_voting = accuracy_score(y_test_voting_eval, y_pred_voting)
                 f1_weighted_voting = f1_score(y_test_voting_eval, y_pred_voting, average='weighted', zero_division=0)
                 f1_macro_voting = f1_score(y_test_voting_eval, y_pred_voting, average='macro', zero_division=0)
-                precision_macro_voting = precision_score(y_test_voting_eval, y_pred_voting, average='macro', zero_division=0)
+                precision_macro_voting = precision_score(
+                    y_test_voting_eval, y_pred_voting, average='macro', zero_division=0
+                )
                 recall_macro_voting = recall_score(y_test_voting_eval, y_pred_voting, average='macro', zero_division=0)
 
                 y_test_metric_v, y_pred_metric_v, labels_in_test_v = _normalize_labels_for_metrics(
@@ -853,28 +932,29 @@ class ClassificationTrainer:
             except Exception as e:
                 _logger.error("Lỗi khi xây dựng mô hình kết hợp: %s", str(e), exc_info=True)
                 failed_models["Khối Kết hợp (Voting Ensemble)"] = str(e)
-        
+
         # --- NEW: Lưu mô hình vào Warehouse ---
         if save_model and _warehouse and _dataset_id and trained_pipelines:
-             _logger.info("Đang lưu các mô hình đã huấn luyện vào Kho dữ liệu...")
-             for name, pipeline in trained_pipelines.items():
-                 try:
-                     metrics = results.get(name, {})
-                     training_id, _ = _warehouse.save_model_training(
-                         dataset_id=_dataset_id,
-                         model_pipeline=pipeline,
-                         model_name=name,
-                         feature_cols=available_features,
-                         target_col=target_col,
-                         metrics=metrics,
-                         class_labels=class_labels,
-                         data_source_type=data_source_type or getattr(df, "attrs", {}).get("data_source_type", "synthetic"),
-                         split_strategy=split_strategy,
-                         prediction_horizon="next_semester",
-                     )
-                     _logger.info("Đã lưu '%s': ID %s", name, training_id)
-                 except Exception as e:
-                     _logger.warning("Không thể lưu '%s': %s", name, e)
+            _logger.info("Đang lưu các mô hình đã huấn luyện vào Kho dữ liệu...")
+            for name, pipeline in trained_pipelines.items():
+                try:
+                    metrics = results.get(name, {})
+                    training_id, _ = _warehouse.save_model_training(
+                        dataset_id=_dataset_id,
+                        model_pipeline=pipeline,
+                        model_name=name,
+                        feature_cols=available_features,
+                        target_col=target_col,
+                        metrics=metrics,
+                        class_labels=class_labels,
+                        data_source_type=data_source_type
+                        or getattr(df, "attrs", {}).get("data_source_type", "synthetic"),
+                        split_strategy=split_strategy,
+                        prediction_horizon="next_semester",
+                    )
+                    _logger.info("Đã lưu '%s': ID %s", name, training_id)
+                except Exception as e:
+                    _logger.warning("Không thể lưu '%s': %s", name, e)
 
         if failed_models:
             results["__failed_models__"] = failed_models
@@ -886,7 +966,7 @@ class RegressionTrainer:
     """
     Class này CHỈ xử lý việc huấn luyện và đánh giá các mô hình Hồi quy (Regression)
     cho Mô hình 2, đúng theo yêu cầu của bạn.
-    
+
     SỬ DỤNG GRID SEARCH để tìm tham số tối ưu cho từng mô hình.
     """
 
@@ -895,17 +975,13 @@ class RegressionTrainer:
         # Các tham số này sẽ được tối ưu bằng GridSearchCV
         self.models = {
             'Linear Regression': LinearRegression(),
-            'Random Forest Regressor': RandomForestRegressor(
-                n_estimators=80, random_state=42
-            ),
+            'Random Forest Regressor': RandomForestRegressor(n_estimators=80, random_state=42),
         }
         if XGBOOST_AVAILABLE:
-            self.models['XGBoost Regressor'] = xgb.XGBRegressor(
-                random_state=42, objective='reg:squarederror')
+            self.models['XGBoost Regressor'] = xgb.XGBRegressor(random_state=42, objective='reg:squarederror')
         if LIGHTGBM_AVAILABLE:
-            self.models['LightGBM Regressor'] = lgb.LGBMRegressor(
-                random_state=42, verbosity=-1)
-        
+            self.models['LightGBM Regressor'] = lgb.LGBMRegressor(random_state=42, verbosity=-1)
+
         # Định nghĩa grid search parameters cho từng mô hình — ĐÂY LÀ NGUỒN DUY
         # Lưới tham số gọn để giảm thời gian tìm kiếm; số lượt kiểm định chéo
         # vẫn do cv_folds quyết định và mặc định giữ ở 5.
@@ -915,52 +991,53 @@ class RegressionTrainer:
             'Random Forest Regressor': {
                 'model__n_estimators': [100, 200],
                 'model__max_depth': [10, 20, None],
-                'model__min_samples_split': [2, 5]
+                'model__min_samples_split': [2, 5],
             },
         }
         self._compact_param_grids = {
             'Random Forest Regressor': {
                 'model__n_estimators': [100, 200],
                 'model__max_depth': [10, None],
-                'model__min_samples_split': [2]
+                'model__min_samples_split': [2],
             },
         }
         if XGBOOST_AVAILABLE:
             self.param_grids['XGBoost Regressor'] = {
                 'model__n_estimators': [100, 200],
                 'model__max_depth': [3, 5],
-                'model__learning_rate': [0.1]
-        }
+                'model__learning_rate': [0.1],
+            }
         if LIGHTGBM_AVAILABLE:
             self.param_grids['LightGBM Regressor'] = {
                 'model__n_estimators': [100, 200],
                 'model__max_depth': [3, 5],
-                'model__learning_rate': [0.1]
+                'model__learning_rate': [0.1],
             }
 
     # Không dùng @st.cache_data: hàm gọi widget Streamlit (render_save_export_buttons, st.write, …).
     def train_and_evaluate(
-            _self,
-            df,
-            feature_cols,
-            target_col,
-            selected_models,
-            training_strategy="So sánh nhiều mô hình (Compare)", # NEW: Chiến lược huấn luyện
-            fs_method="none",
-            k_features=20,
-            test_size=0.2,
-            cv_folds=5, 
-            save_model=True,
-            outlier_method="none", # NEW: Phương pháp loại bỏ ngoại lai
-            scaler_type="StandardScaler", # NEW: Loại scaler
-            _warehouse=None,
-            _dataset_id=None,
-            split_strategy="random",
-            time_col=None,
-            data_source_type=None):
+        _self,
+        df,
+        feature_cols,
+        target_col,
+        selected_models,
+        training_strategy="So sánh nhiều mô hình (Compare)",  # NEW: Chiến lược huấn luyện
+        fs_method="none",
+        k_features=20,
+        test_size=0.2,
+        cv_folds=5,
+        save_model=True,
+        outlier_method="none",  # NEW: Phương pháp loại bỏ ngoại lai
+        scaler_type="StandardScaler",  # NEW: Loại scaler
+        _warehouse=None,
+        _dataset_id=None,
+        split_strategy="random",
+        time_col=None,
+        data_source_type=None,
+    ):
         """
         Huấn luyện và đánh giá các mô hình Hồi quy đã chọn.
-        
+
         Args:
             df: DataFrame chứa dữ liệu
             feature_cols: Danh sách các cột features
@@ -970,38 +1047,38 @@ class RegressionTrainer:
             save_model: Tự động lưu mô hình sau khi huấn luyện (mặc định True)
             warehouse: DataWarehouse instance để lưu mô hình (nếu None thì không lưu)
             dataset_id: ID của dataset (cần thiết nếu save_model=True)
-        
+
         QUY TRÌNH CHI TIẾT:
         -------------------
         1. CHUẨN BỊ DỮ LIỆU:
            - Tách features (X) và target (y)
            - Phân loại numeric và categorical features
            - Tạo preprocessor (KNNImputer + StandardScaler cho số, SimpleImputer + OneHotEncoder cho categorical)
-        
+
         2. CHIA TẬP TRAIN/TEST:
            - Tỷ lệ chia có thể cấu hình (test_size, mặc định 0.2 = 20% test, 80% train)
            - Có thể dùng 0.2 (20-80), 0.3 (30-70), etc.
            - random_state=42 để đảm bảo kết quả có thể tái lập
-        
+
         3. HUẤN LUYỆN MÔ HÌNH:
            - Tạo Pipeline: Preprocessor -> Model
            - Sử dụng GridSearchCV để tìm tham số tối ưu (chỉ trên tập Train)
            - Cross-validation trong GridSearchCV để tránh overfitting
-        
+
         4. ĐÁNH GIÁ MÔ HÌNH:
            - Dự đoán trên tập Test (chưa từng thấy trong quá trình huấn luyện)
-        
+
         5. TÍNH TOÁN CÁC METRIC:
            - RMSE (Root Mean Squared Error): sqrt(mean((y_true - y_pred)2))
              * Đơn vị: cùng đơn vị với target
              * Đặc điểm: Phạt nặng các lỗi lớn (do bình phương)
              * Cà ng thấp cà ng tốt
-           
+
            - MAE (Mean Absolute Error): mean(|y_true - y_pred|)
              * Đơn vị: cùng đơn vị với target
              * Đặc điểm: Ít nhạy cảm với outlier hơn RMSE
              * Cà ng thấp cà ng tốt
-           
+
            - R2 (R-squared / Coefficient of Determination): 1 - (SS_res / SS_tot)
              * SS_res = sum((y_true - y_pred)2)  # Tổng bình phương sai số
              * SS_tot = sum((y_true - y_mean)2)  # Tổng bình phương độ lệch so với trung bình
@@ -1016,10 +1093,18 @@ class RegressionTrainer:
         # *** FIX LỖI: Kiểm tra feature_cols không bị rỗng ***
         if not feature_cols:
             _logger.error("Lỗi Huấn luyện: Không có feature nào được chọn.")
-            return {}, {}, {}, [], pd.DataFrame(), pd.Series(dtype=float), pd.DataFrame()  # cùng 7 giá trị như các nhánh khác
+            return (
+                {},
+                {},
+                {},
+                [],
+                pd.DataFrame(),
+                pd.Series(dtype=float),
+                pd.DataFrame(),
+            )  # cùng 7 giá trị như các nhánh khác
 
         _logger.info("Bắt đầu huấn luyện Hồi quy cho cột: %s...", target_col)
-        
+
         # ========================================================================
         # BƯỚC 1: CHUẨN BỊ DỮ LIỆU
         # ========================================================================
@@ -1029,20 +1114,32 @@ class RegressionTrainer:
         # thành cột chuẩn — đổi theo, thay vì KeyError khi dataset có cả hai cột.
         if target_col not in df_clean.columns and COLUMN_ALIASES.get(target_col) in df_clean.columns:
             target_col = COLUMN_ALIASES[target_col]
-        available_features, _removed_leaks = filter_leakage_features(df_clean, target_col, feature_cols, return_removed=True)
+        available_features, _removed_leaks = filter_leakage_features(
+            df_clean, target_col, feature_cols, return_removed=True
+        )
         if _removed_leaks:
             _logger.info("Đã loại bỏ các cột rò rỉ/alias khỏi Hồi quy (%s): %s", target_col, _removed_leaks)
 
         if not available_features:
             _logger.error("Lỗi: Không còn feature hợp lệ nào sau khi loại bỏ ID/Target/Aliases/Leakage!")
-            return {}, {}, {}, [], pd.DataFrame(), pd.Series(dtype=float), pd.DataFrame()  # cùng 7 giá trị như các nhánh khác
+            return (
+                {},
+                {},
+                {},
+                [],
+                pd.DataFrame(),
+                pd.Series(dtype=float),
+                pd.DataFrame(),
+            )  # cùng 7 giá trị như các nhánh khác
 
         X = df_clean[available_features].copy()
         y = df_clean[target_col].copy()
 
         # Kiểm tra dữ liệu thiếu trong target
         if y.isnull().any():
-            _logger.warning("Phát hiện %d giá trị thiếu trong cột target '%s'. Đang loại bỏ...", y.isnull().sum(), target_col)
+            _logger.warning(
+                "Phát hiện %d giá trị thiếu trong cột target '%s'. Đang loại bỏ...", y.isnull().sum(), target_col
+            )
             valid_mask = ~y.isnull()
             X = X[valid_mask].copy()
             y = y[valid_mask].copy()
@@ -1069,11 +1166,13 @@ class RegressionTrainer:
         # Phân loại features
         numeric_features = X.select_dtypes(include=[np.number]).columns.tolist()
         categorical_features = X.select_dtypes(include=['object', 'category']).columns.tolist()
-        
+
         # Tạo preprocessor
-        from dss.core.data_helpers import create_shared_preprocessor  # import trễ: tránh vòng lặp import trainers<->data_helpers
-        preprocessor = create_shared_preprocessor(
-            numeric_features, categorical_features, scaler_type=scaler_type)
+        from dss.core.data_helpers import (
+            create_shared_preprocessor,  # import trễ: tránh vòng lặp import trainers<->data_helpers
+        )
+
+        preprocessor = create_shared_preprocessor(numeric_features, categorical_features, scaler_type=scaler_type)
 
         # ========================================================================
         # BƯỚC 2: CHIA TẬP TRAIN/TEST/VALIDATION
@@ -1091,10 +1190,7 @@ class RegressionTrainer:
             else:
                 _logger.warning("Không tìm thấy cột thời gian để thực hiện Temporal Split; fallback sang Random Split.")
                 X_train, X_test, y_train, y_test = train_test_split(
-                    X, y, 
-                    test_size=test_size,
-                    random_state=42,
-                    shuffle=False
+                    X, y, test_size=test_size, random_state=42, shuffle=False
                 )
         elif group_col is not None:
             _logger.info("Chia train/test theo nhóm '%s' (GroupShuffleSplit): mỗi SV nằm trọn 1 phía.", group_col)
@@ -1102,10 +1198,7 @@ class RegressionTrainer:
             X_train, X_test, y_train, y_test = X.iloc[tr_pos], X.iloc[te_pos], y.iloc[tr_pos], y.iloc[te_pos]
         else:
             X_train, X_test, y_train, y_test = train_test_split(
-                X, y, 
-                test_size=test_size,
-                random_state=42,
-                shuffle=True
+                X, y, test_size=test_size, random_state=42, shuffle=True
             )
 
         # Chỉ dùng target của TRAIN để phát hiện feature gần như là bản sao
@@ -1117,13 +1210,16 @@ class RegressionTrainer:
                 correlations = numeric_train.corrwith(y_train).abs()
                 protected = {name.lower() for name in LEGITIMATE_PREDICTORS}
                 leaky_features = [
-                    name for name in correlations[correlations > 0.99].index.tolist()
+                    name
+                    for name in correlations[correlations > 0.99].index.tolist()
                     if str(name).lower() not in protected
                 ]
                 if leaky_features:
                     _logger.warning(
                         "DATA LEAKAGE DETECTED in train: features %s correlate > 0.99 "
-                        "with target '%s' and were removed.", leaky_features, target_col,
+                        "with target '%s' and were removed.",
+                        leaky_features,
+                        target_col,
                     )
                     X_train = X_train.drop(columns=leaky_features)
                     X_test = X_test.drop(columns=leaky_features)
@@ -1134,10 +1230,10 @@ class RegressionTrainer:
                         return {}, {}, {}, [], pd.DataFrame(), pd.Series(dtype=float), pd.DataFrame()
         except Exception as exc:
             _logger.warning("Could not run target-correlation leakage guard: %s", exc)
-        
+
         X_train_final, y_train_final = X_train, y_train
-        st.session_state.last_training_rows_before_outlier = int(len(X_train_final))
-        st.session_state.last_training_rows_after_outlier = int(len(X_train_final))
+        st.session_state.last_training_rows_before_outlier = len(X_train_final)
+        st.session_state.last_training_rows_after_outlier = len(X_train_final)
 
         # R-1: Loại bỏ ngoại lai (Outlier Removal) - IQR Method — CHỈ trên tập
         # train, biên IQR CHỈ tính từ tập train (không dùng thống kê của test,
@@ -1160,11 +1256,15 @@ class RegressionTrainer:
                     initial_len = len(X_train_final)
                     X_train_final = X_train_final[~is_outlier]
                     y_train_final = y_train_final[~is_outlier]
-                    st.session_state.last_training_rows_after_outlier = int(len(X_train_final))
+                    st.session_state.last_training_rows_after_outlier = len(X_train_final)
 
                     removed_count = initial_len - len(X_train_final)
                     if removed_count > 0:
-                        _logger.info("Đã loại bỏ %d mẫu ngoại lai trong TRAIN (IQR Method). Còn lại %d mẫu train.", removed_count, len(X_train_final))
+                        _logger.info(
+                            "Đã loại bỏ %d mẫu ngoại lai trong TRAIN (IQR Method). Còn lại %d mẫu train.",
+                            removed_count,
+                            len(X_train_final),
+                        )
                     else:
                         _logger.info("Không phát hiện mẫu ngoại lai nào trong train theo phương pháp IQR.")
             except Exception as e:
@@ -1172,15 +1272,18 @@ class RegressionTrainer:
 
         _logger.info(
             "Kết quả chia dữ liệu thực tế: Train=%d (%.1f%%), Test=%d (%.1f%%).",
-            len(X_train_final), len(X_train_final)/len(X)*100, len(X_test), len(X_test)/len(X)*100
+            len(X_train_final),
+            len(X_train_final) / len(X) * 100,
+            len(X_test),
+            len(X_test) / len(X) * 100,
         )
-        
+
         # ========================================================================
         # FEATURE ENGINEERING TỰ ĐỘNG: Phát hiện và tạo features phù hợp với mọi loại dữ liệu
         # ========================================================================
         def add_engineered_features(X_df):
             """Thêm các features mới tự động phát hiện từ features hiện có - hoạt động với mọi loại dữ liệu.
-            
+
             QUY TẮC PHÒNG CHỐNG RÒ RỈ DỮ LIỆU & TÍNH ĐÚNG ĐẮN ML:
             - Tuyệt đối không sử dụng Target, Alias (grade, final_score), hoặc Derived Targets để sinh feature.
             - Không gọi fillna(0) toàn bộ dữ liệu; các giá trị khuyết thiếu được giữ lại cho imputer trong Pipeline xử lý.
@@ -1188,28 +1291,31 @@ class RegressionTrainer:
             """
             X_eng = X_df.copy()
             numeric_cols = X_eng.select_dtypes(include=[np.number]).columns.tolist()
-            
+
             # Lọc bỏ triệt để mọi cột liên quan đến target/alias/leakage
             forbidden_cols = {c.lower() for c in get_leaky_target_columns(target_col)}
-            forbidden_cols.update({target_col.lower(), 'grade', 'final_score', 'xep_loai', 'diem_ky_sau', 'status', 'pass_fail'})
+            forbidden_cols.update(
+                {target_col.lower(), 'grade', 'final_score', 'xep_loai', 'diem_ky_sau', 'status', 'pass_fail'}
+            )
             safe_numeric_cols = [c for c in numeric_cols if c.lower() not in forbidden_cols]
-            
+
             # 1. Tìm các cột có thể là điểm số (gpa, diem, mark, point, score) ngoại trừ target & aliases
             score_keywords = ['score', 'gpa', 'diem', 'mark', 'point', 'total']
-            score_cols = [col for col in safe_numeric_cols 
-                         if any(keyword in col.lower() for keyword in score_keywords)
-                         and not any(f in col.lower() for f in ['final', 'grade', 'target', 'sau'])]
-            
+            score_cols = [
+                col
+                for col in safe_numeric_cols
+                if any(keyword in col.lower() for keyword in score_keywords)
+                and not any(f in col.lower() for f in ['final', 'grade', 'target', 'sau'])
+            ]
+
             # 2. Tìm các cột có thể là tỷ lệ (rate, ratio, percent, ty_le)
             rate_keywords = ['rate', 'ratio', 'percent', 'ty_le', 'attendance', 'diem_danh']
-            rate_cols = [col for col in safe_numeric_cols 
-                        if any(keyword in col.lower() for keyword in rate_keywords)]
-            
+            rate_cols = [col for col in safe_numeric_cols if any(keyword in col.lower() for keyword in rate_keywords)]
+
             # 3. Tìm các cột có thể là số lượng/giờ (hour, time, so_gio, count, number)
             count_keywords = ['hour', 'time', 'so_gio', 'count', 'number', 'quantity', 'so_luong']
-            count_cols = [col for col in safe_numeric_cols 
-                         if any(keyword in col.lower() for keyword in count_keywords)]
-            
+            count_cols = [col for col in safe_numeric_cols if any(keyword in col.lower() for keyword in count_keywords)]
+
             # 4. Tạo features từ điểm số
             if len(score_cols) >= 2:
                 X_eng['_fe_sum_scores'] = X_eng[score_cols].sum(axis=1)
@@ -1217,19 +1323,19 @@ class RegressionTrainer:
                 X_eng['_fe_max_scores'] = X_eng[score_cols].max(axis=1)
                 X_eng['_fe_min_scores'] = X_eng[score_cols].min(axis=1)
                 X_eng['_fe_std_scores'] = X_eng[score_cols].std(axis=1, ddof=0)
-                
+
                 for i, col1 in enumerate(score_cols[:3]):  # Giới hạn số lượng features tương tác
-                    for col2 in score_cols[i+1:min(i+3, len(score_cols))]:
+                    for col2 in score_cols[i + 1 : min(i + 3, len(score_cols))]:
                         if col1 != col2:
                             X_eng[f'_fe_{col1}_x_{col2}'] = X_eng[col1] * X_eng[col2]
                             X_eng[f'_fe_{col1}_div_{col2}'] = X_eng[col1] / (X_eng[col2].abs() + 1e-6)
-            
+
             # 5. Tạo features từ tỷ lệ và số lượng
             if len(rate_cols) > 0 and len(count_cols) > 0:
                 for rate_col in rate_cols[:2]:
                     for count_col in count_cols[:2]:
                         X_eng[f'_fe_{rate_col}_x_{count_col}'] = X_eng[rate_col] * X_eng[count_col]
-            
+
             # 6. Tạo polynomial features cho các cột numeric an toàn (top 3 by variance)
             if len(safe_numeric_cols) > 0:
                 variances = X_eng[safe_numeric_cols].var()
@@ -1239,20 +1345,19 @@ class RegressionTrainer:
                     # Căn bậc hai an toàn
                     pos_vals = np.maximum(0.0, pd.to_numeric(X_eng[col], errors='coerce'))
                     X_eng[f'_fe_{col}_sqrt'] = np.sqrt(pos_vals + 1e-6)
-            
+
             # 7. Tương tác với điểm kỳ trước (nếu có biến dự báo hợp lệ như diem_ky_nay/ky_truoc)
             prior_keywords = ['ky_truoc', 'ky_nay', 'previous', 'prior']
-            prior_cols = [col for col in safe_numeric_cols 
-                          if any(keyword in col.lower() for keyword in prior_keywords)]
+            prior_cols = [col for col in safe_numeric_cols if any(keyword in col.lower() for keyword in prior_keywords)]
             if len(prior_cols) > 0 and len(score_cols) > 0:
                 for p_col in prior_cols[:2]:
                     for s_col in score_cols[:2]:
                         if p_col != s_col:
                             X_eng[f'_fe_{p_col}_x_{s_col}'] = X_eng[p_col] * X_eng[s_col]
-            
+
             # Không fillna(0) toàn bộ dữ liệu ở đây — để imputer trong Pipeline xử lý
             return X_eng
-        
+
         # R-4 (CONFIRMED lỗi — xem app/reports/ml_correctness/REPORT.md): cột
         # _fe_* do add_engineered_features() sinh ra NẰM NGOÀI Pipeline sklearn.
         # Khi bật, các cột _fe_* lọt vào feature_cols được lưu, nhưng lúc DỰ
@@ -1278,7 +1383,7 @@ class RegressionTrainer:
         else:
             st.session_state[f'feature_columns_{target_col}'] = X_train_final.columns.tolist()
             _logger.info("Feature engineering đã bị tắt — sử dụng features gốc.")
-        
+
         # ========================================================================
         # FEATURE SELECTION TỰ ĐỘNG: Loại bỏ features không quan trọng
         # --- NEW: Tích hợp Lựa chọn Đặc trưng ---
@@ -1287,7 +1392,9 @@ class RegressionTrainer:
             _logger.info("Đang lựa chọn %d đặc trưng tốt nhất bằng %s...", k_features, fs_method)
             numeric_X_train = X_train_final.select_dtypes(include=np.number)
             if not numeric_X_train.empty:
-                selected_numeric, _ = feature_selector(numeric_X_train, y_train_final, method=fs_method, k=k_features, task_type="regression")
+                selected_numeric, _ = feature_selector(
+                    numeric_X_train, y_train_final, method=fs_method, k=k_features, task_type="regression"
+                )
                 categorical_features_original = X_train_final.select_dtypes(exclude=np.number).columns.tolist()
                 features_to_train = selected_numeric + categorical_features_original
                 _logger.info("Các đặc trưng được chọn: %s", ', '.join(features_to_train))
@@ -1301,12 +1408,15 @@ class RegressionTrainer:
         # Cập nhật lại preprocessor với features đã chuẩn bị
         numeric_features = X_train_final.select_dtypes(include=[np.number]).columns.tolist()
         categorical_features = X_train_final.select_dtypes(include=['object', 'category']).columns.tolist()
-        from dss.core.data_helpers import create_shared_preprocessor  # import trễ: tránh vòng lặp import trainers<->data_helpers
+        from dss.core.data_helpers import (
+            create_shared_preprocessor,  # import trễ: tránh vòng lặp import trainers<->data_helpers
+        )
+
         # R-2: PHẢI truyền lại scaler_type — thiếu tham số này khiến preprocessor
         # tạo lại sau bước Feature Selection luôn rơi về StandardScaler mặc định,
         # bất kể người dùng đã chọn MinMaxScaler/RobustScaler ở BƯỚC 1.
         preprocessor = create_shared_preprocessor(numeric_features, categorical_features, scaler_type=scaler_type)
-        
+
         results, trained_pipelines = {}, {}
         failed_models = {}
         evaluation_frames = {}
@@ -1319,18 +1429,25 @@ class RegressionTrainer:
         # Candidate/Production).
         try:
             from sklearn.dummy import DummyRegressor
-            baseline_pipeline = Pipeline(steps=[
-                ('preprocessor', preprocessor),
-                ('model', DummyRegressor(strategy="mean")),
-            ])
+
+            baseline_pipeline = Pipeline(
+                steps=[
+                    ('preprocessor', preprocessor),
+                    ('model', DummyRegressor(strategy="mean")),
+                ]
+            )
             baseline_pipeline.fit(X_train_final, y_train_final)
             baseline_pred = np.asarray(baseline_pipeline.predict(X_test)).flatten()
             y_test_arr = np.asarray(y_test).flatten()
             valid_baseline_mask = np.isfinite(y_test_arr) & np.isfinite(baseline_pred)
             if valid_baseline_mask.any():
                 results["__baseline__"] = {
-                    'RMSE': math.sqrt(mean_squared_error(y_test_arr[valid_baseline_mask], baseline_pred[valid_baseline_mask])),
-                    'MAE': float(mean_absolute_error(y_test_arr[valid_baseline_mask], baseline_pred[valid_baseline_mask])),
+                    'RMSE': math.sqrt(
+                        mean_squared_error(y_test_arr[valid_baseline_mask], baseline_pred[valid_baseline_mask])
+                    ),
+                    'MAE': float(
+                        mean_absolute_error(y_test_arr[valid_baseline_mask], baseline_pred[valid_baseline_mask])
+                    ),
                     'R2 Score': float(r2_score(y_test_arr[valid_baseline_mask], baseline_pred[valid_baseline_mask])),
                     'strategy': 'mean',
                 }
@@ -1344,19 +1461,14 @@ class RegressionTrainer:
             if name not in _self.models:
                 _logger.warning("Mô hình '%s' không có trong danh sách. Bỏ qua.", name)
                 continue
-            
+
             try:
                 _logger.info("Đang huấn luyện: %s...", name)
-                model = clone(_self.models[name])   # không fit vào estimator dùng chung (cache_resource)
-                
+                model = clone(_self.models[name])  # không fit vào estimator dùng chung (cache_resource)
+
                 # Tạo pipeline: Preprocessor -> Model
-                pipeline = Pipeline(
-                    steps=[
-                        ('preprocessor', preprocessor), 
-                        ('model', model)
-                    ]
-                )
-                
+                pipeline = Pipeline(steps=[('preprocessor', preprocessor), ('model', model)])
+
                 # ====================================================================
                 # SỬ DỤNG GRID SEARCH để tìm tham số tối ưu - CẢI THIỆN ĐỘ CHÍNH XÁC
                 # ====================================================================
@@ -1396,7 +1508,8 @@ class RegressionTrainer:
                         if pd.Series(_train_groups).duplicated().any():
                             # GroupKFold: các học kỳ của cùng 1 SV không rải sang cả fold train lẫn fold kiểm định.
                             cv_strategy_reg = make_group_cv_splits(
-                                y_train_final, _train_groups,
+                                y_train_final,
+                                _train_groups,
                                 desired_folds=tuning.effective_cv_folds(len(X_train_final), cv_folds),
                                 is_classification=False,
                             )
@@ -1409,14 +1522,20 @@ class RegressionTrainer:
                     # GridSearchCV (refit=True) có ghi nhớ tham số tốt nhất — dss/core/tuning.py.
                     # neg_mean_absolute_error -> sign=-1 để cv_mean là MAE dương (dễ đọc).
                     best_pipeline, cv_mean, cv_std, _ = tuning.tuned_fit(
-                        name, pipeline, param_grid, X_train_final, y_train_final,
-                        cv_strategy_reg, scoring="neg_mean_absolute_error", sign=-1.0,
+                        name,
+                        pipeline,
+                        param_grid,
+                        X_train_final,
+                        y_train_final,
+                        cv_strategy_reg,
+                        scoring="neg_mean_absolute_error",
+                        sign=-1.0,
                     )
                 else:
                     # Không có tham số cần tune -> Huấn luyện trực tiếp
                     pipeline.fit(X_train_final, y_train_final)
                     best_pipeline = pipeline
-                
+
                 # ====================================================================
                 # BƯỚC 4: ĐÁNH GIÁ MÔ HÌNH TRÊN TẬP TEST
                 # ====================================================================
@@ -1432,34 +1551,42 @@ class RegressionTrainer:
 
                 # *** FIX: Đảm bảo y_test và y_pred_test có cùng shape và kiểu dữ liệu ***
                 y_test_clean = np.array(y_test).flatten() if hasattr(y_test, 'flatten') else np.array(y_test)
-                y_pred_test_clean = np.array(y_pred_test).flatten() if hasattr(y_pred_test, 'flatten') else np.array(y_pred_test)
-                y_train_clean = np.array(y_train_final).flatten() if hasattr(y_train_final, 'flatten') else np.array(y_train_final)
-                y_pred_train_clean = np.array(y_pred_train).flatten() if hasattr(y_pred_train, 'flatten') else np.array(y_pred_train)
-                
+                y_pred_test_clean = (
+                    np.array(y_pred_test).flatten() if hasattr(y_pred_test, 'flatten') else np.array(y_pred_test)
+                )
+                y_train_clean = (
+                    np.array(y_train_final).flatten() if hasattr(y_train_final, 'flatten') else np.array(y_train_final)
+                )
+                y_pred_train_clean = (
+                    np.array(y_pred_train).flatten() if hasattr(y_pred_train, 'flatten') else np.array(y_pred_train)
+                )
+
                 # Kiểm tra và loại bỏ NaN/Inf
                 valid_mask_test = np.isfinite(y_test_clean) & np.isfinite(y_pred_test_clean)
                 valid_mask_train = np.isfinite(y_train_clean) & np.isfinite(y_pred_train_clean)
-                
+
                 if valid_mask_test.sum() == 0:
                     _logger.error("Không có giá trị hợp lệ để tính metrics cho mô hình '%s'", name)
                     continue
-                
+
                 y_test_valid = y_test_clean[valid_mask_test]
                 y_pred_test_valid = y_pred_test_clean[valid_mask_test]
                 y_train_valid = y_train_clean[valid_mask_train] if valid_mask_train.sum() > 0 else y_train_clean
-                y_pred_train_valid = y_pred_train_clean[valid_mask_train] if valid_mask_train.sum() > 0 else y_pred_train_clean
-                
+                y_pred_train_valid = (
+                    y_pred_train_clean[valid_mask_train] if valid_mask_train.sum() > 0 else y_pred_train_clean
+                )
+
                 # RMSE (Root Mean Squared Error)
                 # Công thức: sqrt(mean((y_true - y_pred)2))
                 # Ý nghĩa: Căn bậc hai của trung bình bình phương sai số
                 mse_test = mean_squared_error(y_test_valid, y_pred_test_valid)
                 rmse_test = math.sqrt(mse_test) if mse_test >= 0 else 0.0
-                
+
                 # MAE (Mean Absolute Error)
                 # Công thức: mean(|y_true - y_pred|)
                 # Ý nghĩa: Trung bình giá trị tuyệt đối của sai số
                 mae_test = mean_absolute_error(y_test_valid, y_pred_test_valid)
-                
+
                 # R2 Score (Coefficient of Determination)
                 # Công thức: 1 - (SS_res / SS_tot)
                 # SS_res = sum((y_true - y_pred)2)  # Tổng bình phương sai số
@@ -1473,14 +1600,14 @@ class RegressionTrainer:
                 except Exception as e:
                     _logger.warning("Không thể tính R2: %s. Đặt R2 = 0.0", e)
                     r2_test = 0.0
-                
+
                 try:
                     r2_train = r2_score(y_train_valid, y_pred_train_valid) if len(y_train_valid) > 0 else 0.0
                     if not np.isfinite(r2_train):
                         r2_train = 0.0
                 except Exception:
                     r2_train = 0.0
-                
+
                 # Lưu kết quả
                 results[name] = {
                     'RMSE': rmse_test,
@@ -1497,15 +1624,12 @@ class RegressionTrainer:
                 trained_pipelines[name] = best_pipeline
 
                 trained_pipelines[name] = best_pipeline
-                
+
                 # Tạo DataFrame để so sánh thực tế vs dự đoán (sử dụng dữ liệu đã làm sạch)
-                evaluation_frames[name] = pd.DataFrame({
-                    "Thực tế": y_test_valid,
-                    "Dự đoán": y_pred_test_valid
-                })
-                
+                evaluation_frames[name] = pd.DataFrame({"Thực tế": y_test_valid, "Dự đoán": y_pred_test_valid})
+
                 _logger.info("Hoàn tất '%s': RMSE=%.4f, MAE=%.4f, R2=%.4f", name, rmse_test, mae_test, r2_test)
-                
+
                 # *** TỰ ĐỘNG LƯU MÔ HÌNH SAU KHI HUẤN LUYỆN ***
                 if save_model and _warehouse is not None and _dataset_id is not None:
                     try:
@@ -1526,14 +1650,15 @@ class RegressionTrainer:
                             feature_cols=features_to_train,
                             target_col=target_col,
                             metrics=model_metrics,
-                            data_source_type=data_source_type or getattr(df, "attrs", {}).get("data_source_type", "synthetic"),
+                            data_source_type=data_source_type
+                            or getattr(df, "attrs", {}).get("data_source_type", "synthetic"),
                             split_strategy=split_strategy,
                             prediction_horizon="next_semester",
                         )
                         _logger.info("Mô hình đã được lưu tự động (ID: %s)", training_id)
                     except Exception as e:
                         _logger.warning("Không thể lưu mô hình tự động: %s", str(e))
-                
+
                 if r2_test >= 0.80:
                     _logger.info("ĐẠT MỤC TIÊU! R2 = %.2f%% >= 80%%", r2_test * 100)
                 elif rmse_test <= 0.15:
@@ -1544,25 +1669,25 @@ class RegressionTrainer:
                     _logger.warning("Mô hình không hiệu quả: R2 = %.2f%%", r2_test * 100)
                 else:
                     _logger.warning("Chưa đạt mục tiêu: R2 = %.2f%% < 80%%", r2_test * 100)
-                
+
             except Exception as e:
                 _logger.error("Lỗi khi huấn luyện mô hình '%s': %s", name, str(e), exc_info=True)
                 failed_models[name] = str(e)
-        
+
         # ========================================================================
         # XÂY DỰNG MÔ HÌNH KẾT HỢP (ENSEMBLE) THEO CHIẾN LƯỢC
         # ========================================================================
         # Kiểm tra xem có yêu cầu tạo ensemble không
         need_ensemble = "Kết hợp" in training_strategy and len(results) >= 2
-        
+
         if need_ensemble:
             _logger.info("Đang kết hợp các mô hình để tạo ra dự đoán chung (Ensemble)...")
             try:
-                from sklearn.ensemble import VotingRegressor, StackingRegressor
+                from sklearn.ensemble import StackingRegressor, VotingRegressor
 
                 base_models = [
                     (model_name, trained_pipelines[model_name])
-                    for model_name in results.keys()
+                    for model_name in results
                     if not str(model_name).startswith("__") and model_name in trained_pipelines
                 ]
 
@@ -1584,12 +1709,14 @@ class RegressionTrainer:
                 if group_col is not None:
                     _ens_groups = df_clean.loc[X_train.index, group_col].to_numpy()
                     if pd.Series(_ens_groups).duplicated().any():
-                        ens_outer_cv = make_group_cv_splits(y_train, _ens_groups, desired_folds=cv_folds) or ens_cv_strategy
+                        ens_outer_cv = (
+                            make_group_cv_splits(y_train, _ens_groups, desired_folds=cv_folds) or ens_cv_strategy
+                        )
 
                 voting_model = VotingRegressor(estimators=base_models)
-                voting_cv_r2 = float(np.mean(
-                    cross_val_score(voting_model, X_train, y_train, cv=ens_outer_cv, scoring="r2")
-                ))
+                voting_cv_r2 = float(
+                    np.mean(cross_val_score(voting_model, X_train, y_train, cv=ens_outer_cv, scoring="r2"))
+                )
                 voting_cv_r2 = voting_cv_r2 if np.isfinite(voting_cv_r2) else -np.inf
                 voting_model.fit(X_train, y_train)
 
@@ -1604,9 +1731,9 @@ class RegressionTrainer:
                         cv=ens_cv_strategy,
                         passthrough=False,
                     )
-                    stacking_cv_r2 = float(np.mean(
-                        cross_val_score(stacking_model, X_train, y_train, cv=ens_outer_cv, scoring="r2")
-                    ))
+                    stacking_cv_r2 = float(
+                        np.mean(cross_val_score(stacking_model, X_train, y_train, cv=ens_outer_cv, scoring="r2"))
+                    )
                     stacking_cv_r2 = stacking_cv_r2 if np.isfinite(stacking_cv_r2) else -np.inf
                     stacking_model.fit(X_train, y_train)
                     if stacking_cv_r2 > voting_cv_r2:
@@ -1644,7 +1771,7 @@ class RegressionTrainer:
                     'MAE': float(mean_absolute_error(y_test_final, y_pred_final)),
                     'R2 Score': float(ensemble_r2),
                     'R2 Score (Train)': float(r2_train_ens),
-                    'MSE': float(ensemble_rmse ** 2),
+                    'MSE': float(ensemble_rmse**2),
                     'test_size': float(test_size),
                     'n_train': len(X_train_final),
                     'n_test': len(X_test),
@@ -1659,7 +1786,8 @@ class RegressionTrainer:
                             feature_cols=features_to_train,
                             target_col=target_col,
                             metrics=results[ensemble_name],
-                            data_source_type=data_source_type or getattr(df, "attrs", {}).get("data_source_type", "synthetic"),
+                            data_source_type=data_source_type
+                            or getattr(df, "attrs", {}).get("data_source_type", "synthetic"),
                             split_strategy=split_strategy,
                             prediction_horizon="next_semester",
                         )
@@ -1668,23 +1796,25 @@ class RegressionTrainer:
                         _logger.warning("Không thể lưu mô hình Ensemble: %s", str(e))
                 trained_pipelines[ensemble_name] = ensemble_model
 
-                evaluation_frames[ensemble_name] = pd.DataFrame({
-                    "Thực tế": y_test.reset_index(drop=True),
-                    "Dự đoán": pd.Series(ensemble_model.predict(X_test)).reset_index(drop=True)
-                })
+                evaluation_frames[ensemble_name] = pd.DataFrame(
+                    {
+                        "Thực tế": y_test.reset_index(drop=True),
+                        "Dự đoán": pd.Series(ensemble_model.predict(X_test)).reset_index(drop=True),
+                    }
+                )
                 _logger.info("%s: R2 = %.2f%%, RMSE = %.4f", ensemble_name, ensemble_r2 * 100, ensemble_rmse)
             except Exception as e:
                 _logger.warning("Không thể tạo Auto-Ensemble: %s", str(e))
                 failed_models["Khối Kết hợp (Auto-Ensemble)"] = str(e)
-        
+
         if failed_models:
             results["__failed_models__"] = failed_models
-        _logger.info("Hoàn tất huấn luyện %d mô hình.", len([k for k in results.keys() if not str(k).startswith('__')]))
-        
+        _logger.info("Hoàn tất huấn luyện %d mô hình.", len([k for k in results if not str(k).startswith('__')]))
+
         # *** LƯU KẾT QUẢ VÀO SESSION STATE ĐỂ TÁI SỬ DỤNG ***
         if 'regression_training_results' not in st.session_state:
             st.session_state.regression_training_results = {}
-        
+
         training_key = f"{target_col}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         st.session_state.regression_training_results[training_key] = {
             'results': results,
@@ -1693,9 +1823,9 @@ class RegressionTrainer:
             'feature_cols': features_to_train,
             'target_col': target_col,
             'test_size': test_size,
-            'timestamp': datetime.now().isoformat()
+            'timestamp': datetime.now().isoformat(),
         }
-        
+
         return results, trained_pipelines, evaluation_frames, features_to_train, X_test, y_test, X_train_final
 
 
@@ -1705,51 +1835,49 @@ class DataPreprocessor:
     def __init__(self):
         self.feature_metadata = {}
         # *** NÂNG CẤP: Pipeline xử lý cho cột số (numeric) ***
-        self.numeric_transformer = Pipeline(steps=[
-            ('imputer', KNNImputer(n_neighbors=5)),  # Dùng KNNImputer để điền giá trị thiếu
-            ('scaler', StandardScaler()) # Chuẩn hóa dữ liệu (đưa về cùng thang đo)
-        ])
+        self.numeric_transformer = Pipeline(
+            steps=[
+                ('imputer', KNNImputer(n_neighbors=5)),  # Dùng KNNImputer để điền giá trị thiếu
+                ('scaler', StandardScaler()),  # Chuẩn hóa dữ liệu (đưa về cùng thang đo)
+            ]
+        )
         # *** NÂNG CẤP: Pipeline xử lý cho cột phân loại (categorical) ***
-        self.categorical_transformer = Pipeline(steps=[
-            # Dùng SimpleImputer
-            ('imputer', SimpleImputer(strategy='most_frequent')),
-            ('onehot', OneHotEncoder(handle_unknown='ignore', sparse_output=False))
-        ])
+        self.categorical_transformer = Pipeline(
+            steps=[
+                # Dùng SimpleImputer
+                ('imputer', SimpleImputer(strategy='most_frequent')),
+                ('onehot', OneHotEncoder(handle_unknown='ignore', sparse_output=False)),
+            ]
+        )
         self.preprocessor = None
 
     def create_preprocessor(self, numeric_features, categorical_features):
         """Tạo một ColumnTransformer để áp dụng các pipeline xử lý khác nhau cho các loại cột khác nhau."""
         if ColumnTransformer is None:
             raise ImportError(
-                "ColumnTransformer không khả dụng. Vui lòng cập nhật scikit-learn >= 0.20 để sử dụng tính năng này.")
+                "ColumnTransformer không khả dụng. Vui lòng cập nhật scikit-learn >= 0.20 để sử dụng tính năng này."
+            )
         transformers = []
         if numeric_features:
-            transformers.append(
-                ('num', self.numeric_transformer, numeric_features))
+            transformers.append(('num', self.numeric_transformer, numeric_features))
         if categorical_features:
-            transformers.append(
-                ('cat', self.categorical_transformer, categorical_features))
+            transformers.append(('cat', self.categorical_transformer, categorical_features))
 
         self.preprocessor = ColumnTransformer(
             transformers=transformers,
-            remainder='passthrough'  # Giữ các cột không được xử lý
+            remainder='passthrough',  # Giữ các cột không được xử lý
         )
         return self.preprocessor
 
     def fit_transform(self, df):
         """Hàm để fit và transform toàn bộ DataFrame."""
-        numeric_features = df.select_dtypes(
-            include=[np.number]).columns.tolist()
-        categorical_features = df.select_dtypes(
-            include=['object', 'category']).columns.tolist()
+        numeric_features = df.select_dtypes(include=[np.number]).columns.tolist()
+        categorical_features = df.select_dtypes(include=['object', 'category']).columns.tolist()
         # Bỏ các cột ID/Name khỏi preprocessor
-        numeric_features = [
-            col for col in numeric_features if 'id' not in col and 'name' not in col]
-        categorical_features = [
-            col for col in categorical_features if 'id' not in col and 'name' not in col]
+        numeric_features = [col for col in numeric_features if 'id' not in col and 'name' not in col]
+        categorical_features = [col for col in categorical_features if 'id' not in col and 'name' not in col]
 
-        preprocessor = self.create_preprocessor(
-            numeric_features, categorical_features)
+        preprocessor = self.create_preprocessor(numeric_features, categorical_features)
         return preprocessor.fit_transform(df)
 
     def analyze_column(self, col_data, col_name):
@@ -1762,8 +1890,7 @@ class DataPreprocessor:
             metadata['std'] = col_data.std()
             metadata['min'] = col_data.min()
             metadata['max'] = col_data.max()
-            metadata['is_target_reg'] = 'score' in col_name.lower(
-            ) or 'gpa' in col_name.lower()
+            metadata['is_target_reg'] = 'score' in col_name.lower() or 'gpa' in col_name.lower()
             metadata['is_target_clf'] = False
         elif pd.api.types.is_object_dtype(col_data) or pd.api.types.is_categorical_dtype(col_data):
             metadata['type'] = 'categorical'
@@ -1774,8 +1901,7 @@ class DataPreprocessor:
             if 5 < metadata['unique'] < 15:  # Giả định cột có 5-15 giá trị duy nhất
                 metadata['is_target_clf'] = False  # Giảm khả năng chọn nhầm
             else:
-                metadata['is_target_clf'] = 'grade' in col_name.lower(
-                ) or 'xep_loai' in col_name.lower()
+                metadata['is_target_clf'] = 'grade' in col_name.lower() or 'xep_loai' in col_name.lower()
             metadata['is_target_reg'] = False
         else:
             metadata['type'] = 'other'
@@ -1792,17 +1918,17 @@ class DataPreprocessor:
     def handle_outliers(self, df, numeric_cols=None, method='iqr', z_threshold=3.0, iqr_factor=1.5):
         """
         XỬ LÝ OUTLIER CHUYÊN NGHIỆP - Sử dụng nhiều phương pháp:
-        
+
         Phương pháp 1: IQR (Interquartile Range) - Phương pháp hộp (Box Plot)
         - Tính Q1 (25%), Q3 (75%), IQR = Q3 - Q1
         - Outlier: < Q1 - 1.5*IQR hoặc > Q3 + 1.5*IQR
         - Phù hợp cho dữ liệu không phân phối chuẩn
-        
+
         Phương pháp 2: Z-Score (Standard Score)
         - Z = (x - mean) / std
         - Outlier: |Z| > threshold (thường là 3)
         - Phù hợp cho dữ liệu phân phối chuẩn
-        
+
         Parameters:
         -----------
         df : DataFrame
@@ -1815,7 +1941,7 @@ class DataPreprocessor:
             Ngưỡng Z-score để xác định outlier
         iqr_factor : float, default 1.5
             Hệ số IQR (thường là 1.5 hoặc 3.0)
-        
+
         Returns:
         --------
         df_cleaned : DataFrame
@@ -1825,70 +1951,70 @@ class DataPreprocessor:
         """
         df_cleaned = df.copy()
         initial_rows = len(df_cleaned)
-        
+
         # Tự động lấy các cột số nếu không chỉ định
         if numeric_cols is None:
             numeric_cols = df_cleaned.select_dtypes(include=[np.number]).columns.tolist()
             # Loại bỏ các cột ID
             numeric_cols = [col for col in numeric_cols if 'id' not in col.lower()]
-        
+
         if not numeric_cols:
             _logger.warning("Không tìm thấy cột số để xử lý outlier.")
             return df_cleaned, {}
-        
-        outlier_info = {
-            'method': method,
-            'columns_processed': numeric_cols,
-            'outliers_removed': {},
-            'total_removed': 0
-        }
-        
+
+        outlier_info = {'method': method, 'columns_processed': numeric_cols, 'outliers_removed': {}, 'total_removed': 0}
+
         # Tạo mask để đánh dấu các dòng outlier
         outlier_mask = pd.Series([False] * len(df_cleaned), index=df_cleaned.index)
-        
+
         for col in numeric_cols:
             if col not in df_cleaned.columns:
                 continue
-                
+
             col_data = df_cleaned[col].dropna()
             if len(col_data) == 0:
                 continue
-            
+
             col_outlier_mask = pd.Series([False] * len(df_cleaned), index=df_cleaned.index)
-            
+
             # Phương pháp IQR
             if method in ['iqr', 'both']:
                 Q1 = col_data.quantile(0.25)
                 Q3 = col_data.quantile(0.75)
                 IQR = Q3 - Q1
-                
+
                 if IQR > 0:  # Tránh chia cho 0
                     lower_bound = Q1 - iqr_factor * IQR
                     upper_bound = Q3 + iqr_factor * IQR
                     col_outlier_mask_iqr = (df_cleaned[col] < lower_bound) | (df_cleaned[col] > upper_bound)
                     col_outlier_mask = col_outlier_mask | col_outlier_mask_iqr
-            
+
             # Phương pháp Z-Score
             if method in ['zscore', 'both']:
                 mean = col_data.mean()
                 std = col_data.std()
-                
+
                 if std > 0:  # Tránh chia cho 0
                     z_scores = np.abs((df_cleaned[col] - mean) / std)
                     col_outlier_mask_zscore = z_scores > z_threshold
                     col_outlier_mask = col_outlier_mask | col_outlier_mask_zscore
-            
+
             # Cập nhật mask tổng
             outlier_mask = outlier_mask | col_outlier_mask
             outlier_info['outliers_removed'][col] = col_outlier_mask.sum()
-        
+
         # Loại bỏ các dòng có outlier
         total_outliers = outlier_mask.sum()
         if total_outliers > 0:
             df_cleaned = df_cleaned[~outlier_mask].copy()
             outlier_info['total_removed'] = total_outliers
-            _logger.info("Đã loại bỏ %d dòng outlier (%.2f%% dữ liệu). Còn lại %d dòng.", total_outliers, (total_outliers/initial_rows*100), len(df_cleaned))
+            _logger.info(
+                "Đã loại bỏ %d dòng outlier (%.2f%% dữ liệu). Còn lại %d dòng.",
+                total_outliers,
+                (total_outliers / initial_rows * 100),
+                len(df_cleaned),
+            )
         else:
             _logger.info("Không phát hiện outlier trong dữ liệu.")
-        
+
         return df_cleaned, outlier_info

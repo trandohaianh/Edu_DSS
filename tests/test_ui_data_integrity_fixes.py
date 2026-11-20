@@ -2,13 +2,14 @@
 chung chung, feature label, màu biểu đồ theo môn, Dataset-card lộ cho Sinh
 viên). Test thuần logic, không cần Streamlit runtime.
 """
+
 from __future__ import annotations
 
 import pandas as pd
 
 
 def test_category_label_never_returns_raw_enum():
-    from dss.services.diagnosis_engine import category_label, CATEGORY_MASTERY_ON_TRACK, CATEGORY_LOW_PRACTICE
+    from dss.services.diagnosis_engine import CATEGORY_LOW_PRACTICE, CATEGORY_MASTERY_ON_TRACK, category_label
 
     assert category_label(CATEGORY_MASTERY_ON_TRACK) == "Tiến độ học tập ổn định"
     assert "_" not in category_label(CATEGORY_LOW_PRACTICE)
@@ -49,17 +50,21 @@ def test_topic_color_is_deterministic_across_calls_and_known_topics_match_spec()
     assert c1 == c2
 
     # Hai môn khác tên nên (thường) ra màu khác nhau.
-    assert topic_color("Môn A") != topic_color("Môn hoàn toàn khác B") or True  # không bắt buộc tuyệt đối (hash collision hiếm)
+    assert (
+        topic_color("Môn A") != topic_color("Môn hoàn toàn khác B") or True
+    )  # không bắt buộc tuyệt đối (hash collision hiếm)
 
 
 def test_intervention_plan_recommendations_differ_across_features():
     from dss.services.clustering_service import compute_intervention_plan
 
-    diff_pct = pd.Series({
-        "final_score": -25.0,
-        "ty_le_diem_danh": -25.0,
-        "so_gio_hoc_tuan": -25.0,
-    })
+    diff_pct = pd.Series(
+        {
+            "final_score": -25.0,
+            "ty_le_diem_danh": -25.0,
+            "so_gio_hoc_tuan": -25.0,
+        }
+    )
     df_plan = compute_intervention_plan(diff_pct, ["final_score", "ty_le_diem_danh", "so_gio_hoc_tuan"])
 
     actions = df_plan["Hành động gợi ý"].tolist()

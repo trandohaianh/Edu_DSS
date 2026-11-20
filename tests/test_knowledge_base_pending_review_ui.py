@@ -3,6 +3,7 @@ document_approval_service — trước đây không có UI nào để duyệt t�
 (document_ingestion không có khái niệm trạng thái, mọi tài liệu tải lên dùng
 được ngay). Kiểm tra bằng source inspection (đúng phong cách dự án cho code UI
 Streamlit khó test trực tiếp)."""
+
 from __future__ import annotations
 
 import inspect
@@ -40,5 +41,5 @@ def test_knowledge_base_tab_legacy_seed_button_never_auto_approves():
     # approve_document CHỈ nên xuất hiện ở khối hàng đợi Chờ duyệt, không phải
     # ngay trong/ngay sau khối nút "Nạp tài liệu mẫu").
     seed_idx = source.index("seed_legacy_knowledge_base_documents")
-    seed_block = source[seed_idx: seed_idx + 400]
+    seed_block = source[seed_idx : seed_idx + 400]
     assert "approve_document" not in seed_block

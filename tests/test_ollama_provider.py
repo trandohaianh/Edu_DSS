@@ -1,5 +1,6 @@
 """Ollama: URL cấu hình qua .env, tự chọn model đã cài, /api/chat streaming,
 báo lỗi nhanh và rõ ràng khi server chưa chạy / chưa pull model."""
+
 from __future__ import annotations
 
 import json
@@ -64,7 +65,9 @@ def test_chat_streams_content(monkeypatch):
         return _Resp(lines=lines)
 
     monkeypatch.setattr(models.requests, "post", _post)
-    out = "".join(models.MultiAIProvider.call_ai_provider(object.__new__(models.MultiAIProvider), "hi", provider="ollama"))
+    out = "".join(
+        models.MultiAIProvider.call_ai_provider(object.__new__(models.MultiAIProvider), "hi", provider="ollama")
+    )
     assert out == "Xin chao"
     assert sent["url"].endswith("/api/chat") and sent["body"]["model"] == "qwen2.5:7b"
     assert sent["body"]["messages"][0]["role"] == "system"
@@ -74,7 +77,9 @@ def test_missing_model_gives_pull_hint(monkeypatch):
     monkeypatch.setattr(models, "_check_ollama_running", lambda *a, **k: True)
     monkeypatch.setattr(models, "list_ollama_models", lambda *a, **k: [])
     monkeypatch.setattr(models.requests, "post", lambda *a, **k: _Resp(status=404))
-    out = "".join(models.MultiAIProvider.call_ai_provider(object.__new__(models.MultiAIProvider), "hi", provider="ollama"))
+    out = "".join(
+        models.MultiAIProvider.call_ai_provider(object.__new__(models.MultiAIProvider), "hi", provider="ollama")
+    )
     assert "ollama pull" in out
 
 
@@ -85,7 +90,9 @@ def test_server_down_fails_fast_without_posting(monkeypatch):
         raise AssertionError("không được gọi /api/chat khi server không chạy")
 
     monkeypatch.setattr(models.requests, "post", _post)
-    out = "".join(models.MultiAIProvider.call_ai_provider(object.__new__(models.MultiAIProvider), "hi", provider="ollama"))
+    out = "".join(
+        models.MultiAIProvider.call_ai_provider(object.__new__(models.MultiAIProvider), "hi", provider="ollama")
+    )
     assert "không kết nối được" in out
 
 

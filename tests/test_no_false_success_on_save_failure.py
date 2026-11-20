@@ -12,6 +12,7 @@ Kiểm tra bằng source inspection (đúng quy ước dự án cho code UI Stre
 gắn với st.button/st.session_state khó test trực tiếp): xác nhận
 show_success_message CHỈ được gán trong nhánh THÀNH CÔNG của try, và có
 show_error_message trung thực trong nhánh except."""
+
 from __future__ import annotations
 
 import inspect
@@ -25,7 +26,7 @@ _APP_ROOT = Path(__file__).resolve().parent.parent
 def test_dashboard_grade_save_does_not_claim_success_on_write_failure():
     source = inspect.getsource(dashboard)
     idx = source.index("Lưu thay đổi điểm vào hệ thống")
-    block = source[idx: idx + 1800]
+    block = source[idx : idx + 1800]
     assert "_save_ok" in block, "Phải theo dõi trạng thái lưu thành công thật (không giả định luôn thành công)."
     assert "show_error_message" in block, "Phải có nhánh báo lỗi trung thực khi lưu thất bại."
     # show_success_message phải nằm trong nhánh `if _save_ok:` — kiểm tra thô bằng
@@ -36,7 +37,7 @@ def test_dashboard_grade_save_does_not_claim_success_on_write_failure():
 def test_warehouse_tab_lms_sync_does_not_claim_success_on_write_failure():
     source = inspect.getsource(warehouse_tab)
     idx = source.index("Đồng bộ dữ liệu từ LMS (Giả lập)")
-    block = source[idx: idx + 2200]
+    block = source[idx : idx + 2200]
     assert "show_error_message" in block, "Phải có nhánh báo lỗi trung thực khi warehouse.save_dataset() thất bại."
     # show_success_message phải nằm TRONG khối try (nhánh thành công), KHÔNG phải
     # sau try/except vô điều kiện như trước khi sửa.

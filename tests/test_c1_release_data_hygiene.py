@@ -4,6 +4,7 @@ An unrelated employee export (name, national ID, phone, address, salary...)
 was once shipped under `dữ liệu/`. These tests stop that class of file from
 coming back: they look only at column HEADERS, never print row values.
 """
+
 from __future__ import annotations
 
 import csv
@@ -15,9 +16,30 @@ SKIP_DIRS = {".venv", "node_modules", "__pycache__", ".pytest_cache", "tests"}
 
 # Column names that identify a person directly or are sensitive HR fields.
 PII_HEADER_TOKENS = {
-    "name", "full name", "họ tên", "ho ten", "id card", "cccd", "cmnd", "national id", "passport",
-    "phone", "sđt", "so dien thoai", "số điện thoại", "address", "địa chỉ", "dia chi",
-    "dob", "date of birth", "ngày sinh", "salary", "lương", "luong", "email", "employee code",
+    "name",
+    "full name",
+    "họ tên",
+    "ho ten",
+    "id card",
+    "cccd",
+    "cmnd",
+    "national id",
+    "passport",
+    "phone",
+    "sđt",
+    "so dien thoai",
+    "số điện thoại",
+    "address",
+    "địa chỉ",
+    "dia chi",
+    "dob",
+    "date of birth",
+    "ngày sinh",
+    "salary",
+    "lương",
+    "luong",
+    "email",
+    "employee code",
 }
 THRESHOLD = 3  # a single "name" column in a synthetic student sample is allowed; 3+ is a person record
 
@@ -37,7 +59,15 @@ def test_no_csv_in_release_tree_has_personal_data_header():
     for path in _release_files({".csv"}):
         try:
             with open(path, encoding="utf-8-sig", errors="replace", newline="") as f:
-                header = next(csv.reader(f, delimiter=";" if path.read_text(encoding="utf-8-sig", errors="replace")[:500].count(";") > 3 else ","), [])
+                header = next(
+                    csv.reader(
+                        f,
+                        delimiter=";"
+                        if path.read_text(encoding="utf-8-sig", errors="replace")[:500].count(";") > 3
+                        else ",",
+                    ),
+                    [],
+                )
         except (OSError, StopIteration):
             continue
         if len(_pii_columns(header)) >= THRESHOLD:

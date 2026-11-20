@@ -7,13 +7,14 @@ Nguyên tắc:
 - Môi trường Phát triển & Demo (Local/Dev): Sử dụng LocalVectorStore phân vùng theo namespace
   (NumPy + JSON metadata) để bảo toàn 100% khả năng chạy độc lập không cần database ngoài.
 """
+
 from __future__ import annotations
 
 import json
-from copy import deepcopy
 import os
 import threading
 from abc import ABC, abstractmethod
+from copy import deepcopy
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -22,7 +23,6 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 from dss.core.data_root import get_data_root
 from dss.core.observability import observed
-
 from dss.services.chunking_service import DocumentChunk
 from dss.services.rag_namespaces import NAMESPACE_STUDENT_LEARNING
 
@@ -34,6 +34,7 @@ def _ordered_document_chunks(chunks):
             return value, str(chunk.get("chunk_id", ""))
         suffix = str(chunk.get("chunk_id", "")).rsplit("#c", 1)[-1]
         return (int(suffix) if suffix.isdecimal() else 0), str(chunk.get("chunk_id", ""))
+
     return sorted(chunks, key=position)
 
 
@@ -76,7 +77,6 @@ class BaseVectorStore(ABC):
         dùng cho quy trình duyệt/từ chối (approve/reject) mà KHÔNG cần xóa rồi
         nạp lại (tốn tính embedding lại từ đầu). Trả False nếu không tìm thấy
         tài liệu."""
-        pass
 
 
 class LocalVectorStore(BaseVectorStore):
@@ -103,7 +103,7 @@ class LocalVectorStore(BaseVectorStore):
         with self._lock:
             if self.meta_file.exists():
                 try:
-                    with open(self.meta_file, "r", encoding="utf-8") as f:
+                    with open(self.meta_file, encoding="utf-8") as f:
                         self._memory_chunks = json.load(f)
                 except Exception:
                     self._memory_chunks = []
@@ -174,8 +174,13 @@ class LocalVectorStore(BaseVectorStore):
             self._save_to_disk()
             return len(new_meta)
 
-    @observed("rag.vector_search", metadata=lambda self, *args, **kwargs: {
-        "backend": "local", "top_k": args[1] if len(args) > 1 else kwargs.get("top_k", 5)})
+    @observed(
+        "rag.vector_search",
+        metadata=lambda self, *args, **kwargs: {
+            "backend": "local",
+            "top_k": args[1] if len(args) > 1 else kwargs.get("top_k", 5),
+        },
+    )
     def search(
         self,
         query_embedding: np.ndarray | List[float],
@@ -225,9 +230,7 @@ class LocalVectorStore(BaseVectorStore):
             if not self._memory_chunks:
                 return False
 
-            keep_indices = [
-                i for i, c in enumerate(self._memory_chunks) if c.get("document_id") != document_id
-            ]
+            keep_indices = [i for i, c in enumerate(self._memory_chunks) if c.get("document_id") != document_id]
             if len(keep_indices) == len(self._memory_chunks):
                 return False
 
@@ -239,13 +242,19 @@ class LocalVectorStore(BaseVectorStore):
             return True
 
     def get_document_chunks(self, document_id: str, *, course_id: str) -> List[Dict[str, Any]]:
-        if not isinstance(document_id, str) or not document_id.strip() or not isinstance(course_id, str) or not course_id.strip():
+        if (
+            not isinstance(document_id, str)
+            or not document_id.strip()
+            or not isinstance(course_id, str)
+            or not course_id.strip()
+        ):
             raise ValueError("Exact document_id and course_id are required.")
         with self._lock:
             chunks = [
                 deepcopy({key: value for key, value in chunk.items() if key != "embedding"})
                 for chunk in self._memory_chunks
-                if chunk.get("document_id") == document_id and chunk.get("course_id") == course_id
+                if chunk.get("document_id") == document_id
+                and chunk.get("course_id") == course_id
                 and chunk.get("namespace", self.namespace) == self.namespace
             ]
         return _ordered_document_chunks(chunks)
@@ -315,7 +324,9 @@ class PgVectorStore(BaseVectorStore):
     app.organization_id`, cùng cơ chế RLS đã dùng cho các repository khác.
     """
 
-    def __init__(self, connection_url: str, organization_id: Optional[int] = None, namespace: str = NAMESPACE_STUDENT_LEARNING):
+    def __init__(
+        self, connection_url: str, organization_id: Optional[int] = None, namespace: str = NAMESPACE_STUDENT_LEARNING
+    ):
         self.connection_url = connection_url
         self.namespace = namespace
         if organization_id is None:
@@ -328,7 +339,9 @@ class PgVectorStore(BaseVectorStore):
 
     def _test_connection(self) -> None:
         try:
-            from sqlalchemy import create_engine, text as sa_text
+            from sqlalchemy import create_engine
+            from sqlalchemy import text as sa_text
+
             self._engine = create_engine(self.connection_url, pool_pre_ping=True, future=True)
             with self._engine.connect() as conn:
                 conn.execute(sa_text("SELECT 1"))
@@ -363,9 +376,7 @@ class PgVectorStore(BaseVectorStore):
                 if c.embedding is None:
                     continue
                 doc_row = conn.execute(
-                    sa_text(
-                        "SELECT id FROM rag_documents WHERE organization_id = :org_id AND document_id = :doc_id"
-                    ),
+                    sa_text("SELECT id FROM rag_documents WHERE organization_id = :org_id AND document_id = :doc_id"),
                     {"org_id": org_id, "doc_id": c.document_id},
                 ).fetchone()
                 if doc_row:
@@ -397,7 +408,8 @@ class PgVectorStore(BaseVectorStore):
                             "RETURNING id"
                         ),
                         {
-                            "org_id": org_id, "doc_id": c.document_id,
+                            "org_id": org_id,
+                            "doc_id": c.document_id,
                             "title": meta.get("title", c.document_id),
                             "source_type": meta.get("source_type", "DEMO"),
                             "namespace": self.namespace,
@@ -428,16 +440,25 @@ class PgVectorStore(BaseVectorStore):
                         "embedding_model = EXCLUDED.embedding_model, updated_at = now()"
                     ),
                     {
-                        "document_id": doc_row_id, "chunk_id": c.chunk_id, "content": c.content,
-                        "embedding": embedding_literal, "source": (c.metadata or {}).get("source"),
-                        "chunk_metadata": json.dumps(c.metadata or {}), "embedding_model": embedding_model_name,
+                        "document_id": doc_row_id,
+                        "chunk_id": c.chunk_id,
+                        "content": c.content,
+                        "embedding": embedding_literal,
+                        "source": (c.metadata or {}).get("source"),
+                        "chunk_metadata": json.dumps(c.metadata or {}),
+                        "embedding_model": embedding_model_name,
                     },
                 )
                 inserted += 1
         return inserted
 
-    @observed("rag.vector_search", metadata=lambda self, *args, **kwargs: {
-        "backend": "pgvector", "top_k": args[1] if len(args) > 1 else kwargs.get("top_k", 5)})
+    @observed(
+        "rag.vector_search",
+        metadata=lambda self, *args, **kwargs: {
+            "backend": "pgvector",
+            "top_k": args[1] if len(args) > 1 else kwargs.get("top_k", 5),
+        },
+    )
     def search(
         self,
         query_embedding: np.ndarray | List[float],
@@ -486,13 +507,18 @@ class PgVectorStore(BaseVectorStore):
                 scope = metadata.get("permission_scope")
                 if scope and scope != filter_scope:
                     continue
-            results.append({
-                "chunk_id": row.chunk_id, "document_id": row.document_id, "content": row.content,
-                "course_id": row.course_id, "metadata": metadata,
-                "relevance_score": 1.0 - float(row.distance),  # cosine distance -> similarity
-                "source": row.source or metadata.get("source", "pgvector"),
-                "title": row.title or metadata.get("title", "Tài liệu học tập"),
-            })
+            results.append(
+                {
+                    "chunk_id": row.chunk_id,
+                    "document_id": row.document_id,
+                    "content": row.content,
+                    "course_id": row.course_id,
+                    "metadata": metadata,
+                    "relevance_score": 1.0 - float(row.distance),  # cosine distance -> similarity
+                    "source": row.source or metadata.get("source", "pgvector"),
+                    "title": row.title or metadata.get("title", "Tài liệu học tập"),
+                }
+            )
         return results
 
     def delete_document(self, document_id: str) -> bool:
@@ -510,27 +536,54 @@ class PgVectorStore(BaseVectorStore):
             return result.rowcount > 0
 
     def get_document_chunks(self, document_id: str, *, course_id: str) -> List[Dict[str, Any]]:
-        if not isinstance(document_id, str) or not document_id.strip() or not isinstance(course_id, str) or not course_id.strip():
+        if (
+            not isinstance(document_id, str)
+            or not document_id.strip()
+            or not isinstance(course_id, str)
+            or not course_id.strip()
+        ):
             raise ValueError("Exact document_id and course_id are required.")
         if not self._is_connected:
             raise RuntimeError("PostgreSQL document storage is unavailable.")
         from sqlalchemy import text as sa_text
+
         organization_id = self._require_organization_id()
         with self._engine.begin() as connection:
-            connection.execute(sa_text("SELECT set_config('app.organization_id', :scope, true)"),
-                               {"scope": str(organization_id)})
-            rows = connection.execute(sa_text(
-                "SELECT rc.chunk_id, rc.content, rc.source, rc.chunk_metadata, rd.document_id, rd.course_code AS course_id, rd.title "
-                "FROM rag_chunks rc JOIN rag_documents rd ON rd.id = rc.document_id "
-                "WHERE rd.organization_id = :school AND rd.namespace = :namespace "
-                "AND rd.document_id = :document AND rd.course_code = :course AND rd.is_current = true"
-            ), {"school": organization_id, "namespace": self.namespace,
-                "document": document_id, "course": course_id}).mappings().all()
-        return _ordered_document_chunks([{
-            "chunk_id": row["chunk_id"], "document_id": row["document_id"],
-            "course_id": row["course_id"], "content": row["content"],
-            "source": row["source"], "title": row["title"], "metadata": row["chunk_metadata"] or {},
-        } for row in rows])
+            connection.execute(
+                sa_text("SELECT set_config('app.organization_id', :scope, true)"), {"scope": str(organization_id)}
+            )
+            rows = (
+                connection.execute(
+                    sa_text(
+                        "SELECT rc.chunk_id, rc.content, rc.source, rc.chunk_metadata, rd.document_id, rd.course_code AS course_id, rd.title "
+                        "FROM rag_chunks rc JOIN rag_documents rd ON rd.id = rc.document_id "
+                        "WHERE rd.organization_id = :school AND rd.namespace = :namespace "
+                        "AND rd.document_id = :document AND rd.course_code = :course AND rd.is_current = true"
+                    ),
+                    {
+                        "school": organization_id,
+                        "namespace": self.namespace,
+                        "document": document_id,
+                        "course": course_id,
+                    },
+                )
+                .mappings()
+                .all()
+            )
+        return _ordered_document_chunks(
+            [
+                {
+                    "chunk_id": row["chunk_id"],
+                    "document_id": row["document_id"],
+                    "course_id": row["course_id"],
+                    "content": row["content"],
+                    "source": row["source"],
+                    "title": row["title"],
+                    "metadata": row["chunk_metadata"] or {},
+                }
+                for row in rows
+            ]
+        )
 
     def list_documents(self, namespace: Optional[str] = None) -> List[Dict[str, Any]]:
         if not self._is_connected:
@@ -552,13 +605,20 @@ class PgVectorStore(BaseVectorStore):
             ).fetchall()
         return [
             {
-                "document_id": r.document_id, "title": r.title, "course_id": r.course_id,
-                "permission_scope": r.namespace, "source": r.source_type,
+                "document_id": r.document_id,
+                "title": r.title,
+                "course_id": r.course_id,
+                "permission_scope": r.namespace,
+                "source": r.source_type,
                 "created_at": r.created_at.isoformat() if r.created_at else None,
-                "doc_type": r.doc_type, "issuer": r.issuer, "official_ref": r.official_ref,
-                "status": r.status, "approved_by": r.approved_by,
+                "doc_type": r.doc_type,
+                "issuer": r.issuer,
+                "official_ref": r.official_ref,
+                "status": r.status,
+                "approved_by": r.approved_by,
                 "approved_at": r.approved_at.isoformat() if r.approved_at else None,
-                "review_note": r.review_note, "content_hash": r.content_hash,
+                "review_note": r.review_note,
+                "content_hash": r.content_hash,
                 "effective_from": r.effective_from.isoformat() if r.effective_from else None,
                 "expires_at": r.expires_at.isoformat() if r.expires_at else None,
             }
@@ -575,8 +635,15 @@ class PgVectorStore(BaseVectorStore):
         from sqlalchemy import text as sa_text
 
         allowed_columns = {
-            "status", "approved_by", "approved_at", "review_note",
-            "doc_type", "issuer", "official_ref", "effective_from", "expires_at",
+            "status",
+            "approved_by",
+            "approved_at",
+            "review_note",
+            "doc_type",
+            "issuer",
+            "official_ref",
+            "effective_from",
+            "expires_at",
             "content_hash",
         }
         set_fields = {k: v for k, v in updates.items() if k in allowed_columns}
@@ -608,6 +675,7 @@ def get_vector_store(
 
     if not force_local and is_postgres_enabled("RAG"):
         from dss.db.session import _resolve_database_url
+
         pg_url = os.environ.get("PGVECTOR_URL") or _resolve_database_url()
         pg_store = PgVectorStore(pg_url, namespace=namespace)
         if not pg_store.is_available():

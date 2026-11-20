@@ -22,10 +22,11 @@ Kiến trúc (tách 2 tầng, giống `document_governance.py` + `vector_store.p
 Nguyên tắc: `resolve_regulation()` là NƠI DUY NHẤT quyết định đúng phiên bản
 quy chế — LLM/Agent KHÔNG BAO GIỜ tự chọn quy chế.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime, timezone
 from typing import Any, Dict, List, Optional
 
 STATUS_DRAFT = "DRAFT"
@@ -99,18 +100,20 @@ def resolve_regulation(
        viên cùng tenant/program/cohort nhưng bị loại vì lý do cụ thể — giúp
        Admin chẩn đoán nhanh, KHÔNG lộ dữ liệu của tenant khác).
     """
-    resolve_date = _parse_date(at_date) or datetime.now(timezone.utc).date()
+    resolve_date = _parse_date(at_date) or datetime.now(UTC).date()
 
     # Bước 1+2: lọc cứng tenant + program + cohort (KHÔNG lộ candidate của tenant khác
     # trong bất kỳ nhánh trả lời nào phía dưới).
     same_scope = [
-        r for r in regulations
+        r
+        for r in regulations
         if r.organization_id == organization_id and r.program_id == program_id and r.cohort == cohort
     ]
 
     if not same_scope:
         return RegulationResolution(
-            status="NOT_FOUND", regulation=None,
+            status="NOT_FOUND",
+            regulation=None,
             message=f"Không có quy chế nào cho program='{program_id}', cohort='{cohort}'.",
             candidates_considered=0,
         )
@@ -118,35 +121,44 @@ def resolve_regulation(
     approved = [r for r in same_scope if r.status == STATUS_APPROVED]
     if not approved:
         return RegulationResolution(
-            status="PENDING_ONLY", regulation=None,
+            status="PENDING_ONLY",
+            regulation=None,
             message="Có quy chế cho phạm vi này nhưng CHƯA có bản nào ở trạng thái APPROVED.",
             candidates_considered=len(same_scope),
         )
 
     in_effect = [
-        r for r in approved
+        r
+        for r in approved
         if _parse_date(r.effective_from) <= resolve_date
         and (_parse_date(r.effective_to) is None or resolve_date <= _parse_date(r.effective_to))
     ]
 
     if not in_effect:
         future = [r for r in approved if _parse_date(r.effective_from) > resolve_date]
-        expired = [r for r in approved if _parse_date(r.effective_to) is not None and _parse_date(r.effective_to) < resolve_date]
+        expired = [
+            r
+            for r in approved
+            if _parse_date(r.effective_to) is not None and _parse_date(r.effective_to) < resolve_date
+        ]
         if future and not expired:
             return RegulationResolution(
-                status="FUTURE_ONLY", regulation=None,
+                status="FUTURE_ONLY",
+                regulation=None,
                 message=f"Quy chế cho phạm vi này chỉ có hiệu lực TỪ tương lai (sớm nhất: {min(f.effective_from for f in future)}).",
                 candidates_considered=len(approved),
             )
         return RegulationResolution(
-            status="EXPIRED_ONLY", regulation=None,
+            status="EXPIRED_ONLY",
+            regulation=None,
             message="Quy chế đã duyệt cho phạm vi này đều đã HẾT hiệu lực tại thời điểm yêu cầu.",
             candidates_considered=len(approved),
         )
 
     best = max(in_effect, key=lambda r: r.version)
     return RegulationResolution(
-        status="ok", regulation=best,
+        status="ok",
+        regulation=best,
         message=f"Áp dụng quy chế version={best.version} (hiệu lực từ {best.effective_from}).",
         candidates_considered=len(same_scope),
     )

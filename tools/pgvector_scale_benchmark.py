@@ -7,6 +7,7 @@ worst-case-ish proxy for latency only; they say nothing about retrieval quality.
 
 Usage: python tools/pgvector_scale_benchmark.py "postgresql://user:pw@host:port/db"
 """
+
 from __future__ import annotations
 
 import statistics
@@ -33,8 +34,9 @@ def timed_queries(cur, rng, org_id=1):
         q /= np.linalg.norm(q)
         t0 = time.perf_counter()
         cur.execute(
-            "SELECT id FROM bench_chunks WHERE organization_id = %s "
-            "ORDER BY embedding <=> %s::vector LIMIT %s", (org_id, vec_literal(q), LIMIT))
+            "SELECT id FROM bench_chunks WHERE organization_id = %s ORDER BY embedding <=> %s::vector LIMIT %s",
+            (org_id, vec_literal(q), LIMIT),
+        )
         cur.fetchall()
         lat.append((time.perf_counter() - t0) * 1000)
     lat.sort()
@@ -48,7 +50,9 @@ def main(url):
     cur = conn.cursor()
     cur.execute("CREATE EXTENSION IF NOT EXISTS vector")
     cur.execute("DROP TABLE IF EXISTS bench_chunks")
-    cur.execute(f"CREATE TABLE bench_chunks (id bigserial PRIMARY KEY, organization_id int NOT NULL, embedding vector({DIM}))")
+    cur.execute(
+        f"CREATE TABLE bench_chunks (id bigserial PRIMARY KEY, organization_id int NOT NULL, embedding vector({DIM}))"
+    )
     cur.execute("CREATE INDEX ON bench_chunks (organization_id)")
     loaded = 0
     print(f"{'rows(org=1)':>12} {'mode':>6} {'p50 ms':>8} {'p95 ms':>8} {'max ms':>8}")
@@ -69,7 +73,9 @@ def main(url):
     build = time.perf_counter() - t0
     cur.execute("SET hnsw.ef_search = 100")
     r = timed_queries(cur, rng)
-    print(f"{SIZES[-1]:>12,} {'hnsw':>6} {r['p50']:>8.1f} {r['p95']:>8.1f} {r['max']:>8.1f}   (build {build:.0f}s, ef_search=100)")
+    print(
+        f"{SIZES[-1]:>12,} {'hnsw':>6} {r['p50']:>8.1f} {r['p95']:>8.1f} {r['max']:>8.1f}   (build {build:.0f}s, ef_search=100)"
+    )
     cur.execute("DROP TABLE bench_chunks")
 
 

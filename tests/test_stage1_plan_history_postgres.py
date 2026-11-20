@@ -1,7 +1,8 @@
 """Live PostgreSQL/RLS checks; requires an isolated migrated test database."""
-from concurrent.futures import ThreadPoolExecutor
+
 import os
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 
@@ -14,6 +15,7 @@ pytestmark = pytest.mark.skipif(not APP_URL or not OWNER_URL, reason="Isolated P
 def pg_history(monkeypatch):
     from sqlalchemy import create_engine, text
     from sqlalchemy.orm import Session
+
     from dss.db.models import Organization
     from dss.db.session import reset_engine_for_tests
     from dss.services import auth_service
@@ -33,9 +35,15 @@ def pg_history(monkeypatch):
     monkeypatch.setenv("EDUDSS_ORGANIZATION_ID", str(ids[0]))
     monkeypatch.setenv("EDUDSS_LEARNING_PLANS_STORE", "postgres")
     student_code = f"stage1-{uuid.uuid4().hex[:24]}"
-    monkeypatch.setattr(auth_service, "current_user", lambda: {
-        "username": student_code, "student_id": student_code, "role": "Sinh viên",
-    })
+    monkeypatch.setattr(
+        auth_service,
+        "current_user",
+        lambda: {
+            "username": student_code,
+            "student_id": student_code,
+            "role": "Sinh viên",
+        },
+    )
     reset_engine_for_tests()
     try:
         yield ids, student_code
@@ -50,6 +58,7 @@ def pg_history(monkeypatch):
 def _plan(student_code, course="CS101"):
     from dss.services.learning_plan import learning_plan_generator
     from dss.services.learning_profile import StudentLearningProfile
+
     return learning_plan_generator.generate_plan(
         StudentLearningProfile.build_from_lms_records(student_code, course, {"quiz_score": 4}),
     )
@@ -57,6 +66,7 @@ def _plan(student_code, course="CS101"):
 
 def test_postgres_first_owner_concurrent_versions_and_retries(pg_history):
     from dss.services import learning_plan_history as history
+
     _, student_code = pg_history
     plans = [_plan(student_code) for _ in range(6)]
     with ThreadPoolExecutor(max_workers=6) as executor:
@@ -71,6 +81,7 @@ def test_postgres_first_owner_concurrent_versions_and_retries(pg_history):
 
 def test_postgres_school_isolation_course_versions_and_progress(pg_history, monkeypatch):
     from dss.services import learning_plan_history as history
+
     schools, student_code = pg_history
     first = history.save_learning_plan(student_code, _plan(student_code))
     history.set_activity_completed(student_code, first["plan"]["plan_id"], 0, True)

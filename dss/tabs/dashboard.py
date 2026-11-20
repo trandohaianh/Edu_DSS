@@ -1,12 +1,13 @@
 """Shared runtime imports for Streamlit tab modules."""
+
 from dss.config import *  # noqa: F403
 from dss.core.data_helpers import feature_label
 from dss.core.init_app import clear_all_session_state_for_new_data
 from dss.core.roles import ALL_TABS, HOME_TAB_LABEL, filter_tabs_for_role
+from dss.core.target_utils import is_id_like
 from dss.services import model_service
 from dss.services.model_service import compute_lecturer_dashboard_overview
 from dss.tabs import ui_kit
-from dss.core.target_utils import is_id_like
 
 
 def _format_activity_timestamp(ts) -> str:
@@ -64,16 +65,9 @@ def render_dashboard_activity_feed(wh, ss):
     latest_training = _dashboard_training_summary(ss)
     prediction_history_from_wh = wh.get_history("prediction", limit=5)
     activity_history = wh.get_merged_recent_activities(limit=25)
-    has_batch_predictions = (
-        "clf_batch_results_file" in ss or "reg_batch_results_file" in ss
-    )
+    has_batch_predictions = "clf_batch_results_file" in ss or "reg_batch_results_file" in ss
 
-    if (
-        activity_history
-        or latest_training
-        or prediction_history_from_wh
-        or has_batch_predictions
-    ):
+    if activity_history or latest_training or prediction_history_from_wh or has_batch_predictions:
         st.markdown("---")
         c1, c2 = st.columns([4, 1], vertical_alignment="center")
         with c1:
@@ -92,9 +86,7 @@ def render_dashboard_activity_feed(wh, ss):
             act_time = _format_activity_timestamp(act.get("timestamp"))
             atype = act.get("activity_type", "Hoạt động")
             desc = act.get("description", "")
-            st.markdown(
-                f"- **{atype}** · {desc} · _{act_time}_"
-            )
+            st.markdown(f"- **{atype}** · {desc} · _{act_time}_")
         st.markdown("---")
 
     if latest_training:
@@ -125,18 +117,12 @@ def render_dashboard_activity_feed(wh, ss):
                 label = item.get("prediction")
                 probabilities = meta.get("probabilities")
                 weak_features = meta.get("weak_features", [])
-                st.markdown(
-                    f"- **Phân loại** · Mô hình: `{model_name}` · Kết quả: **{label}** · {predicted_at}"
-                )
+                st.markdown(f"- **Phân loại** · Mô hình: `{model_name}` · Kết quả: **{label}** · {predicted_at}")
                 if probabilities:
-                    probs_str = ", ".join(
-                        [f"{k}: {v * 100:.1f}%" for k, v in probabilities.items()]
-                    )
+                    probs_str = ", ".join([f"{k}: {v * 100:.1f}%" for k, v in probabilities.items()])
                     st.markdown(f"  - Xác suất: {probs_str}")
                 if weak_features:
-                    st.markdown(
-                        f"  - Cần cải thiện: {', '.join(weak_features[:5])}"
-                    )
+                    st.markdown(f"  - Cần cải thiện: {', '.join(weak_features[:5])}")
             elif "value" in meta:
                 value = item.get("prediction")
                 try:
@@ -149,17 +135,11 @@ def render_dashboard_activity_feed(wh, ss):
                     f"- **Hồi quy** · Mô hình: `{model_name}` · Dự đoán: **{vdisp}** ({grade_label}) · {predicted_at}"
                 )
                 if confidence_interval:
-                    st.markdown(
-                        f"  - Khoảng tin cậy (ước tính): ±{confidence_interval:.2f}"
-                    )
+                    st.markdown(f"  - Khoảng tin cậy (ước tính): ±{confidence_interval:.2f}")
 
     if "clf_batch_results_file" in ss:
         df_clf_batch = ss["clf_batch_results_file"]
-        pred_cols = [
-            c
-            for c in df_clf_batch.columns
-            if "dự_đoán" in c.lower() or "pred" in c.lower()
-        ]
+        pred_cols = [c for c in df_clf_batch.columns if "dự_đoán" in c.lower() or "pred" in c.lower()]
         if pred_cols:
             col = pred_cols[0]
             st.markdown("#### Dự đoán file (phân loại)")
@@ -169,18 +149,12 @@ def render_dashboard_activity_feed(wh, ss):
 
     if "reg_batch_results_file" in ss:
         df_reg_batch = ss["reg_batch_results_file"]
-        pred_cols = [
-            c
-            for c in df_reg_batch.columns
-            if "dự_đoán" in c.lower() or "pred" in c.lower()
-        ]
+        pred_cols = [c for c in df_reg_batch.columns if "dự_đoán" in c.lower() or "pred" in c.lower()]
         if pred_cols:
             col = pred_cols[0]
             st.markdown("#### Dự đoán file (hồi quy)")
             st.markdown(f"- Số bản ghi: **{len(df_reg_batch)}**")
-            st.markdown(
-                f"- Giá trị trung bình dự đoán: **{df_reg_batch[col].mean():.2f}**"
-            )
+            st.markdown(f"- Giá trị trung bình dự đoán: **{df_reg_batch[col].mean():.2f}**")
 
 
 def _render_dashboard_toolbar_header():
@@ -243,7 +217,10 @@ def _render_grade_editor(df, wh):
                         _save_ok = True
                     except Exception:
                         from dss.core.logging_config import get_logger
-                        get_logger(__name__).exception("Lưu thay đổi điểm vào kho dữ liệu thất bại (mã EDSS-GRADE-SAVE-001).")
+
+                        get_logger(__name__).exception(
+                            "Lưu thay đổi điểm vào kho dữ liệu thất bại (mã EDSS-GRADE-SAVE-001)."
+                        )
                 # FINAL PRODUCTION GAP CLOSURE (Phần 3/4): KHÔNG hiện "Đã lưu"
                 # nếu wh.save_dataset() thực ra đã lỗi thầm lặng — trước đây
                 # luôn hiện thành công dù save that bai, khiến Giảng viên tưởng
@@ -313,8 +290,20 @@ def _render_quick_actions(current_role="Giảng viên / CVHT"):
     lại cơ chế `_pending_nav_target`."""
     _qa_items = [
         ("cluster", "Phân cụm & gợi ý", "Nhóm sinh viên theo kết quả và hành vi học tập.", "Phân cụm", "Mở phân cụm"),
-        ("train", "Huấn luyện & dự đoán", "Huấn luyện, đánh giá và chạy mô hình dự đoán kết quả học tập.", "Huấn luyện", "Mở huấn luyện"),
-        ("ai", "Trợ lý AI", "Lập kế hoạch hỗ trợ cá nhân hoá cho từng sinh viên, có dẫn nguồn.", "Tư vấn", "Mở Trợ lý AI"),
+        (
+            "train",
+            "Huấn luyện & dự đoán",
+            "Huấn luyện, đánh giá và chạy mô hình dự đoán kết quả học tập.",
+            "Huấn luyện",
+            "Mở huấn luyện",
+        ),
+        (
+            "ai",
+            "Trợ lý AI",
+            "Lập kế hoạch hỗ trợ cá nhân hoá cho từng sinh viên, có dẫn nguồn.",
+            "Tư vấn",
+            "Mở Trợ lý AI",
+        ),
     ]
     _qa_cols = st.columns(3, gap="medium")
     _tabs_for_role = filter_tabs_for_role(ALL_TABS, current_role)
@@ -322,8 +311,7 @@ def _render_quick_actions(current_role="Giảng viên / CVHT"):
         with _col:
             with st.container(border=True, key=f"lect_quick_{_kind}"):
                 st.markdown(
-                    f"<div class='dss-lect-quick-title'>{_title}</div>"
-                    f"<p class='dss-lect-quick-desc'>{_desc}</p>",
+                    f"<div class='dss-lect-quick-title'>{_title}</div><p class='dss-lect-quick-desc'>{_desc}</p>",
                     unsafe_allow_html=True,
                 )
                 if st.button(_cta, key=f"lect_quick_btn_{_kind}", width="stretch"):
@@ -387,8 +375,18 @@ def main_dashboard_tab(df, wh=None):
     ui_kit.kpi_row(
         [
             ("👥 Tổng số sinh viên", f"{len(df):,}", None, None),
-            ("🎓 GPA dự đoán trung bình", f"{avg_predicted:.2f}" if avg_predicted is not None else "—", None, "success"),
-            ("⚠️ Nguy cơ học tập cao", n_high_risk if n_high_risk is not None else "—", ui_kit.RISK_RELATIVE_CAPTION, "danger"),
+            (
+                "🎓 GPA dự đoán trung bình",
+                f"{avg_predicted:.2f}" if avg_predicted is not None else "—",
+                None,
+                "success",
+            ),
+            (
+                "⚠️ Nguy cơ học tập cao",
+                n_high_risk if n_high_risk is not None else "—",
+                ui_kit.RISK_RELATIVE_CAPTION,
+                "danger",
+            ),
             (f"🎯 {_metric_label}", _metric_display, _metric_caption, "purple"),
         ]
     )
@@ -472,14 +470,23 @@ def main_dashboard_tab(df, wh=None):
                     ]
                 )
                 fig_gpa.update_layout(
-                    template="plotly_white", height=300, margin=dict(t=10, b=10),
-                    showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=-0.35, font=dict(size=9)),
-                    annotations=[dict(text=f"{len(_predicted_values):,}<br>sinh viên", x=0.5, y=0.5, font_size=14, showarrow=False)],
+                    template="plotly_white",
+                    height=300,
+                    margin=dict(t=10, b=10),
+                    showlegend=True,
+                    legend=dict(orientation="h", yanchor="bottom", y=-0.35, font=dict(size=9)),
+                    annotations=[
+                        dict(
+                            text=f"{len(_predicted_values):,}<br>sinh viên", x=0.5, y=0.5, font_size=14, showarrow=False
+                        )
+                    ],
                 )
                 st.plotly_chart(fig_gpa, width="stretch", key="lecturer_dash_gpa_donut")
                 st.caption(f"Phân loại theo điểm dự đoán (`{overview['target_col']}`) của chính lớp học này.")
             else:
-                ui_kit.empty_state("Chưa có dữ liệu để phân bố.", hint="Cần một mô hình Production hồi quy cho lớp này.")
+                ui_kit.empty_state(
+                    "Chưa có dữ liệu để phân bố.", hint="Cần một mô hình Production hồi quy cho lớp này."
+                )
 
     with col_factors:
         with st.container(border=True):
@@ -489,8 +496,11 @@ def main_dashboard_tab(df, wh=None):
                 _fi_df = model_service.get_production_feature_importance(overview["pipeline"], overview["feature_cols"])
             if not _fi_df.empty:
                 fig_fi = px.bar(
-                    _fi_df.sort_values("Importance (%)"), x="Importance (%)", y="Feature",
-                    orientation="h", text="Importance (%)",
+                    _fi_df.sort_values("Importance (%)"),
+                    x="Importance (%)",
+                    y="Feature",
+                    orientation="h",
+                    text="Importance (%)",
                 )
                 fig_fi.update_traces(marker_color="#1d4ed8", textposition="outside")
                 fig_fi.update_layout(template="plotly_white", height=300, margin=dict(t=10, b=10), showlegend=False)
@@ -516,7 +526,10 @@ def main_dashboard_tab(df, wh=None):
         else:
             _mcol1.metric("Mô hình Production", "—")
         _recent_for_status = wh.get_recent_activities(limit=1) if wh else []
-        _mcol2.metric("Hoạt động gần nhất", _format_activity_timestamp(_recent_for_status[0].get("timestamp")) if _recent_for_status else "—")
+        _mcol2.metric(
+            "Hoạt động gần nhất",
+            _format_activity_timestamp(_recent_for_status[0].get("timestamp")) if _recent_for_status else "—",
+        )
         _missing_pct = float(df.isna().mean().mean() * 100) if len(df.columns) else 0.0
         _mcol3.metric("Dữ liệu thiếu (trung bình)", f"{_missing_pct:.1f}%")
 
@@ -530,15 +543,19 @@ def main_dashboard_tab(df, wh=None):
             _rows_all = overview["high_risk_students"]
             with _hdr_search:
                 _hr_query = st.text_input(
-                    " ", placeholder="🔎 Tìm theo mã SV...",
-                    label_visibility="collapsed", key="highrisk_table_search",
+                    " ",
+                    placeholder="🔎 Tìm theo mã SV...",
+                    label_visibility="collapsed",
+                    key="highrisk_table_search",
                 )
             _rows = [r for r in _rows_all if not _hr_query or _hr_query.lower() in str(r["id"]).lower()][:20]
             _table_df = pd.DataFrame(
                 [
                     {
                         "Mã SV": r["id"],
-                        "Điểm hiện tại": round(r["current"], 2) if isinstance(r["current"], (int, float)) else r["current"],
+                        "Điểm hiện tại": round(r["current"], 2)
+                        if isinstance(r["current"], (int, float))
+                        else r["current"],
                         "Điểm dự báo": round(r["predicted"], 2),
                         "Mức rủi ro": "🔴 Cao",
                         "Yếu tố chính": r["top_factor"] or "—",
@@ -571,9 +588,13 @@ def main_dashboard_tab(df, wh=None):
                     selection_mode="single-row",
                     key="lecturer_high_risk_table",
                 )
-                st.caption(f"Hiển thị {len(_rows)} / {len(_rows_all)} sinh viên rủi ro cao — chọn 1 dòng để xem chi tiết.")
+                st.caption(
+                    f"Hiển thị {len(_rows)} / {len(_rows_all)} sinh viên rủi ro cao — chọn 1 dòng để xem chi tiết."
+                )
 
-                _selected_rows = list(_event.selection.get("rows", [])) if _event and getattr(_event, "selection", None) else []
+                _selected_rows = (
+                    list(_event.selection.get("rows", [])) if _event and getattr(_event, "selection", None) else []
+                )
                 if _selected_rows:
                     _sel = _table_df.iloc[_selected_rows[0]]
                     with st.container(border=True):
@@ -585,7 +606,9 @@ def main_dashboard_tab(df, wh=None):
                         st.caption(f"Yếu tố chính cần cải thiện: **{_sel['Yếu tố chính']}**")
                         if st.button("🤖 Xem tư vấn AI cho sinh viên này", key="goto_ai_from_highrisk"):
                             st.session_state["llm_student_select"] = _sel["Mã SV"]
-                            _target_tabs = [t for t in filter_tabs_for_role(ALL_TABS, "Giảng viên / CVHT") if t != HOME_TAB_LABEL]
+                            _target_tabs = [
+                                t for t in filter_tabs_for_role(ALL_TABS, "Giảng viên / CVHT") if t != HOME_TAB_LABEL
+                            ]
                             _ai_tab = next((t for t in _target_tabs if "Tư vấn" in t), None)
                             if _ai_tab:
                                 st.session_state["_pending_nav_target"] = _ai_tab
@@ -604,11 +627,7 @@ def main_dashboard_tab(df, wh=None):
     # ra đầu tiên.
     # ========================================================================
     ui_kit.subsection_header("Phân tích chi tiết điểm số & xếp loại", icon="🔍")
-    tab_scores, tab_grades, tab_more = st.tabs([
-        "📊 Phân tích Điểm số",
-        "🏆 Phân tích Xếp loại",
-        "📈 Thêm thông tin"
-    ])
+    tab_scores, tab_grades, tab_more = st.tabs(["📊 Phân tích Điểm số", "🏆 Phân tích Xếp loại", "📈 Thêm thông tin"])
 
     # ========================================================================
     # TAB 1: PHÂN TÍCH ĐIỂM SỐ
@@ -616,31 +635,44 @@ def main_dashboard_tab(df, wh=None):
     with tab_scores:
         st.markdown("### Phân tích Điểm số")
         st.markdown("**Mục đích:** Hiểu phân bố điểm số của lớp (phân phối, trung vị, outlier)")
-        
+
         if gpa_col_name and pd.api.types.is_numeric_dtype(df[gpa_col_name]):
             # Hiển thị bảng thống kê chi tiết trước (ngắn, dễ hiểu)
             st.markdown("#### Thống kê Chi tiết")
             desc_stats = df[gpa_col_name].describe()
-            desc_df = pd.DataFrame({
-                'Chỉ số': ['Số lượng', 'Trung bình', 'Độ lệch chuẩn', 'Min', 'Q1 (25%)', 'Trung vị (50%)', 'Q3 (75%)', 'Max'],
-                'Giá trị': [
-                    f"{int(desc_stats['count'])}",
-                    f"{desc_stats['mean']:.2f}",
-                    f"{desc_stats['std']:.2f}",
-                    f"{desc_stats['min']:.2f}",
-                    f"{desc_stats['25%']:.2f}",
-                    f"{desc_stats['50%']:.2f}",
-                    f"{desc_stats['75%']:.2f}",
-                    f"{desc_stats['max']:.2f}"
-                ]
-            })
+            desc_df = pd.DataFrame(
+                {
+                    'Chỉ số': [
+                        'Số lượng',
+                        'Trung bình',
+                        'Độ lệch chuẩn',
+                        'Min',
+                        'Q1 (25%)',
+                        'Trung vị (50%)',
+                        'Q3 (75%)',
+                        'Max',
+                    ],
+                    'Giá trị': [
+                        f"{int(desc_stats['count'])}",
+                        f"{desc_stats['mean']:.2f}",
+                        f"{desc_stats['std']:.2f}",
+                        f"{desc_stats['min']:.2f}",
+                        f"{desc_stats['25%']:.2f}",
+                        f"{desc_stats['50%']:.2f}",
+                        f"{desc_stats['75%']:.2f}",
+                        f"{desc_stats['max']:.2f}",
+                    ],
+                }
+            )
             st.dataframe(desc_df, width="stretch", hide_index=True)
-            st.caption("📌 **Giải thích:** Trung bình = tổng điểm / số SV; Độ lệch chuẩn = độ phân tán; Q1/Q3 = tứ phân vị")
+            st.caption(
+                "📌 **Giải thích:** Trung bình = tổng điểm / số SV; Độ lệch chuẩn = độ phân tán; Q1/Q3 = tứ phân vị"
+            )
 
             # Chỉ hiển thị 2 biểu đồ (không quá nhiều)
             st.markdown("---")
             col1, col2 = st.columns(2)
-            
+
             with col1:
                 st.markdown("#### Phân bố Điểm số (Histogram)")
                 st.markdown("*Xem hình dạng phân phối, có bao nhiêu SV đạt từng khoảng điểm*")
@@ -650,7 +682,7 @@ def main_dashboard_tab(df, wh=None):
                     nbins=25,
                     title=f"Phân bố {feature_label(gpa_col_name)}",
                     labels={gpa_col_name: 'Điểm số', 'count': 'Số sinh viên'},
-                    color_discrete_sequence=['#2563EB']
+                    color_discrete_sequence=['#2563EB'],
                 )
                 # Thêm đường trung bình
                 fig_score.add_vline(
@@ -658,14 +690,9 @@ def main_dashboard_tab(df, wh=None):
                     line_dash="dash",
                     line_color="red",
                     annotation_text=f"TB: {avg_gpa:.2f}",
-                    annotation_position="top right"
+                    annotation_position="top right",
                 )
-                fig_score.update_layout(
-                    template='plotly_white',
-                    height=380,
-                    bargap=0.1,
-                    showlegend=False
-                )
+                fig_score.update_layout(template='plotly_white', height=380, bargap=0.1, showlegend=False)
                 st.plotly_chart(fig_score, width="stretch", key="dash_score_hist")
 
             with col2:
@@ -676,13 +703,9 @@ def main_dashboard_tab(df, wh=None):
                     y=gpa_col_name,
                     title=f"Biểu đồ hộp — {feature_label(gpa_col_name)}",
                     labels={gpa_col_name: 'Điểm số'},
-                    color_discrete_sequence=['#10B981']
+                    color_discrete_sequence=['#10B981'],
                 )
-                fig_box.update_layout(
-                    template='plotly_white',
-                    height=380,
-                    showlegend=False
-                )
+                fig_box.update_layout(template='plotly_white', height=380, showlegend=False)
                 st.plotly_chart(fig_box, width="stretch", key="dash_score_box")
 
         else:
@@ -697,7 +720,7 @@ def main_dashboard_tab(df, wh=None):
     with tab_grades:
         st.markdown("### Phân tích Xếp loại")
         st.markdown("**Mục đích:** Hiểu cơ cấu xếp loại (có bao nhiêu A, B, C, D, F)")
-        
+
         if grade_col_name and grade_col_name in df.columns:
             # Tính toán tần suất xếp loại
             try:
@@ -712,38 +735,37 @@ def main_dashboard_tab(df, wh=None):
 
             # Bảng thống kê
             st.markdown("#### Thống kê Chi tiết Xếp loại")
-            grade_stats_df = pd.DataFrame({
-                'Xếp loại': grade_counts.index.astype(str),
-                'Số SV': grade_counts.values.astype(int),
-                'Tỷ lệ (%)': (grade_counts.values / len(df) * 100).round(1),
-                'Tích lũy (%)': (grade_counts.values.cumsum() / len(df) * 100).round(1)
-            })
+            grade_stats_df = pd.DataFrame(
+                {
+                    'Xếp loại': grade_counts.index.astype(str),
+                    'Số SV': grade_counts.values.astype(int),
+                    'Tỷ lệ (%)': (grade_counts.values / len(df) * 100).round(1),
+                    'Tích lũy (%)': (grade_counts.values.cumsum() / len(df) * 100).round(1),
+                }
+            )
             st.dataframe(grade_stats_df, width="stretch", hide_index=True)
-            st.caption("📌 **Giải thích:** Tỷ lệ = (Số SV loại này / Tổng SV) × 100; Tích lũy = tổng tỷ lệ từ đầu đến dòng này")
+            st.caption(
+                "📌 **Giải thích:** Tỷ lệ = (Số SV loại này / Tổng SV) × 100; Tích lũy = tổng tỷ lệ từ đầu đến dòng này"
+            )
 
             st.markdown("---")
-            
+
             # Hiển thị 2 biểu đồ (Bar + Pie, không quá nhiều)
             col1, col2 = st.columns(2)
-            
+
             with col1:
                 st.markdown("#### Số lượng theo Xếp loại (Bar Chart)")
                 st.markdown("*So sánh số SV ở mỗi xếp loại*")
                 fig_grade = px.bar(
                     x=grade_counts.index.astype(str),
                     y=grade_counts.values,
-                    title=f"Phân bố xếp loại",
+                    title="Phân bố xếp loại",
                     labels={'x': 'Xếp loại', 'y': 'Số SV'},
                     color=grade_counts.index.astype(str),
                     text_auto=True,
-                    color_discrete_sequence=px.colors.qualitative.Set2
+                    color_discrete_sequence=px.colors.qualitative.Set2,
                 )
-                fig_grade.update_layout(
-                    xaxis_type='category',
-                    template='plotly_white',
-                    height=380,
-                    showlegend=False
-                )
+                fig_grade.update_layout(xaxis_type='category', template='plotly_white', height=380, showlegend=False)
                 st.plotly_chart(fig_grade, width="stretch", key="dash_grade_bar")
 
             with col2:
@@ -752,19 +774,16 @@ def main_dashboard_tab(df, wh=None):
                 fig_pie = px.pie(
                     values=grade_counts.values,
                     names=grade_counts.index.astype(str),
-                    title=f"Tỷ lệ xếp loại (%)",
+                    title="Tỷ lệ xếp loại (%)",
                     color_discrete_sequence=px.colors.qualitative.Pastel,
-                    hole=0.3  # Doughnut chart, dễ nhìn hơn
+                    hole=0.3,  # Doughnut chart, dễ nhìn hơn
                 )
                 fig_pie.update_traces(
                     textposition='inside',
                     textinfo='percent+label',
-                    hovertemplate='<b>%{label}</b><br>Số SV: %{value}<br>Tỷ lệ: %{percent}<extra></extra>'
+                    hovertemplate='<b>%{label}</b><br>Số SV: %{value}<br>Tỷ lệ: %{percent}<extra></extra>',
                 )
-                fig_pie.update_layout(
-                    template='plotly_white',
-                    height=380
-                )
+                fig_pie.update_layout(template='plotly_white', height=380)
                 st.plotly_chart(fig_pie, width="stretch", key="dash_grade_pie")
 
         else:
@@ -775,34 +794,34 @@ def main_dashboard_tab(df, wh=None):
     # ========================================================================
     with tab_more:
         st.markdown("### Thêm Thông tin & Gợi ý Tiếp theo")
-        
+
         # Phần A: Feature khác (tùy chọn)
         st.markdown("#### Phân tích Features Khác")
         numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
-        other_numeric_cols = [col for col in numeric_cols
-                              if col != gpa_col_name
-                              and 'id' not in col.lower()
-                              and 'pca' not in col.lower()
-                              and 'cluster' not in col.lower()][:5]
+        other_numeric_cols = [
+            col
+            for col in numeric_cols
+            if col != gpa_col_name
+            and 'id' not in col.lower()
+            and 'pca' not in col.lower()
+            and 'cluster' not in col.lower()
+        ][:5]
 
         if other_numeric_cols:
             st.markdown("*Chọn một feature để xem phân bố của nó:*")
             col_select, col_spacer = st.columns([2, 1])
             with col_select:
                 selected_feature = st.selectbox(
-                    "Feature để phân tích:",
-                    other_numeric_cols,
-                    key="dash_feature_select",
-                    label_visibility="collapsed"
+                    "Feature để phân tích:", other_numeric_cols, key="dash_feature_select", label_visibility="collapsed"
                 )
-            
+
             fig_feature = px.histogram(
                 df,
                 x=selected_feature,
                 nbins=20,
                 title=f"Phân bố '{selected_feature}'",
                 labels={selected_feature: selected_feature, 'count': 'Số SV'},
-                color_discrete_sequence=['var(--primary-color)']
+                color_discrete_sequence=['var(--primary-color)'],
             )
             fig_feature.update_layout(template='plotly_white', height=340)
             st.plotly_chart(fig_feature, width="stretch", key="dash_other_feature")
@@ -810,7 +829,7 @@ def main_dashboard_tab(df, wh=None):
             st.info("Không có feature số nào khác để phân tích.")
 
         st.markdown("---")
-        
+
         # Phần B: Gợi ý tiếp theo
         st.markdown("#### Các bước tiếp theo đề xuất")
         st.markdown("""
@@ -821,19 +840,19 @@ def main_dashboard_tab(df, wh=None):
         3. Phân cụm: nhóm sinh viên theo similarity.
         4. AI tư vấn: cần API key nếu dùng LLM.
         """)
-        
+
         st.markdown("---")
-        
+
         # ========================================================================
         # PHẦN QUY TRÌNH CHI TIẾT CỦA HỆ THỐNG (ĐỂ BÁO CÁO)
         # ========================================================================
         st.markdown("### Quy trình chi tiết của hệ thống DSS")
         st.markdown("**Quy trình đầy đủ từ tải dữ liệu đến dự đoán kết quả:**")
-        
+
         with st.expander("Xem quy trình chi tiết & cách thức hoạt động", expanded=False):
             st.markdown("""
             Quy trình DSS: tải dữ liệu -> xử lý -> EDA -> chọn target/features -> huấn luyện -> đánh giá -> dự đoán.
             Luu trong thu muc data_warehouse (datasets, models, metadata).
             """)
-        
+
         st.info("✨ **Mẹo:** Click vào các tab khác để truy cập từng chức năng!")

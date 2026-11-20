@@ -13,6 +13,7 @@ trail for sensitive admin actions like model promote/rollback, already
 live-wired since Phase 1) — this is the separate USER-FACING "recent
 activity" feed shown in dashboards, matching `ActivityLog`'s own docstring.
 """
+
 from __future__ import annotations
 
 from typing import Any, Optional
@@ -22,16 +23,22 @@ from dss.db.session import tenant_session_scope
 
 
 def record_activity(
-    organization_id: int, action_type: str, description: str,
-    details: Optional[dict] = None, user_id: Optional[int] = None,
+    organization_id: int,
+    action_type: str,
+    description: str,
+    details: Optional[dict] = None,
+    user_id: Optional[int] = None,
 ) -> int:
     """Not idempotent by design — an activity entry is a point-in-time
     event, matching academic_records'/recommendations' append-only
     semantics established in Phase 1B."""
     with tenant_session_scope(organization_id) as session:
         row = ActivityLog(
-            organization_id=organization_id, user_id=user_id,
-            action_type=action_type, description=description, details=details or {},
+            organization_id=organization_id,
+            user_id=user_id,
+            action_type=action_type,
+            description=description,
+            details=details or {},
         )
         session.add(row)
         session.flush()
@@ -49,8 +56,11 @@ def get_recent_activities(organization_id: int, limit: int = 100) -> list[dict[s
         )
         return [
             {
-                "id": r.id, "action": r.action_type, "details": r.description,
-                "metadata": r.details or {}, "timestamp": r.created_at.isoformat() if r.created_at else None,
+                "id": r.id,
+                "action": r.action_type,
+                "details": r.description,
+                "metadata": r.details or {},
+                "timestamp": r.created_at.isoformat() if r.created_at else None,
             }
             for r in rows
         ]
@@ -64,6 +74,7 @@ def import_from_local_history(organization_id: int, warehouse=None) -> dict[str,
     equivalent."""
     if warehouse is None:
         from dss.core.warehouse import DataWarehouse
+
         warehouse = DataWarehouse()
 
     local_records = warehouse.get_history("activity", limit=10_000_000)

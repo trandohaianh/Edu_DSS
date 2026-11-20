@@ -23,6 +23,7 @@ Mục 25 Yêu cầu:
 - Hỗ trợ giao dịch (Transactions), xử lý ghi đồng thời (Concurrent writes),
   và DDL Migrations cho hệ thống sản xuất.
 """
+
 from __future__ import annotations
 
 import sqlite3
@@ -31,7 +32,6 @@ from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from typing import Any, Dict, List, Optional
-
 
 LMS_POSTGRESQL_DDL_MIGRATIONS = """
 -- EduDSS LMS Production Relational Schema Migration (PostgreSQL + pgvector)
@@ -340,6 +340,7 @@ class SQLiteLMSRepository(BaseLMSRepository):
     ) -> str:
         """Ghi nhận nhật ký truy cập học liệu an toàn giao dịch."""
         import uuid
+
         log_id = f"log_{uuid.uuid4().hex[:12]}"
         now = datetime.now().isoformat()
         with self._lock, self._get_connection() as conn:
@@ -351,8 +352,9 @@ class SQLiteLMSRepository(BaseLMSRepository):
         return log_id
 
     def record_student_event(self, student_id: str, event_type: str, payload: Dict[str, Any]) -> str:
-        import uuid
         import json
+        import uuid
+
         event_id = f"evt_{uuid.uuid4().hex[:12]}"
         now = datetime.now().isoformat()
         with self._lock, self._get_connection() as conn:
@@ -364,8 +366,9 @@ class SQLiteLMSRepository(BaseLMSRepository):
         return event_id
 
     def save_learning_plan(self, student_id: str, version: int, plan_dict: Dict[str, Any]) -> str:
-        import uuid
         import json
+        import uuid
+
         plan_id = plan_dict.get("plan_id") or f"plan_{uuid.uuid4().hex[:12]}"
         now = datetime.now().isoformat()
         with self._lock, self._get_connection() as conn:
@@ -378,6 +381,7 @@ class SQLiteLMSRepository(BaseLMSRepository):
 
     def get_latest_learning_plan(self, student_id: str) -> Optional[Dict[str, Any]]:
         import json
+
         with self._lock, self._get_connection() as conn:
             cur = conn.cursor()
             cur.execute(
@@ -393,4 +397,3 @@ class SQLiteLMSRepository(BaseLMSRepository):
 # Aliases cho tầng Persistence chuẩn hoá
 LMSRepository = SQLiteLMSRepository
 LMS_SCHEMA_DDL = LMS_POSTGRESQL_DDL_MIGRATIONS
-

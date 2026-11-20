@@ -20,6 +20,7 @@ they answer different questions for different call-site shapes:
   reports/production_readiness/PHASE1B_RUNTIME_CUTOVER.md for why this is a
   deliberately simpler shape than repository_for()'s).
 """
+
 from __future__ import annotations
 
 import os
@@ -36,10 +37,9 @@ def _resolve_organization_id() -> int:
     another organization's id."""
     raw = os.environ.get("EDUDSS_ORGANIZATION_ID", "").strip()
     if not raw:
-        raise RuntimeError(
-            "EDUDSS_ORGANIZATION_ID is required when EDUDSS_IDENTITY_STORE=postgres."
-        )
+        raise RuntimeError("EDUDSS_ORGANIZATION_ID is required when EDUDSS_IDENTITY_STORE=postgres.")
     return int(raw)
+
 
 # Domains with a real, tested dss/db/repositories/* implementation as of
 # Phase 1B. Selecting EDUDSS_<FEATURE>_STORE=postgres for anything NOT in this
@@ -53,9 +53,16 @@ def _resolve_organization_id() -> int:
 # so there is no behavioral conflict — only one of the two gates is ever
 # actually consulted by live code for this feature.
 _IMPLEMENTED_POSTGRES_FEATURES = {
-    "PREDICTIONS", "CONSULTATIONS", "SUBSCRIPTION", "RAG", "ACADEMIC", "CMS",
+    "PREDICTIONS",
+    "CONSULTATIONS",
+    "SUBSCRIPTION",
+    "RAG",
+    "ACADEMIC",
+    "CMS",
     # Phase 1C additions:
-    "ACTIVITY", "ADMIN_AI_CONFIG", "AI_TOKEN_USAGE",
+    "ACTIVITY",
+    "ADMIN_AI_CONFIG",
+    "AI_TOKEN_USAGE",
     "LEARNING_PLANS",  # Structured plans stored in the tenant-scoped Recommendation table.
     # Workstream C addition: unlike every feature above, this one is NOT
     # "either local JSON or Postgres" — the joblib/JSON artifact store in

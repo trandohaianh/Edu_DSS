@@ -17,8 +17,9 @@ chỉ LocalVectorStore (backend thực tế đang dùng ở dev/test) có test �
 Revision ID: 9f3a1c7d2e46
 Revises: 35d62f0c6002
 """
-from alembic import op
+
 import sqlalchemy as sa
+from alembic import op
 
 revision = "9f3a1c7d2e46"
 down_revision = "35d62f0c6002"
@@ -30,9 +31,15 @@ def upgrade():
     op.add_column("rag_documents", sa.Column("doc_type", sa.String(32), nullable=True))
     op.add_column("rag_documents", sa.Column("issuer", sa.String(255), nullable=True))
     op.add_column("rag_documents", sa.Column("official_ref", sa.String(255), nullable=True))
-    op.add_column("rag_documents", sa.Column(
-        "status", sa.String(32), nullable=False, server_default="PENDING_REVIEW",
-    ))
+    op.add_column(
+        "rag_documents",
+        sa.Column(
+            "status",
+            sa.String(32),
+            nullable=False,
+            server_default="PENDING_REVIEW",
+        ),
+    )
     op.add_column("rag_documents", sa.Column("approved_by", sa.String(255), nullable=True))
     op.add_column("rag_documents", sa.Column("approved_at", sa.DateTime(timezone=True), nullable=True))
     op.add_column("rag_documents", sa.Column("review_note", sa.Text(), nullable=True))
@@ -45,7 +52,9 @@ def upgrade():
     # namespace, status) — index tổng hợp giúp truy vấn đó không full-scan khi
     # kho tích luỹ nhiều tài liệu.
     op.create_index(
-        "ix_rag_documents_namespace_status", "rag_documents", ["namespace", "status"],
+        "ix_rag_documents_namespace_status",
+        "rag_documents",
+        ["namespace", "status"],
     )
 
 

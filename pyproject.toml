@@ -18,7 +18,7 @@ extend-exclude = [
 # Giữ nguyên kiểu nháy hiện có: mã cũ dùng lẫn ' và ", và nhiều test đọc mã nguồn
 # để kiểm chuỗi, nên đổi nháy hàng loạt là rủi ro mà không đem lại lợi ích.
 quote-style = "preserve"
-line-ending = "lf"
+line-ending = "auto"   # LF trong repo (git chuẩn hoá); không ép CRLF/LF lên bản checkout
 
 [tool.ruff.lint]
 select = [
@@ -42,6 +42,7 @@ ignore = [
     "SIM108",  # toán tử ba ngôi: không phải lúc nào cũng dễ đọc hơn
     "SIM117",  # gộp with lồng nhau
     "RUF005",  # [*a, b] vs a + [b]
+    "RUF100",  # noqa "thừa": nhiều noqa dành cho công cụ/luật chưa bật, không tự xoá
     # Hiện đại hoá chú thích kiểu (Dict -> dict, Optional[X] -> X | None): ~1.200 chỗ,
     # sửa tự động sẽ để lại hàng trăm import typing thừa. Làm thành một đợt riêng.
     "UP006", "UP007", "UP035", "UP045",

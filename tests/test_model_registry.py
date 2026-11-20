@@ -7,13 +7,13 @@ app. "Model" ở đây chỉ cần là 1 object picklable bất kỳ (joblib.dum
 mọi object Python, không bắt buộc phải là sklearn thật) vì các test này KIỂM
 TRA REGISTRY, không kiểm tra thuật toán ML.
 """
+
 from __future__ import annotations
-
-
 
 
 class _FakePipeline:
     """Đại diện tối giản cho 1 model đã train — chỉ cần picklable."""
+
     def __init__(self, tag):
         self.tag = tag
 
@@ -85,7 +85,9 @@ def test_acceptance_rule_production_a_train_better_b_stays_a_until_admin_promote
     assert pipeline_check.tag == "model-A"
 
     # Admin duyệt B
-    ok_promote, _ = warehouse.set_production_model(id_b, promoted_by="admin", promotion_reason="Approved better metrics")
+    ok_promote, _ = warehouse.set_production_model(
+        id_b, promoted_by="admin", promotion_reason="Approved better metrics"
+    )
     assert ok_promote is True
 
     # Production CHÍNH THỨC TRỞ THÀNH B
@@ -132,7 +134,6 @@ def test_different_target_cols_have_independent_production(warehouse):
     assert clf_pipeline.tag == "clf-model"
 
 
-
 def test_version_number_increments_per_model_key(warehouse):
     _id1, meta1 = _save(warehouse, "ds1", "final_score", "RF", "v1")
     _id2, meta2 = _save(warehouse, "ds1", "final_score", "RF", "v2")
@@ -176,6 +177,7 @@ def test_load_model_training_corrupted_metadata_returns_graceful_error(warehouse
     training_id, _meta = _save(warehouse, "ds1", "final_score", "RF", "v1")
     # Ghi đè metadata bằng JSON hỏng.
     import os
+
     meta_path = os.path.join(warehouse.metadata_path, f"{training_id}_model.json")
     with open(meta_path, "w", encoding="utf-8") as f:
         f.write("{ đây không phải JSON hợp lệ ][")
@@ -194,6 +196,7 @@ def test_set_production_model_missing_id_returns_graceful_error(warehouse):
 def test_set_production_model_corrupted_metadata_returns_graceful_error(warehouse):
     training_id, _meta = _save(warehouse, "ds1", "final_score", "RF", "v1")
     import os
+
     meta_path = os.path.join(warehouse.metadata_path, f"{training_id}_model.json")
     with open(meta_path, "w", encoding="utf-8") as f:
         f.write("{ không phải JSON ][")
@@ -206,6 +209,7 @@ def test_set_production_model_corrupted_metadata_returns_graceful_error(warehous
 def test_list_models_skips_corrupted_metadata_file_without_crashing(warehouse):
     id_good, _ = _save(warehouse, "ds1", "final_score", "RF", "good")
     import os
+
     bad_path = os.path.join(warehouse.metadata_path, "corrupted_entry_model.json")
     with open(bad_path, "w", encoding="utf-8") as f:
         f.write("{ hỏng hoàn toàn")
@@ -221,6 +225,7 @@ def test_missing_joblib_file_reports_error_not_crash(warehouse):
     cứng thủ công) — phải báo lỗi rõ ràng, không ném exception ra ngoài."""
     training_id, _ = _save(warehouse, "ds1", "final_score", "RF", "v1")
     import os
+
     joblib_path = os.path.join(warehouse.models_path, f"{training_id}.joblib")
     os.remove(joblib_path)
 
@@ -246,6 +251,7 @@ def test_same_dataset_and_model_name_saved_in_same_instant_do_not_collide(wareho
     tạo 2 training_id khác nhau, 2 đường dẫn artifact khác nhau, cả 2 artifact
     tồn tại trên đĩa, cả 2 xuất hiện trong registry, và bản B không ghi đè bản A."""
     import os
+
     import dss.core.warehouse as warehouse_mod
 
     class _FrozenDatetime(warehouse_mod.datetime):
@@ -256,12 +262,22 @@ def test_same_dataset_and_model_name_saved_in_same_instant_do_not_collide(wareho
     monkeypatch.setattr(warehouse_mod, "datetime", _FrozenDatetime)
 
     id_a, meta_a = warehouse.save_model_training(
-        dataset_id="ds_race", model_pipeline=_FakePipeline("first"), model_name="RF",
-        feature_cols=["f1"], target_col="t", metrics={}, is_best=True,
+        dataset_id="ds_race",
+        model_pipeline=_FakePipeline("first"),
+        model_name="RF",
+        feature_cols=["f1"],
+        target_col="t",
+        metrics={},
+        is_best=True,
     )
     id_b, meta_b = warehouse.save_model_training(
-        dataset_id="ds_race", model_pipeline=_FakePipeline("second"), model_name="RF",
-        feature_cols=["f1"], target_col="t", metrics={}, is_best=False,
+        dataset_id="ds_race",
+        model_pipeline=_FakePipeline("second"),
+        model_name="RF",
+        feature_cols=["f1"],
+        target_col="t",
+        metrics={},
+        is_best=False,
     )
 
     # 1) training_id khác nhau dù cùng dataset_id/model_name/timestamp (đã đóng băng).
@@ -305,8 +321,13 @@ def test_training_id_uniqueness_at_scale_same_instant(warehouse, monkeypatch):
     ids = []
     for i in range(100):
         training_id, _ = warehouse.save_model_training(
-            dataset_id="ds_scale", model_pipeline=_FakePipeline(f"m{i}"), model_name="RF",
-            feature_cols=["f1"], target_col="t", metrics={}, is_best=False,
+            dataset_id="ds_scale",
+            model_pipeline=_FakePipeline(f"m{i}"),
+            model_name="RF",
+            feature_cols=["f1"],
+            target_col="t",
+            metrics={},
+            is_best=False,
         )
         ids.append(training_id)
 
@@ -318,9 +339,15 @@ def test_training_id_uniqueness_at_scale_same_instant(warehouse, monkeypatch):
 def test_load_model_verifies_sha256_and_rejects_tampered_artifact(warehouse):
     """Mục 28: Kiểm thử phát hiện artifact bị chỉnh sửa/hỏng qua SHA-256."""
     import os
+
     training_id, meta = warehouse.save_model_training(
-        dataset_id="ds_sec", model_pipeline=_FakePipeline("safe"), model_name="RF",
-        feature_cols=["f1"], target_col="t", metrics={}, is_best=False,
+        dataset_id="ds_sec",
+        model_pipeline=_FakePipeline("safe"),
+        model_name="RF",
+        feature_cols=["f1"],
+        target_col="t",
+        metrics={},
+        is_best=False,
     )
     assert meta.get("model_sha256") is not None
 
@@ -338,4 +365,3 @@ def test_load_model_verifies_sha256_and_rejects_tampered_artifact(warehouse):
     pipeline_bad, meta_bad, err_msg = warehouse.load_model_training(training_id)
     assert pipeline_bad is None
     assert "Mã băm SHA-256" in err_msg or "Lỗi bảo mật" in err_msg
-

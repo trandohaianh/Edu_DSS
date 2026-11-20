@@ -2,6 +2,7 @@
 liệu đủ lớn/cân bằng để tối ưu an toàn như LightGBM/Random Forest. Chỉ nên bỏ
 qua khi THẬT SỰ có nguy cơ thiếu lớp trong fold (lớp nhỏ nhất < số fold yêu
 cầu); ngược lại phải tối ưu bằng GridSearchCV với lưới nhỏ tương đương LightGBM."""
+
 from __future__ import annotations
 
 import inspect
@@ -12,9 +13,10 @@ import pandas as pd
 
 warnings.filterwarnings("ignore")
 
-from dss.core.data_helpers import generate_data
-from dss.core.trainers import ClassificationTrainer, XGBOOST_AVAILABLE
 import pytest
+
+from dss.core.data_helpers import generate_data
+from dss.core.trainers import XGBOOST_AVAILABLE, ClassificationTrainer
 
 
 def test_source_no_longer_skips_gridsearch_unconditionally():
@@ -30,9 +32,7 @@ def test_xgboost_still_skips_gridsearch_on_rare_class_sample_data():
     df = generate_data()
     feats = [c for c in df.columns if c not in ("student_id", "diem_ky_sau", "xep_loai", "final_score", "grade")]
     clf = ClassificationTrainer()
-    results, *_ = clf.train_and_evaluate(
-        df, feats, "xep_loai", ["XGBoost Classifier"], cv_folds=5, save_model=False
-    )
+    results, *_ = clf.train_and_evaluate(df, feats, "xep_loai", ["XGBoost Classifier"], cv_folds=5, save_model=False)
     assert "XGBoost Classifier" in results
     assert results["XGBoost Classifier"].get("cv_mean") is None
 
@@ -44,12 +44,18 @@ def test_xgboost_uses_gridsearch_when_enough_minority_samples():
     rng = np.random.RandomState(42)
     n_majority, n_minority = 340, 60
     n = n_majority + n_minority
-    df = pd.DataFrame({
-        "f1": rng.normal(0, 1, n),
-        "f2": rng.normal(0, 1, n),
-        "f3": rng.normal(0, 1, n),
-        "target": ["A"] * n_majority + ["B"] * n_minority,
-    }).sample(frac=1.0, random_state=42).reset_index(drop=True)
+    df = (
+        pd.DataFrame(
+            {
+                "f1": rng.normal(0, 1, n),
+                "f2": rng.normal(0, 1, n),
+                "f3": rng.normal(0, 1, n),
+                "target": ["A"] * n_majority + ["B"] * n_minority,
+            }
+        )
+        .sample(frac=1.0, random_state=42)
+        .reset_index(drop=True)
+    )
 
     clf = ClassificationTrainer()
     results, *_ = clf.train_and_evaluate(

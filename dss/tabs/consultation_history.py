@@ -6,6 +6,7 @@ phải logic mới thêm cho trang này). Khoá cứng theo `current_student_id`
 1 sinh viên KHÔNG thể thấy lịch sử tư vấn của sinh viên khác, giữ đúng nguyên
 tắc cách ly dữ liệu đã áp dụng ở các tab khác (Tư vấn AI, Dự đoán cá nhân...).
 """
+
 from dss.config import *  # noqa: F403
 from dss.tabs import ui_kit
 
@@ -29,9 +30,7 @@ def consultation_history_tab(warehouse, current_student_id=None):
         return
 
     all_consultations = warehouse.get_history("advisor", limit=10000)
-    my_consultations = [
-        c for c in all_consultations if str(c.get("student_id")) == str(current_student_id)
-    ]
+    my_consultations = [c for c in all_consultations if str(c.get("student_id")) == str(current_student_id)]
     my_consultations.sort(key=lambda c: c.get("created_at", ""), reverse=True)
 
     if not my_consultations:

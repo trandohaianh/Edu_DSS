@@ -18,6 +18,7 @@ Nguyên tắc phân quyền & Phạm vi:
     * Xóa tài khoản người dùng hoặc xóa dataset
     * Thay đổi cấu hình bảo mật hoặc reset hệ thống
 """
+
 from __future__ import annotations
 
 import os
@@ -57,6 +58,7 @@ class AdminAIAgent:
                 metrics["error"] = str(e)
 
         from dss.services.token_tracker import get_system_budget_status
+
         metrics["budget_status"] = get_system_budget_status()
 
         return metrics
@@ -131,10 +133,12 @@ class AdminAIAgent:
 
         if operation_type == "promote_model":
             from dss.services.model_registry import promote
+
             return promote(self.warehouse, target_id, promotion_reason="Thực thi qua Admin Agent đã được phê duyệt")
 
         elif operation_type == "rollback_model":
             from dss.services.model_registry import rollback
+
             return rollback(self.warehouse, target_id, rollback_reason="Thực thi qua Admin Agent đã được phê duyệt")
 
         return False, f"Loại thao tác rủi ro cao '{operation_type}' không được hỗ trợ."

@@ -1,5 +1,7 @@
 """Unit tests for Centralized Display Mapper and Shared UI Kit components."""
+
 import pandas as pd
+
 from dss.core.display_mapper import (
     clean_display_dataframe,
     map_data_source,
@@ -56,11 +58,13 @@ def test_display_mapper_ml_metrics():
 
 
 def test_clean_display_dataframe():
-    df = pd.DataFrame({
-        "student_id": ["SV001", "SV002"],
-        "final_score": [8.5, 7.0],
-        "gpa_previous": [8.0, 6.8],
-    })
+    df = pd.DataFrame(
+        {
+            "student_id": ["SV001", "SV002"],
+            "final_score": [8.5, 7.0],
+            "gpa_previous": [8.0, 6.8],
+        }
+    )
     clean_df = clean_display_dataframe(df)
     assert "Mã sinh viên" in clean_df.columns
     assert "Điểm tổng kết" in clean_df.columns

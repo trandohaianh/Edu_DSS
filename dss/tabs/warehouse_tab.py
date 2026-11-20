@@ -1,11 +1,12 @@
 """Shared runtime imports for Streamlit tab modules."""
+
 from dss.config import *  # noqa: F403
+from dss.core.runtime_mode import synthetic_data_allowed
+from dss.core.target_utils import is_id_like
 from dss.security.upload_security import UploadValidationError, parse_tabular_upload
 from dss.services import model_registry
 from dss.services.model_service import model_lifecycle_badge_text as _model_lifecycle_badge_text
 from dss.tabs import ui_kit
-from dss.core.runtime_mode import synthetic_data_allowed
-from dss.core.target_utils import is_id_like
 
 
 def warehouse_tab(warehouse, role=None):
@@ -23,7 +24,8 @@ def warehouse_tab(warehouse, role=None):
         return
 
     tab_datasets, tab_models, tab_history = st.tabs(
-        ["📊 Datasets (Dữ liệu)", "🧠 AI Models (Mô hình)", "📜 History (Lịch sử)"])
+        ["📊 Datasets (Dữ liệu)", "🧠 AI Models (Mô hình)", "📜 History (Lịch sử)"]
+    )
 
     # --- TAB DATASETS ---
     with tab_datasets:
@@ -46,12 +48,16 @@ def warehouse_tab(warehouse, role=None):
             # Thao tác nạp dữ liệu nhanh: Đồng bộ LMS & Dữ liệu mẫu
             c_sync1, c_sync2 = st.columns(2)
             with c_sync1:
-                if st.button("🔄 Đồng bộ dữ liệu từ LMS (Giả lập)", key="wh_sync_lms_btn", type="primary", width="stretch"):
+                if st.button(
+                    "🔄 Đồng bộ dữ liệu từ LMS (Giả lập)", key="wh_sync_lms_btn", type="primary", width="stretch"
+                ):
                     from dss.core.data_helpers import generate_lms_data
                     from dss.core.init_app import clear_all_session_state_for_new_data
+
                     clear_all_session_state_for_new_data()
                     _lms_df, _lms_course, _lms_term = generate_lms_data()
                     from dss.services.academic_persistence import persist_dataframe_if_configured
+
                     persist_dataframe_if_configured(_lms_df, "LMS_SYNC", _lms_course, _lms_term)
                     st.session_state.current_df = _lms_df
                     st.session_state.current_dataset_id = f"lms_sync_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
@@ -70,7 +76,10 @@ def warehouse_tab(warehouse, role=None):
                         st.session_state.show_success_message = "✅ Đã đồng bộ dữ liệu từ LMS (giả lập)!"
                     except Exception:
                         from dss.core.logging_config import get_logger
-                        get_logger(__name__).exception("Luu dataset dong bo LMS vao kho that bai (ma EDSS-LMS-SYNC-SAVE-001).")
+
+                        get_logger(__name__).exception(
+                            "Luu dataset dong bo LMS vao kho that bai (ma EDSS-LMS-SYNC-SAVE-001)."
+                        )
                         st.session_state.show_error_message = (
                             "⚠️ Đã nạp dữ liệu LMS (giả lập) cho phiên làm việc này, nhưng KHÔNG lưu "
                             "được vào kho dữ liệu lâu dài — dữ liệu sẽ mất nếu tải lại trang. Vui lòng "
@@ -78,9 +87,12 @@ def warehouse_tab(warehouse, role=None):
                         )
                     st.rerun()
             with c_sync2:
-                if st.button("📊 Dùng dữ liệu mẫu LMS-scale 20.000 SV (Synthetic)", key="wh_sample_data_btn", width="stretch"):
+                if st.button(
+                    "📊 Dùng dữ liệu mẫu LMS-scale 20.000 SV (Synthetic)", key="wh_sample_data_btn", width="stretch"
+                ):
                     from dss.core.data_helpers import generate_data
                     from dss.core.init_app import clear_all_session_state_for_new_data
+
                     df_sample = generate_data(n_students=20000, random_state=42)
                     clear_all_session_state_for_new_data()
                     st.session_state.current_df = df_sample
@@ -88,7 +100,11 @@ def warehouse_tab(warehouse, role=None):
                     st.session_state.current_dataset_name = "Dữ liệu mẫu LMS-scale 20.000 SV"
                     st.session_state.current_dataset_source = "DỮ LIỆU MÔ PHỎNG / SYNTHETIC"
                     try:
-                        warehouse.log_activity("Tải Dữ liệu", "Sử dụng dữ liệu mẫu LMS-scale 20k", {"rows": len(df_sample), "cols": len(df_sample.columns)})
+                        warehouse.log_activity(
+                            "Tải Dữ liệu",
+                            "Sử dụng dữ liệu mẫu LMS-scale 20k",
+                            {"rows": len(df_sample), "cols": len(df_sample.columns)},
+                        )
                     except Exception:
                         pass
                     st.session_state.show_success_message = "✅ Đã tải dữ liệu mẫu LMS-scale 20.000 SV thành công!"
@@ -99,7 +115,8 @@ def warehouse_tab(warehouse, role=None):
             st.info(
                 f"Đang dùng: **Dữ liệu mẫu LMS-scale 20.000 SV** · "
                 f"**{len(_active_sample):,} dòng** · DỮ LIỆU MÔ PHỎNG / SYNTHETIC"
-                if _active_sample is not None else "Dữ liệu mẫu chưa được tải."
+                if _active_sample is not None
+                else "Dữ liệu mẫu chưa được tải."
             )
 
         st.markdown("<div style='height:0.5rem;'></div>", unsafe_allow_html=True)
@@ -122,7 +139,11 @@ def warehouse_tab(warehouse, role=None):
 
                 cur_df = st.session_state.get("current_df")
                 id_col_w = next((c for c in cur_df.columns if is_id_like(c)), None) if cur_df is not None else None
-                student_list = cur_df[id_col_w].dropna().astype(str).unique().tolist() if (cur_df is not None and id_col_w) else ["SV2025_001"]
+                student_list = (
+                    cur_df[id_col_w].dropna().astype(str).unique().tolist()
+                    if (cur_df is not None and id_col_w)
+                    else ["SV2025_001"]
+                )
 
                 lw_col1, lw_col2 = st.columns([1.5, 2], gap="medium")
                 with lw_col1:
@@ -133,6 +154,7 @@ def warehouse_tab(warehouse, role=None):
                     with btn_col_a:
                         if st.button("📝 Điểm thi mới (Moodle)", key="wh_push_moodle_btn", width="stretch"):
                             import random
+
                             new_grade = round(random.uniform(7.5, 9.8), 2)
                             evt, updated_df, msg = lms_live_sync_manager.simulate_moodle_grade_push(
                                 sel_sv_live, new_grade, cur_df
@@ -145,6 +167,7 @@ def warehouse_tab(warehouse, role=None):
                     with btn_col_b:
                         if st.button("🕒 Điểm danh mới (Canvas)", key="wh_push_canvas_btn", width="stretch"):
                             import random
+
                             new_att = round(random.uniform(0.85, 1.0), 2)
                             evt, updated_df, msg = lms_live_sync_manager.simulate_canvas_attendance_push(
                                 sel_sv_live, new_att, cur_df
@@ -175,22 +198,18 @@ def warehouse_tab(warehouse, role=None):
             upload_file = st.file_uploader("Tải lên file CSV hoặc Excel:", type=["csv", "xlsx", "xls"])
             new_name = st.text_input("Tên Dataset (Tùy chọn):", placeholder="Mặc định: Tên file gốc")
             new_desc = st.text_area("Mô tả:", placeholder="Ví dụ: Dữ liệu điểm thi HK1 2023")
-            
+
             # [NEW] Chọn loại dữ liệu (Mở rộng theo yêu cầu)
             data_type_mapping = {
                 "Dữ liệu thô (Raw)": "raw",
                 "Dữ liệu đã xử lý (Processed)": "processed",
                 "Dữ liệu sau Huấn luyện (Training)": "training",
                 "Dữ liệu Đánh giá/Kết quả (Evaluation)": "evaluation",
-                "Dữ liệu Gợi ý (Advisor)": "advisor"
+                "Dữ liệu Gợi ý (Advisor)": "advisor",
             }
-            
-            data_type_option = st.selectbox(
-                "Loại dữ liệu:",
-                list(data_type_mapping.keys()),
-                index=0
-            )
-            
+
+            data_type_option = st.selectbox("Loại dữ liệu:", list(data_type_mapping.keys()), index=0)
+
             # Auto-save ngay khi có file mới được tải lên — không cần bấm nút Lưu.
             # Dùng chữ ký (tên + kích thước) của file để chỉ lưu đúng 1 lần cho mỗi
             # file, tránh tạo dataset trùng lặp ở các lần rerun sau (khi gõ mô tả...).
@@ -208,16 +227,13 @@ def warehouse_tab(warehouse, role=None):
 
                         # Gọi hàm save chung (thay vì chỉ save_processed_data)
                         ds_id, _ = warehouse.save_dataset(
-                            df_new,
-                            dataset_name=final_name,
-                            description=new_desc,
-                            data_type=selected_type
+                            df_new, dataset_name=final_name, description=new_desc, data_type=selected_type
                         )
 
                         # Tự động set làm active dataset
                         st.session_state.current_df = df_new
                         st.session_state.current_dataset_id = ds_id
-                        st.session_state.cleaned_df = None # Reset cleaning state
+                        st.session_state.cleaned_df = None  # Reset cleaning state
                         st.session_state["_autosave_sig_upload_dataset"] = _upload_sig
 
                         st.success(f"✅ Đã tự động thêm dataset và đặt làm dữ liệu hiện tại! ID: {ds_id}")
@@ -249,27 +265,27 @@ def warehouse_tab(warehouse, role=None):
             "training": "Dữ liệu sau Huấn luyện (Trained)",
             "clustered": "Dữ liệu sau Phân cụm (Clustered)",
             "evaluation": "Dữ liệu Đánh giá (Evaluation)",
-            "advisor": "Dữ liệu Gợi ý (Advisor)"
+            "advisor": "Dữ liệu Gợi ý (Advisor)",
         }
-        
+
         # Phân loại datasets
         grouped_datasets = {k: [] for k in data_categories}
-        grouped_datasets['other'] = [] # Cho các loại cũ hoặc không xác định
-        
+        grouped_datasets['other'] = []  # Cho các loại cũ hoặc không xác định
+
         if datasets:
             for ds in datasets:
                 dtype = ds.get('data_type', 'other')
                 # Map các loại cũ nếu cần (nếu có)
-                
+
                 if dtype in grouped_datasets:
                     grouped_datasets[dtype].append(ds)
                 else:
                     grouped_datasets['other'].append(ds)
-        
+
         # Tạo tabs cho các loại dữ liệu
         tabs_list = list(data_categories.values()) + ["Khác"]
         cat_tabs = st.tabs(tabs_list)
-        
+
         for i, (cat_key, cat_name) in enumerate(data_categories.items()):
             with cat_tabs[i]:
                 ds_list = grouped_datasets[cat_key]
@@ -285,40 +301,49 @@ def warehouse_tab(warehouse, role=None):
                                 st.write(f"🔢 **Rows:** {ds['n_rows']}")
                             with col3:
                                 st.write(f"📋 **Cols:** {ds['n_cols']}")
-                            
+
                             st.write(f"📝 **Mô tả:** {ds.get('description', '')}")
 
                             col_act1, col_act2, col_act3 = st.columns(3)
                             with col_act1:
-                                 if st.button("🚀 Sử dụng Dữ liệu này", key=f"use_ds_{ds['dataset_id']}", type="primary"):
-                                     df_load, meta = warehouse.load_dataset(ds['dataset_id'])
-                                     if df_load is not None:
-                                         st.session_state.current_df = df_load
-                                         st.session_state.current_dataset_id = ds['dataset_name']
-                                         st.session_state.cleaned_df = None # Reset cleaning state
-                                         if 'target_for_analysis' in st.session_state: del st.session_state.target_for_analysis
-                                         
-                                         # Thông báo và hướng dẫn
-                                         st.success(f"✅ Đã tải dữ liệu '{ds['dataset_name']}'!")
-                                         st.info("💡 Bạn có thể chuyển sang các tab 'Khám phá', 'Huấn luyện' hoặc 'Phân cụm' để làm việc với dữ liệu này.")
-                                         # Không rerun ngay để user đọc thông báo, hoặc rerun nếu muốn trải nghiệm mượt
-                                         time.sleep(1)
-                                         st.rerun()
-                                     else:
-                                         st.error(f"Lỗi: {meta}")
-                                         
-                                 with st.expander("Chỉnh sửa Mô tả"):
-                                    new_desc_edit = st.text_input("Mô tả mới:", value=ds.get('description', ''), key=f"desc_{ds['dataset_id']}")
+                                if st.button(
+                                    "🚀 Sử dụng Dữ liệu này", key=f"use_ds_{ds['dataset_id']}", type="primary"
+                                ):
+                                    df_load, meta = warehouse.load_dataset(ds['dataset_id'])
+                                    if df_load is not None:
+                                        st.session_state.current_df = df_load
+                                        st.session_state.current_dataset_id = ds['dataset_name']
+                                        st.session_state.cleaned_df = None  # Reset cleaning state
+                                        if 'target_for_analysis' in st.session_state:
+                                            del st.session_state.target_for_analysis
+
+                                        # Thông báo và hướng dẫn
+                                        st.success(f"✅ Đã tải dữ liệu '{ds['dataset_name']}'!")
+                                        st.info(
+                                            "💡 Bạn có thể chuyển sang các tab 'Khám phá', 'Huấn luyện' hoặc 'Phân cụm' để làm việc với dữ liệu này."
+                                        )
+                                        # Không rerun ngay để user đọc thông báo, hoặc rerun nếu muốn trải nghiệm mượt
+                                        time.sleep(1)
+                                        st.rerun()
+                                    else:
+                                        st.error(f"Lỗi: {meta}")
+
+                                with st.expander("Chỉnh sửa Mô tả"):
+                                    new_desc_edit = st.text_input(
+                                        "Mô tả mới:", value=ds.get('description', ''), key=f"desc_{ds['dataset_id']}"
+                                    )
                                     # Auto-save: gõ xong (Enter/rời ô nhập) là tự lưu, không cần bấm nút.
                                     if new_desc_edit != ds.get('description', ''):
-                                        success, msg = warehouse.update_dataset_description(ds['dataset_id'], new_desc_edit)
+                                        success, msg = warehouse.update_dataset_description(
+                                            ds['dataset_id'], new_desc_edit
+                                        )
                                         if success:
                                             st.success(f"✅ Đã tự động lưu mô tả mới. {msg}")
                                             time.sleep(1)
                                             st.rerun()
                                         else:
                                             st.error(msg)
-                            
+
                             with col_act2:
                                 # Download logic
                                 dataset_path = os.path.join(warehouse.data_path, f"{ds['dataset_id']}.csv")
@@ -329,69 +354,82 @@ def warehouse_tab(warehouse, role=None):
                                             f,
                                             file_name=f"{ds['dataset_name']}.csv",
                                             mime="text/csv",
-                                            key=f"dl_csv_{ds['dataset_id']}"
+                                            key=f"dl_csv_{ds['dataset_id']}",
                                         )
-                            
+
                             with col_act3:
                                 if st.button("🗑️ Xóa", key=f"del_{ds['dataset_id']}", type="primary"):
-                                     try:
+                                    try:
                                         dataset_path = os.path.join(warehouse.data_path, f"{ds['dataset_id']}.csv")
-                                        metadata_path = os.path.join(warehouse.metadata_path, f"{ds['dataset_id']}_data.json")
-                                        if os.path.exists(dataset_path): os.remove(dataset_path)
-                                        if os.path.exists(metadata_path): os.remove(metadata_path)
+                                        metadata_path = os.path.join(
+                                            warehouse.metadata_path, f"{ds['dataset_id']}_data.json"
+                                        )
+                                        if os.path.exists(dataset_path):
+                                            os.remove(dataset_path)
+                                        if os.path.exists(metadata_path):
+                                            os.remove(metadata_path)
                                         st.success("Đã xóa!")
                                         st.rerun()
-                                     except Exception as e:
+                                    except Exception as e:
                                         ui_kit.report_error("Lỗi xóa", e)
 
         # Tab Khác
         with cat_tabs[-1]:
             if not grouped_datasets['other']:
-                 st.info("Không có dataset loại khác.")
+                st.info("Không có dataset loại khác.")
             else:
                 for ds in grouped_datasets['other']:
-                     # (Copy logic hiển thị - để ngắn gọn tôi dùng lại function hoặc code block tương tự, nhưng ở đây tôi flatten code ra)
-                     # Để code ngắn gọn, tôi hiển thị đơn giản hơn hoặc copy lại block trên.
-                     # Vì tool replace giới hạn, tôi sẽ copy block hiển thị.
+                    # (Copy logic hiển thị - để ngắn gọn tôi dùng lại function hoặc code block tương tự, nhưng ở đây tôi flatten code ra)
+                    # Để code ngắn gọn, tôi hiển thị đơn giản hơn hoặc copy lại block trên.
+                    # Vì tool replace giới hạn, tôi sẽ copy block hiển thị.
                     with st.expander(f"📁 {ds['dataset_name']} (ID: `{ds['dataset_id']}`)", expanded=False):
-                            col1, col2, col3 = st.columns(3)
-                            with col1:
-                                st.write(f"📅 **Tạo:** {ds['created_at']}")
-                            with col2:
-                                st.write(f"🔢 **Rows:** {ds['n_rows']}")
-                            with col3:
-                                st.write(f"📋 **Cols:** {ds['n_cols']}")
-                                
-                            st.write(f"Type: `{ds.get('data_type')}`")
+                        col1, col2, col3 = st.columns(3)
+                        with col1:
+                            st.write(f"📅 **Tạo:** {ds['created_at']}")
+                        with col2:
+                            st.write(f"🔢 **Rows:** {ds['n_rows']}")
+                        with col3:
+                            st.write(f"📋 **Cols:** {ds['n_cols']}")
 
-                            if st.button("🚀 Sử dụng Dữ liệu này", key=f"use_ds_other_{ds['dataset_id']}", type="primary"):
-                                 df_load, meta = warehouse.load_dataset(ds['dataset_id'])
-                                 if df_load is not None:
-                                     st.session_state.current_df = df_load
-                                     st.session_state.current_dataset_id = ds['dataset_name']
-                                     st.session_state.cleaned_df = None 
-                                     if 'target_for_analysis' in st.session_state: del st.session_state.target_for_analysis
-                                     st.success(f"Đã tải dữ liệu '{ds['dataset_name']}'!")
-                                     st.rerun()
-                            
-                            # Download (Simplified)
-                            dataset_path = os.path.join(warehouse.data_path, f"{ds['dataset_id']}.csv")
-                            if os.path.exists(dataset_path):
-                                with open(dataset_path, "rb") as f:
-                                    st.download_button("📥 Tải xuống CSV", f, file_name=f"{ds['dataset_name']}.csv", mime="text/csv", key=f"dl_csv_other_{ds['dataset_id']}")
-                            
-                            # Xóa
-                            if st.button("🗑️ Xóa", key=f"del_other_{ds['dataset_id']}"):
-                                     try:
-                                        dataset_path = os.path.join(warehouse.data_path, f"{ds['dataset_id']}.csv")
-                                        metadata_path = os.path.join(warehouse.metadata_path, f"{ds['dataset_id']}_data.json")
-                                        if os.path.exists(dataset_path): os.remove(dataset_path)
-                                        if os.path.exists(metadata_path): os.remove(metadata_path)
-                                        st.success("Đã xóa!")
-                                        st.rerun()
-                                     except Exception as e:
-                                        ui_kit.report_error("Chưa xoá được bộ dữ liệu", e)
-    
+                        st.write(f"Type: `{ds.get('data_type')}`")
+
+                        if st.button("🚀 Sử dụng Dữ liệu này", key=f"use_ds_other_{ds['dataset_id']}", type="primary"):
+                            df_load, meta = warehouse.load_dataset(ds['dataset_id'])
+                            if df_load is not None:
+                                st.session_state.current_df = df_load
+                                st.session_state.current_dataset_id = ds['dataset_name']
+                                st.session_state.cleaned_df = None
+                                if 'target_for_analysis' in st.session_state:
+                                    del st.session_state.target_for_analysis
+                                st.success(f"Đã tải dữ liệu '{ds['dataset_name']}'!")
+                                st.rerun()
+
+                        # Download (Simplified)
+                        dataset_path = os.path.join(warehouse.data_path, f"{ds['dataset_id']}.csv")
+                        if os.path.exists(dataset_path):
+                            with open(dataset_path, "rb") as f:
+                                st.download_button(
+                                    "📥 Tải xuống CSV",
+                                    f,
+                                    file_name=f"{ds['dataset_name']}.csv",
+                                    mime="text/csv",
+                                    key=f"dl_csv_other_{ds['dataset_id']}",
+                                )
+
+                        # Xóa
+                        if st.button("🗑️ Xóa", key=f"del_other_{ds['dataset_id']}"):
+                            try:
+                                dataset_path = os.path.join(warehouse.data_path, f"{ds['dataset_id']}.csv")
+                                metadata_path = os.path.join(warehouse.metadata_path, f"{ds['dataset_id']}_data.json")
+                                if os.path.exists(dataset_path):
+                                    os.remove(dataset_path)
+                                if os.path.exists(metadata_path):
+                                    os.remove(metadata_path)
+                                st.success("Đã xóa!")
+                                st.rerun()
+                            except Exception as e:
+                                ui_kit.report_error("Chưa xoá được bộ dữ liệu", e)
+
     # Tab hiển thị các mô hình đã lưu — "Quản lý mô hình" (Admin xem/Promote/Rollback,
     # Giảng viên xem + huấn luyện ở tab riêng, KHÔNG tự Promote/Rollback — RBAC không đổi,
     # chỉ đổi phần trình bày bên dưới).
@@ -436,7 +474,9 @@ def warehouse_tab(warehouse, role=None):
                     with prod_cols[i % len(prod_cols)]:
                         with st.container(border=True):
                             st.markdown(f"**{m['model_name']}**")
-                            st.caption(f"Target: `{m['target_col']}`" + (f" · v{m.get('version')}" if m.get("version") else ""))
+                            st.caption(
+                                f"Target: `{m['target_col']}`" + (f" · v{m.get('version')}" if m.get("version") else "")
+                            )
                             _metrics = m.get("metrics", {}) or {}
                             _mk = next((k for k in _metric_priority if k in _metrics), None)
                             if _mk:
@@ -459,125 +499,132 @@ def warehouse_tab(warehouse, role=None):
                     f"🤖 {model['model_name']} (ID: `{model['training_id']}`){version_label}",
                     expanded=False,
                 ):
-                     st.write(f"**Target:** `{model['target_col']}` | **Time:** {model['trained_at']}")
-                     st.json(model['metrics'])
-                     
-                     col_m1, col_m2, col_m3 = st.columns(3)
-                     with col_m1:
-                         if st.button("🤖 Sử dụng Mô hình này", key=f"use_model_{idx}", type="primary"):
-                             pipeline, meta, msg = warehouse.load_model_training(model['training_id'])
-                             if pipeline:
-                                 model_name = model.get("model_name", "Model từ kho")
-                                 model_meta = meta or {}
-                                 metrics = model_meta.get("metrics", model.get("metrics", {})) or {}
-                                 feature_cols = model_meta.get("feature_cols", model.get("feature_cols", [])) or []
-                                 target_col = model_meta.get("target_col", model.get("target_col", "unknown"))
+                    st.write(f"**Target:** `{model['target_col']}` | **Time:** {model['trained_at']}")
+                    st.json(model['metrics'])
 
-                                 if metrics.get("type") == "clustering":
-                                     st.warning(
-                                         "⚠️ Đây là mô hình **phân cụm (KMeans)**, không phải mô hình Phân loại/Hồi quy — "
-                                         "không thể nạp vào tab Dự đoán. Hãy dùng lại mô hình này ở tab **Phân cụm**."
-                                     )
-                                 else:
-                                     is_clf = any(k in metrics for k in ("Accuracy", "F1 Score", "Precision", "Recall"))
-                                     if not is_clf:
-                                         model_step = getattr(pipeline, "named_steps", {}).get("model")
-                                         is_clf = hasattr(model_step, "predict_proba")
+                    col_m1, col_m2, col_m3 = st.columns(3)
+                    with col_m1:
+                        if st.button("🤖 Sử dụng Mô hình này", key=f"use_model_{idx}", type="primary"):
+                            pipeline, meta, msg = warehouse.load_model_training(model['training_id'])
+                            if pipeline:
+                                model_name = model.get("model_name", "Model từ kho")
+                                model_meta = meta or {}
+                                metrics = model_meta.get("metrics", model.get("metrics", {})) or {}
+                                feature_cols = model_meta.get("feature_cols", model.get("feature_cols", [])) or []
+                                target_col = model_meta.get("target_col", model.get("target_col", "unknown"))
 
-                                     st.session_state.hub_pipelines = {model_name: pipeline}
-                                     st.session_state.hub_results = {model_name: metrics}
-                                     st.session_state.hub_feats = list(feature_cols)
-                                     st.session_state.hub_target_col = target_col
-                                     st.session_state.hub_type = "clf" if is_clf else "reg"
-                                     st.session_state.hub_loaded_from_warehouse = True
-                                     st.session_state.hub_loaded_training_id = model.get("training_id")
+                                if metrics.get("type") == "clustering":
+                                    st.warning(
+                                        "⚠️ Đây là mô hình **phân cụm (KMeans)**, không phải mô hình Phân loại/Hồi quy — "
+                                        "không thể nạp vào tab Dự đoán. Hãy dùng lại mô hình này ở tab **Phân cụm**."
+                                    )
+                                else:
+                                    is_clf = any(k in metrics for k in ("Accuracy", "F1 Score", "Precision", "Recall"))
+                                    if not is_clf:
+                                        model_step = getattr(pipeline, "named_steps", {}).get("model")
+                                        is_clf = hasattr(model_step, "predict_proba")
 
-                                     if is_clf:
-                                         # Ưu tiên tên lớp gốc đã lưu cùng model (đúng thứ tự mã số
-                                         # nội bộ). model.classes_ chỉ còn mã số (0..K-1), không phải
-                                         # tên gốc, nên chỉ dùng làm phương án dự phòng cho model cũ
-                                         # lưu trước khi hệ thống hỗ trợ lưu class_labels.
-                                         saved_class_labels = model_meta.get("class_labels") or model.get("class_labels")
-                                         if saved_class_labels:
-                                             st.session_state.hub_labels = list(saved_class_labels)
-                                         else:
-                                             classes = None
-                                             model_step = getattr(pipeline, "named_steps", {}).get("model")
-                                             if model_step is not None and hasattr(model_step, "classes_"):
-                                                 classes = list(getattr(model_step, "classes_"))
-                                             if classes:
-                                                 st.warning(
-                                                     "⚠️ Mô hình này được lưu trước khi hệ thống hỗ trợ lưu tên lớp gốc — "
-                                                     "kết quả dự đoán sẽ hiển thị mã số nội bộ thay vì tên lớp thật."
-                                                 )
-                                                 st.session_state.hub_labels = classes
-                                             else:
-                                                 st.session_state.hub_labels = []
-                                     else:
-                                         st.session_state.hub_labels = {}
+                                    st.session_state.hub_pipelines = {model_name: pipeline}
+                                    st.session_state.hub_results = {model_name: metrics}
+                                    st.session_state.hub_feats = list(feature_cols)
+                                    st.session_state.hub_target_col = target_col
+                                    st.session_state.hub_type = "clf" if is_clf else "reg"
+                                    st.session_state.hub_loaded_from_warehouse = True
+                                    st.session_state.hub_loaded_training_id = model.get("training_id")
 
-                                     # Đồng bộ key đang dùng ở form train để tab Dự đoán hoạt động ngay.
-                                     if target_col:
-                                         st.session_state["train_hub_target"] = target_col
-                                     if isinstance(feature_cols, list) and feature_cols:
-                                         st.session_state["train_hub_features_pick"] = list(feature_cols)
+                                    if is_clf:
+                                        # Ưu tiên tên lớp gốc đã lưu cùng model (đúng thứ tự mã số
+                                        # nội bộ). model.classes_ chỉ còn mã số (0..K-1), không phải
+                                        # tên gốc, nên chỉ dùng làm phương án dự phòng cho model cũ
+                                        # lưu trước khi hệ thống hỗ trợ lưu class_labels.
+                                        saved_class_labels = model_meta.get("class_labels") or model.get("class_labels")
+                                        if saved_class_labels:
+                                            st.session_state.hub_labels = list(saved_class_labels)
+                                        else:
+                                            classes = None
+                                            model_step = getattr(pipeline, "named_steps", {}).get("model")
+                                            if model_step is not None and hasattr(model_step, "classes_"):
+                                                classes = list(model_step.classes_)
+                                            if classes:
+                                                st.warning(
+                                                    "⚠️ Mô hình này được lưu trước khi hệ thống hỗ trợ lưu tên lớp gốc — "
+                                                    "kết quả dự đoán sẽ hiển thị mã số nội bộ thay vì tên lớp thật."
+                                                )
+                                                st.session_state.hub_labels = classes
+                                            else:
+                                                st.session_state.hub_labels = []
+                                    else:
+                                        st.session_state.hub_labels = {}
 
-                                     # Nếu metadata có dataset gốc, tự nạp để người dùng dự đoán ngay.
-                                     linked_dataset_id = model_meta.get("dataset_id")
-                                     if linked_dataset_id:
-                                         df_linked, _meta_ds = warehouse.load_dataset(linked_dataset_id)
-                                         if isinstance(df_linked, pd.DataFrame) and not df_linked.empty:
-                                             st.session_state.current_df = df_linked
-                                             st.session_state.current_dataset_id = linked_dataset_id
+                                    # Đồng bộ key đang dùng ở form train để tab Dự đoán hoạt động ngay.
+                                    if target_col:
+                                        st.session_state["train_hub_target"] = target_col
+                                    if isinstance(feature_cols, list) and feature_cols:
+                                        st.session_state["train_hub_features_pick"] = list(feature_cols)
 
-                                     st.success(
-                                         f"Mô hình '{model_name}' đã được nạp vào phiên dự đoán. "
-                                         "Bạn có thể sang tab **Huấn luyện — Dự đoán** và dùng ngay."
-                                     )
-                             else:
-                                 st.error(f"Lỗi: {msg}")
+                                    # Nếu metadata có dataset gốc, tự nạp để người dùng dự đoán ngay.
+                                    linked_dataset_id = model_meta.get("dataset_id")
+                                    if linked_dataset_id:
+                                        df_linked, _meta_ds = warehouse.load_dataset(linked_dataset_id)
+                                        if isinstance(df_linked, pd.DataFrame) and not df_linked.empty:
+                                            st.session_state.current_df = df_linked
+                                            st.session_state.current_dataset_id = linked_dataset_id
 
-                     with col_m2:
-                         # Download Model
-                         if st.button("📥 Tải Model (.pkl)", key=f"dl_model_{idx}"):
-                             try:
-                                 model_path = os.path.join(warehouse.models_path, f"{model['training_id']}.pkl")
-                                 if os.path.exists(model_path):
-                                     with open(model_path, "rb") as f:
-                                         st.download_button("Click để tải", f, file_name=f"{model['model_name']}.pkl", key=f"real_dl_model_{idx}")
-                                 else:
-                                     st.error("File model không tồn tại.")
-                             except Exception as e:
-                                 ui_kit.report_error("Không chuẩn bị được tệp mô hình để tải xuống", e)
-                     
-                     with col_m2:
-                         if st.button("🗑️ Xóa Model", key=f"del_model_{idx}", type="primary"):
-                             try:
-                                 model_path = os.path.join(warehouse.models_path, f"{model['training_id']}.pkl")
-                                 meta_path = os.path.join(warehouse.metadata_path, f"{model['training_id']}_model.json")
-                                 if os.path.exists(model_path): os.remove(model_path)
-                                 if os.path.exists(meta_path): os.remove(meta_path)
-                                 st.success("Đã xóa model!")
-                                 st.rerun()
-                             except Exception as e:
-                                 ui_kit.report_error("Lỗi xóa", e)
+                                    st.success(
+                                        f"Mô hình '{model_name}' đã được nạp vào phiên dự đoán. "
+                                        "Bạn có thể sang tab **Huấn luyện — Dự đoán** và dùng ngay."
+                                    )
+                            else:
+                                st.error(f"Lỗi: {msg}")
 
-                     with col_m3:
-                         if is_production:
-                             st.caption("⭐ Đang là bản Production hiện tại.")
-                         elif not is_admin:
-                             # Quyết định RBAC: đặt/đổi Production model chỉ Admin được làm
-                             # (model_registry.promote/rollback chặn ở tầng hàm — nút này chỉ
-                             # ẩn đi để Giảng viên không thấy 1 nút luôn báo lỗi quyền).
-                             st.caption("🔒 Chỉ Admin được đổi bản Production.")
-                         else:
-                             if st.button("⭐ Đặt làm Production (rollback)", key=f"promote_model_{idx}"):
-                                 ok, msg = model_registry.promote(warehouse, model["training_id"])
-                                 if ok:
-                                     st.success(f"✅ Đã đặt '{model['model_name']}' (v{version}) làm Production.")
-                                     st.rerun()
-                                 else:
-                                     st.error(f"Lỗi: {msg}")
+                    with col_m2:
+                        # Download Model
+                        if st.button("📥 Tải Model (.pkl)", key=f"dl_model_{idx}"):
+                            try:
+                                model_path = os.path.join(warehouse.models_path, f"{model['training_id']}.pkl")
+                                if os.path.exists(model_path):
+                                    with open(model_path, "rb") as f:
+                                        st.download_button(
+                                            "Click để tải",
+                                            f,
+                                            file_name=f"{model['model_name']}.pkl",
+                                            key=f"real_dl_model_{idx}",
+                                        )
+                                else:
+                                    st.error("File model không tồn tại.")
+                            except Exception as e:
+                                ui_kit.report_error("Không chuẩn bị được tệp mô hình để tải xuống", e)
+
+                    with col_m2:
+                        if st.button("🗑️ Xóa Model", key=f"del_model_{idx}", type="primary"):
+                            try:
+                                model_path = os.path.join(warehouse.models_path, f"{model['training_id']}.pkl")
+                                meta_path = os.path.join(warehouse.metadata_path, f"{model['training_id']}_model.json")
+                                if os.path.exists(model_path):
+                                    os.remove(model_path)
+                                if os.path.exists(meta_path):
+                                    os.remove(meta_path)
+                                st.success("Đã xóa model!")
+                                st.rerun()
+                            except Exception as e:
+                                ui_kit.report_error("Lỗi xóa", e)
+
+                    with col_m3:
+                        if is_production:
+                            st.caption("⭐ Đang là bản Production hiện tại.")
+                        elif not is_admin:
+                            # Quyết định RBAC: đặt/đổi Production model chỉ Admin được làm
+                            # (model_registry.promote/rollback chặn ở tầng hàm — nút này chỉ
+                            # ẩn đi để Giảng viên không thấy 1 nút luôn báo lỗi quyền).
+                            st.caption("🔒 Chỉ Admin được đổi bản Production.")
+                        else:
+                            if st.button("⭐ Đặt làm Production (rollback)", key=f"promote_model_{idx}"):
+                                ok, msg = model_registry.promote(warehouse, model["training_id"])
+                                if ok:
+                                    st.success(f"✅ Đã đặt '{model['model_name']}' (v{version}) làm Production.")
+                                    st.rerun()
+                                else:
+                                    st.error(f"Lỗi: {msg}")
 
     # Tab hiển thị lịch sử các lần huấn luyện và dự đoán
     with tab_history:
@@ -644,8 +691,12 @@ def model_registry_tab(warehouse):
         subtitle="Toàn bộ phiên bản mô hình đã huấn luyện trong hệ thống — chỉ xem, không thao tác ở đây.",
         icon="🗄️",
     )
-    st.write("Model Registry quản lý các phiên bản mô hình đã huấn luyện, giúp theo dõi mô hình chờ duyệt, đang được sử dụng và đã lưu trữ.")
-    st.caption("Chờ duyệt (Candidate) → Đang sử dụng (Production) → Lưu trữ (Archived). Trang này chỉ dùng để theo dõi; thao tác chuyển phiên bản nằm trong Kho dữ liệu > AI Models.")
+    st.write(
+        "Model Registry quản lý các phiên bản mô hình đã huấn luyện, giúp theo dõi mô hình chờ duyệt, đang được sử dụng và đã lưu trữ."
+    )
+    st.caption(
+        "Chờ duyệt (Candidate) → Đang sử dụng (Production) → Lưu trữ (Archived). Trang này chỉ dùng để theo dõi; thao tác chuyển phiên bản nằm trong Kho dữ liệu > AI Models."
+    )
     if warehouse is None:
         st.error("Lỗi: Không thể khởi tạo kho dữ liệu.")
         return
@@ -691,16 +742,19 @@ def model_registry_tab(warehouse):
         _metrics = m.get("metrics", {}) or {}
         _mk = next((k for k in _metric_priority if k in _metrics), None)
         _mv = _metrics.get(_mk) if _mk else None
-        _rows.append({
-            "Trạng thái": _model_lifecycle_badge_text(m),
-            "Model": m.get("model_name", "—"),
-            "Dataset": m.get("dataset_id", "—") or "—",
-            "Target": m.get("target_col", "—"),
-            "Version": m.get("version") or "—",
-            "Chỉ số chính": f"{_mk} = {_mv:.3f}" if isinstance(_mv, (int, float)) else "—",
-            "Huấn luyện lúc": _humanize_trained_at(m.get("trained_at", "—")),
-            "Mã huấn luyện": str(m.get("training_id") or "—")[:24] + ("…" if len(str(m.get("training_id") or "")) > 24 else ""),
-        })
+        _rows.append(
+            {
+                "Trạng thái": _model_lifecycle_badge_text(m),
+                "Model": m.get("model_name", "—"),
+                "Dataset": m.get("dataset_id", "—") or "—",
+                "Target": m.get("target_col", "—"),
+                "Version": m.get("version") or "—",
+                "Chỉ số chính": f"{_mk} = {_mv:.3f}" if isinstance(_mv, (int, float)) else "—",
+                "Huấn luyện lúc": _humanize_trained_at(m.get("trained_at", "—")),
+                "Mã huấn luyện": str(m.get("training_id") or "—")[:24]
+                + ("…" if len(str(m.get("training_id") or "")) > 24 else ""),
+            }
+        )
     _df_registry = pd.DataFrame(_rows).sort_values("Trạng thái")
     st.dataframe(_df_registry, width="stretch", hide_index=True, height=min(70 + 36 * len(_rows), 560))
     st.caption(
@@ -720,8 +774,15 @@ def model_registry_tab(warehouse):
             "sanity, KHÔNG PHẢI drift trên dữ liệu vận hành thật (môi trường demo chưa có "
             "luồng dữ liệu sản xuất mới sau triển khai)."
         )
-        _drift_options = {f"{m.get('model_name','?')} v{m.get('version','?')} ({m.get('training_id','')[:12]}…)": m.get("training_id") for m in models}
-        _drift_choice = st.selectbox("Chọn mô hình để kiểm tra:", list(_drift_options.keys()), key="drift_check_model_choice")
+        _drift_options = {
+            f"{m.get('model_name', '?')} v{m.get('version', '?')} ({m.get('training_id', '')[:12]}…)": m.get(
+                "training_id"
+            )
+            for m in models
+        }
+        _drift_choice = st.selectbox(
+            "Chọn mô hình để kiểm tra:", list(_drift_options.keys()), key="drift_check_model_choice"
+        )
         if st.button("Chạy kiểm tra Drift", key="run_drift_check_btn"):
             _drift_result = model_registry.run_on_demand_drift_check(_drift_options[_drift_choice], warehouse)
             if _drift_result.get("status") in ("ERROR", "INSUFFICIENT_DATA"):
@@ -730,7 +791,9 @@ def model_registry_tab(warehouse):
                 _dd = _drift_result["data_drift"]
                 _pd_res = _drift_result["performance_drift"]
                 st.write(f"**Thời điểm kiểm tra:** {_drift_result.get('checked_at', '—')}")
-                st.write(f"**Phiên bản mô hình:** v{_drift_result.get('model_version', '—')} · **Dataset:** {_drift_result.get('dataset_id', '—')}")
+                st.write(
+                    f"**Phiên bản mô hình:** v{_drift_result.get('model_version', '—')} · **Dataset:** {_drift_result.get('dataset_id', '—')}"
+                )
                 st.write(f"**Data drift:** {_dd.get('overall_status', '—')}")
                 st.write(f"**Performance drift:** {_pd_res.get('overall_status', '—')}")
                 st.write(f"**Khuyến nghị:** {_drift_result.get('recommended_action', '—')}")

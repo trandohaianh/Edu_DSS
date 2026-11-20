@@ -2,19 +2,21 @@
 
 Policy tests always run. PostgreSQL tests run against a real database when one is
 configured and are skipped (not faked) otherwise."""
+
 from __future__ import annotations
 
 import json
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 
 import pytest
 
 from dss.db.session import is_database_configured
 from dss.services import data_lifecycle as dl
 
-requires_pg = pytest.mark.skipif(not is_database_configured(),
-                                 reason="No PostgreSQL configured — lifecycle DB tests skipped, not faked")
+requires_pg = pytest.mark.skipif(
+    not is_database_configured(), reason="No PostgreSQL configured — lifecycle DB tests skipped, not faked"
+)
 
 
 # ---------------------------------------------------------------- policy (always)
@@ -54,28 +56,55 @@ def _seed(org_code_prefix: str):
         s.add(role)
         s.flush()
         code = f"SV{uuid.uuid4().hex[:6].upper()}"
-        user = m.User(organization_id=org.id, username=code.lower(), password_hash="x", password_salt="y",
-                      role_id=role.id, email=STUDENT_EMAIL, student_id=code)
+        user = m.User(
+            organization_id=org.id,
+            username=code.lower(),
+            password_hash="x",
+            password_salt="y",
+            role_id=role.id,
+            email=STUDENT_EMAIL,
+            student_id=code,
+        )
         s.add(user)
         s.flush()
-        student = m.Student(organization_id=org.id, student_code=code, full_name=STUDENT_NAME,
-                            external_id=f"lms-{code}", user_id=user.id)
+        student = m.Student(
+            organization_id=org.id,
+            student_code=code,
+            full_name=STUDENT_NAME,
+            external_id=f"lms-{code}",
+            user_id=user.id,
+        )
         course = m.Course(organization_id=org.id, course_code=f"C{uuid.uuid4().hex[:5]}", title="Thống kê")
         s.add_all([student, course])
         s.flush()
         pseudonym = generate_pseudonym(code, organization_id=org.id)
-        s.add_all([
-            m.AcademicRecord(organization_id=org.id, student_id=student.id, course_id=course.id,
-                             record_type="final", value=7.5),
-            m.Consultation(organization_id=org.id, student_id=student.id, provider="groq",
-                           question=f"Em là {STUDENT_NAME}", answer="Lời khuyên"),
-            m.Recommendation(organization_id=org.id, student_id=student.id, recommendation_type="plan",
-                             content="Kế hoạch 4 tuần"),
-            m.ActivityLog(organization_id=org.id, user_id=user.id, action_type="login",
-                          description=f"{STUDENT_NAME} đăng nhập", details={"email": STUDENT_EMAIL}),
-            m.CmsStudentInteraction(organization_id=org.id, student_pseudonym=pseudonym, course_id="C1",
-                                    question="Câu hỏi riêng tư"),
-        ])
+        s.add_all(
+            [
+                m.AcademicRecord(
+                    organization_id=org.id, student_id=student.id, course_id=course.id, record_type="final", value=7.5
+                ),
+                m.Consultation(
+                    organization_id=org.id,
+                    student_id=student.id,
+                    provider="groq",
+                    question=f"Em là {STUDENT_NAME}",
+                    answer="Lời khuyên",
+                ),
+                m.Recommendation(
+                    organization_id=org.id, student_id=student.id, recommendation_type="plan", content="Kế hoạch 4 tuần"
+                ),
+                m.ActivityLog(
+                    organization_id=org.id,
+                    user_id=user.id,
+                    action_type="login",
+                    description=f"{STUDENT_NAME} đăng nhập",
+                    details={"email": STUDENT_EMAIL},
+                ),
+                m.CmsStudentInteraction(
+                    organization_id=org.id, student_pseudonym=pseudonym, course_id="C1", question="Câu hỏi riêng tư"
+                ),
+            ]
+        )
         return org.id, code, student.id, user.id
 
 
@@ -117,8 +146,11 @@ def test_erasure_deletes_ai_data_anonymizes_identity_retains_academic_records():
         assert s.query(m.AcademicRecord).filter(m.AcademicRecord.student_id == student_pk).count() == 1
         log = s.query(m.ActivityLog).filter(m.ActivityLog.user_id == user_pk).one()
         assert STUDENT_NAME not in log.description and log.details is None
-        event = s.query(m.AuditLog).filter(m.AuditLog.organization_id == org_id,
-                                           m.AuditLog.action == "privacy.student_erasure").one()
+        event = (
+            s.query(m.AuditLog)
+            .filter(m.AuditLog.organization_id == org_id, m.AuditLog.action == "privacy.student_erasure")
+            .one()
+        )
         event_text = json.dumps(event.after, ensure_ascii=False)
         for personal in (STUDENT_NAME, STUDENT_EMAIL, code):
             assert personal not in event_text  # the audit trail keeps counts, not personal data
@@ -136,7 +168,7 @@ def test_erasure_is_confined_to_one_tenant():
     org_a, code_a, _, _ = _seed("LC_TENANT_A")
     org_b, _, student_b, _ = _seed("LC_TENANT_B")
     with pytest.raises(dl.StudentNotFound):
-        dl.erase_student_data(org_b, code_a, requested_by="attacker")   # A's student via B's tenant
+        dl.erase_student_data(org_b, code_a, requested_by="attacker")  # A's student via B's tenant
     dl.erase_student_data(org_a, code_a, requested_by="dpo")
     with session_scope() as s:
         assert s.get(m.Student, student_b).full_name == STUDENT_NAME
@@ -149,7 +181,7 @@ def test_purge_expired_respects_retention_and_never_touches_academic_records(mon
     from dss.db.session import session_scope
 
     org_id, _, student_pk, _ = _seed("LC_PURGE")
-    future = datetime.now(timezone.utc) + timedelta(days=366)
+    future = datetime.now(UTC) + timedelta(days=366)
     purged = dl.purge_expired(org_id, now=future)
     assert purged["consultations"] == 1 and purged["recommendations"] == 1
     with session_scope() as s:

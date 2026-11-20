@@ -12,6 +12,7 @@ Xếp thứ tự ưu tiên (Priority Hierarchy):
 - Medium: Kỹ năng bắt buộc nền tảng, kỹ năng nên có quan trọng, hoặc chuẩn bị phỏng vấn.
 - Nice-to-have: Kỹ năng phụ trợ hoặc kỹ năng đã đạt chuẩn.
 """
+
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
@@ -36,9 +37,9 @@ class GapItem:
     is_required: bool
     weight: float
     current_level: str
-    status: str                                       # STATUS_HAVE | STATUS_STRENGTHEN | STATUS_MISSING
-    priority: str                                     # PRIORITY_CRITICAL | PRIORITY_HIGH | PRIORITY_MEDIUM | PRIORITY_NICE
-    item_type: str = "skill"                          # skill | artifact
+    status: str  # STATUS_HAVE | STATUS_STRENGTHEN | STATUS_MISSING
+    priority: str  # PRIORITY_CRITICAL | PRIORITY_HIGH | PRIORITY_MEDIUM | PRIORITY_NICE
+    item_type: str = "skill"  # skill | artifact
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -79,65 +80,75 @@ def compute_gap_analysis(
     for skill_name, weight in role.required_skills.items():
         skill = profile.skills.get(skill_name)
         status = _status_from_level(skill.achieved_level)
-        items.append(GapItem(
-            skill_name=skill_name,
-            is_required=True,
-            weight=weight,
-            current_level=skill.skill_level,
-            status=status,
-            priority=_priority_from_weight(True, weight, status),
-            item_type="skill",
-        ))
+        items.append(
+            GapItem(
+                skill_name=skill_name,
+                is_required=True,
+                weight=weight,
+                current_level=skill.skill_level,
+                status=status,
+                priority=_priority_from_weight(True, weight, status),
+                item_type="skill",
+            )
+        )
 
     # 2. Kỹ năng nên có (Preferred Skills)
     for skill_name, weight in role.preferred_skills.items():
         skill = profile.skills.get(skill_name)
         status = _status_from_level(skill.achieved_level)
-        items.append(GapItem(
-            skill_name=skill_name,
-            is_required=False,
-            weight=weight,
-            current_level=skill.skill_level,
-            status=status,
-            priority=_priority_from_weight(False, weight, status),
-            item_type="skill",
-        ))
+        items.append(
+            GapItem(
+                skill_name=skill_name,
+                is_required=False,
+                weight=weight,
+                current_level=skill.skill_level,
+                status=status,
+                priority=_priority_from_weight(False, weight, status),
+                item_type="skill",
+            )
+        )
 
     # 3. Tạo tác nghề nghiệp thực tế (Practical Artifacts Gap)
     if include_artifacts:
         # Portfolio gap
         if not profile.experience.has_portfolio():
-            items.append(GapItem(
-                skill_name="Portfolio dự án thực tế",
-                is_required=True,
-                weight=0.8,
-                current_level="Chưa có",
-                status=STATUS_MISSING,
-                priority=PRIORITY_HIGH,
-                item_type="artifact",
-            ))
+            items.append(
+                GapItem(
+                    skill_name="Portfolio dự án thực tế",
+                    is_required=True,
+                    weight=0.8,
+                    current_level="Chưa có",
+                    status=STATUS_MISSING,
+                    priority=PRIORITY_HIGH,
+                    item_type="artifact",
+                )
+            )
         else:
-            items.append(GapItem(
-                skill_name="Portfolio dự án thực tế",
-                is_required=True,
-                weight=0.8,
-                current_level="Đã có",
-                status=STATUS_HAVE,
-                priority=PRIORITY_NICE,
-                item_type="artifact",
-            ))
+            items.append(
+                GapItem(
+                    skill_name="Portfolio dự án thực tế",
+                    is_required=True,
+                    weight=0.8,
+                    current_level="Đã có",
+                    status=STATUS_HAVE,
+                    priority=PRIORITY_NICE,
+                    item_type="artifact",
+                )
+            )
 
         # Phỏng vấn kỹ thuật & CV
         if not profile.experience.is_interview_ready():
-            items.append(GapItem(
-                skill_name="Luyện tập phỏng vấn kỹ thuật & CV",
-                is_required=True,
-                weight=0.7,
-                current_level="Chưa có",
-                status=STATUS_MISSING,
-                priority=PRIORITY_MEDIUM,
-                item_type="artifact",
-            ))
+            items.append(
+                GapItem(
+                    skill_name="Luyện tập phỏng vấn kỹ thuật & CV",
+                    is_required=True,
+                    weight=0.7,
+                    current_level="Chưa có",
+                    status=STATUS_MISSING,
+                    priority=PRIORITY_MEDIUM,
+                    item_type="artifact",
+                )
+            )
 
     priority_order = {
         PRIORITY_CRITICAL: 0,

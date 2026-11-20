@@ -43,6 +43,7 @@ QUAN TRỌNG (trung thực về phạm vi): phiên này thực sự "wire" 2 rou
 Xem `docs/ai/AI_ROUTING_MATRIX.md` để biết chi tiết route nào đã ảnh hưởng runtime,
 route nào mới chỉ là nhãn phân loại.
 """
+
 from __future__ import annotations
 
 import re
@@ -68,10 +69,14 @@ TIER_3 = 3  # LLM Gateway đầy đủ
 # Route nào đã THỰC SỰ thay đổi hành vi runtime (đọc từ code, không phải
 # tuyên bố suông) — dùng trong test + report để không tự nhận "đã wire" nếu
 # chưa có code thật đứng sau route đó.
-_BEHAVIOR_CHANGING_ROUTES = frozenset({
-    INTENT_GPA_CALCULATION, INTENT_REGULATION_LOOKUP, INTENT_ACADEMIC_RULE_CHECK,
-    INTENT_DIRECT_DATA_LOOKUP,
-})
+_BEHAVIOR_CHANGING_ROUTES = frozenset(
+    {
+        INTENT_GPA_CALCULATION,
+        INTENT_REGULATION_LOOKUP,
+        INTENT_ACADEMIC_RULE_CHECK,
+        INTENT_DIRECT_DATA_LOOKUP,
+    }
+)
 
 
 @dataclass
@@ -99,41 +104,67 @@ class RouteDecision:
 # phần thập phân xét riêng ({1,2} chữ số sau dấu chấm/phẩy).
 _NUMBER_RE = re.compile(r"\b(\d{1,3}(?:[.,]\d{1,2})?)\b")
 _GPA_CALC_INTENT_PHRASES = (
-    "cần bao nhiêu", "cần đạt", "lên bao nhiêu", "cần đạt bao nhiêu",
-    "muốn lên", "muốn đạt", "để đạt",
+    "cần bao nhiêu",
+    "cần đạt",
+    "lên bao nhiêu",
+    "cần đạt bao nhiêu",
+    "muốn lên",
+    "muốn đạt",
+    "để đạt",
 )
 
 _REGULATION_LOOKUP_PHRASES = (
-    "quy chế nào", "quy định nào", "áp dụng cho em", "áp dụng cho tôi",
-    "quy chế đang áp dụng", "quy chế hiện hành",
+    "quy chế nào",
+    "quy định nào",
+    "áp dụng cho em",
+    "áp dụng cho tôi",
+    "quy chế đang áp dụng",
+    "quy chế hiện hành",
 )
 
 _ACADEMIC_RULE_CHECK_PHRASES = (
-    "có được đăng ký", "có đủ điều kiện", "đủ điều kiện làm khóa luận",
-    "đủ điều kiện tốt nghiệp", "được phép đăng ký", "điều kiện đăng ký môn",
+    "có được đăng ký",
+    "có đủ điều kiện",
+    "đủ điều kiện làm khóa luận",
+    "đủ điều kiện tốt nghiệp",
+    "được phép đăng ký",
+    "điều kiện đăng ký môn",
 )
 
 _DIRECT_DATA_LOOKUP_PHRASES = (
-    "điểm hiện tại của em", "điểm hiện tại của tôi", "gpa của em là bao nhiêu",
-    "gpa của tôi là bao nhiêu", "điểm của em là bao nhiêu", "điểm danh của em",
+    "điểm hiện tại của em",
+    "điểm hiện tại của tôi",
+    "gpa của em là bao nhiêu",
+    "gpa của tôi là bao nhiêu",
+    "điểm của em là bao nhiêu",
+    "điểm danh của em",
 )
 
 _LEARNING_EXPLANATION_PHRASES = (
-    "tại sao em có nguy cơ", "tại sao hệ thống đánh giá", "giải thích vì sao",
-    "vì sao em", "giải thích lại", "em không hiểu kết quả",
+    "tại sao em có nguy cơ",
+    "tại sao hệ thống đánh giá",
+    "giải thích vì sao",
+    "vì sao em",
+    "giải thích lại",
+    "em không hiểu kết quả",
     # Thêm sau khi trace ví dụ mẫu "Tại sao em bị đánh giá có nguy cơ?" (thể bị
     # động, không khớp "tại sao hệ thống đánh giá"/"tại sao em có nguy cơ" —
     # rơi nhầm về ADVISOR_CHAT chung thay vì LEARNING_EXPLANATION, dù vẫn an
     # toàn vì ADVISOR_CHAT vẫn dùng LLM+RAG+citation, chỉ là kém chính xác hơn).
-    "bị đánh giá có nguy cơ", "em bị đánh giá",
+    "bị đánh giá có nguy cơ",
+    "em bị đánh giá",
 )
 
 _ADVISOR_PLAN_PHRASES = (
-    "lập kế hoạch", "kế hoạch học kỳ", "kế hoạch học tập",
+    "lập kế hoạch",
+    "kế hoạch học kỳ",
+    "kế hoạch học tập",
 )
 
 _RAG_QA_PHRASES = (
-    "tóm tắt tài liệu", "tài liệu này nói gì", "nội dung bài giảng",
+    "tóm tắt tài liệu",
+    "tài liệu này nói gì",
+    "nội dung bài giảng",
 )
 
 
@@ -178,7 +209,10 @@ def try_extract_gpa_calculation_inputs(question: str) -> Optional[dict]:
 
 
 def build_gpa_calculation_reply(
-    question: str, *, user_id: str = "unknown_caller", role: str = "Sinh viên",
+    question: str,
+    *,
+    user_id: str = "unknown_caller",
+    role: str = "Sinh viên",
     correlation_id: Optional[str] = None,
 ) -> Optional[str]:
     """Trả lời QUYẾT ĐỊNH CHO câu hỏi GPA_CALCULATION — dùng
@@ -214,12 +248,18 @@ def build_gpa_calculation_reply(
     from dss.services import agent as agent_module
 
     agent_request = agent_module.AgentRequest(
-        user_id=user_id, organization_id=None, role=role, intent=INTENT_GPA_CALCULATION,
+        user_id=user_id,
+        organization_id=None,
+        role=role,
+        intent=INTENT_GPA_CALCULATION,
         authorized_context={
-            "current_gpa": extracted["current_gpa"], "credits_done": extracted["credits_done"],
-            "target_gpa": extracted["target_gpa"], "credits_remaining": extracted["credits_remaining"],
+            "current_gpa": extracted["current_gpa"],
+            "credits_done": extracted["credits_done"],
+            "target_gpa": extracted["target_gpa"],
+            "credits_remaining": extracted["credits_remaining"],
         },
-        request_text=question, correlation_id=correlation_id or uuid.uuid4().hex[:8],
+        request_text=question,
+        correlation_id=correlation_id or uuid.uuid4().hex[:8],
     )
     agent_result = agent_module.run_gpa_calculation(agent_request)
     result = agent_result.decision
@@ -340,7 +380,10 @@ def build_regulation_lookup_reply(
 
     candidates = regulation_store.list_regulations(organization_id=organization_id)
     result = resolve_regulation(
-        candidates, organization_id=organization_id, program_id=program_id, cohort=cohort,
+        candidates,
+        organization_id=organization_id,
+        program_id=program_id,
+        cohort=cohort,
     )
 
     # Phần 13: Validator xác nhận kết quả Regulation Resolver tự nhất quán
@@ -413,8 +456,7 @@ def build_academic_rule_check_reply(question: str, *, rule_evaluation_result=Non
         )
     if rule_evaluation_result.status == STATUS_WARNING:
         return (
-            f"⚠️ Cảnh báo. {rule_evaluation_result.reason}\n\n"
-            f"*(Kết quả từ Rule Engine — không phải AI tự quyết định.)*"
+            f"⚠️ Cảnh báo. {rule_evaluation_result.reason}\n\n*(Kết quả từ Rule Engine — không phải AI tự quyết định.)*"
         )
     return (
         f"Chưa đủ dữ liệu để đánh giá: {rule_evaluation_result.reason}\n\n"
@@ -431,65 +473,98 @@ def classify(question: str, *, request_type: Optional[str] = None) -> RouteDecis
 
     if not text:
         return RouteDecision(
-            intent=INTENT_UNKNOWN, tier=TIER_3, capability="fallback",
-            requires_llm=True, requires_rag=False, requires_rules=False,
-            requires_calculator=False, reason="Câu hỏi rỗng — không phân loại được, để LLM xử lý an toàn.",
+            intent=INTENT_UNKNOWN,
+            tier=TIER_3,
+            capability="fallback",
+            requires_llm=True,
+            requires_rag=False,
+            requires_rules=False,
+            requires_calculator=False,
+            reason="Câu hỏi rỗng — không phân loại được, để LLM xử lý an toàn.",
         )
 
     numbers = _NUMBER_RE.findall(text)
     has_calc_intent_phrase = _contains_any(text, _GPA_CALC_INTENT_PHRASES)
     if len(numbers) >= 2 and has_calc_intent_phrase and ("gpa" in text or "điểm" in text or "lên" in text):
         return RouteDecision(
-            intent=INTENT_GPA_CALCULATION, tier=TIER_1, capability="gpa_calculator",
-            requires_llm=False, requires_rag=False, requires_rules=False,
+            intent=INTENT_GPA_CALCULATION,
+            tier=TIER_1,
+            capability="gpa_calculator",
+            requires_llm=False,
+            requires_rag=False,
+            requires_rules=False,
             requires_calculator=True,
             reason=f"Phát hiện >= 2 số ({numbers[:2]}) + cụm từ ý định tính toán GPA — chuyển Calculator, không cần LLM tính.",
         )
 
     if _contains_any(text, _ACADEMIC_RULE_CHECK_PHRASES):
         return RouteDecision(
-            intent=INTENT_ACADEMIC_RULE_CHECK, tier=TIER_1, capability="rule_engine",
-            requires_llm=False, requires_rag=False, requires_rules=True,
+            intent=INTENT_ACADEMIC_RULE_CHECK,
+            tier=TIER_1,
+            capability="rule_engine",
+            requires_llm=False,
+            requires_rag=False,
+            requires_rules=True,
             requires_calculator=False,
             reason="Câu hỏi về điều kiện/quy tắc học vụ xác định — cần Rule Engine + Regulation Resolver, không phải LLM tự suy đoán.",
         )
 
     if _contains_any(text, _REGULATION_LOOKUP_PHRASES):
         return RouteDecision(
-            intent=INTENT_REGULATION_LOOKUP, tier=TIER_1, capability="regulation_resolver",
-            requires_llm=False, requires_rag=False, requires_rules=False,
+            intent=INTENT_REGULATION_LOOKUP,
+            tier=TIER_1,
+            capability="regulation_resolver",
+            requires_llm=False,
+            requires_rag=False,
+            requires_rules=False,
             requires_calculator=False,
             reason="Câu hỏi về quy chế đang áp dụng — cần Regulation Resolver chọn đúng phiên bản, LLM không được tự chọn.",
         )
 
     if _contains_any(text, _DIRECT_DATA_LOOKUP_PHRASES):
         return RouteDecision(
-            intent=INTENT_DIRECT_DATA_LOOKUP, tier=TIER_1, capability="student_data",
-            requires_llm=False, requires_rag=False, requires_rules=False,
+            intent=INTENT_DIRECT_DATA_LOOKUP,
+            tier=TIER_1,
+            capability="student_data",
+            requires_llm=False,
+            requires_rag=False,
+            requires_rules=False,
             requires_calculator=False,
             reason="Tra cứu số liệu trực tiếp đã có sẵn (điểm/điểm danh hiện tại) — không cần LLM.",
         )
 
     if _contains_any(text, _LEARNING_EXPLANATION_PHRASES):
         return RouteDecision(
-            intent=INTENT_LEARNING_EXPLANATION, tier=TIER_3, capability="diagnosis_engine+llm",
-            requires_llm=True, requires_rag=False, requires_rules=False,
+            intent=INTENT_LEARNING_EXPLANATION,
+            tier=TIER_3,
+            capability="diagnosis_engine+llm",
+            requires_llm=True,
+            requires_rag=False,
+            requires_rules=False,
             requires_calculator=False,
             reason="Giải thích chẩn đoán/dự đoán — cần LLM diễn giải kết quả ML/chẩn đoán đã có, không tự bịa nguyên nhân.",
         )
 
     if _contains_any(text, _RAG_QA_PHRASES):
         return RouteDecision(
-            intent=INTENT_RAG_QA, tier=TIER_2, capability="rag",
-            requires_llm=True, requires_rag=True, requires_rules=False,
+            intent=INTENT_RAG_QA,
+            tier=TIER_2,
+            capability="rag",
+            requires_llm=True,
+            requires_rag=True,
+            requires_rules=False,
             requires_calculator=False,
             reason="Câu hỏi về nội dung tài liệu cụ thể — cần RAG lấy bằng chứng trước khi LLM trả lời.",
         )
 
     if request_type == "advisor_plan" or _contains_any(text, _ADVISOR_PLAN_PHRASES):
         return RouteDecision(
-            intent=INTENT_ADVISOR_PLAN, tier=TIER_3, capability="advisor_plan",
-            requires_llm=True, requires_rag=True, requires_rules=False,
+            intent=INTENT_ADVISOR_PLAN,
+            tier=TIER_3,
+            capability="advisor_plan",
+            requires_llm=True,
+            requires_rag=True,
+            requires_rules=False,
             requires_calculator=False,
             reason="Yêu cầu lập kế hoạch học tập cá nhân hóa — cần LLM tổng hợp từ RAG + dự đoán ML.",
         )
@@ -499,8 +574,12 @@ def classify(question: str, *, request_type: Optional[str] = None) -> RouteDecis
     # verification) thay vì UNKNOWN mù mờ, để không có route nào "im lặng"
     # không xử lý được.
     return RouteDecision(
-        intent=INTENT_ADVISOR_CHAT, tier=TIER_3, capability="advisor_chat",
-        requires_llm=True, requires_rag=True, requires_rules=False,
+        intent=INTENT_ADVISOR_CHAT,
+        tier=TIER_3,
+        capability="advisor_chat",
+        requires_llm=True,
+        requires_rag=True,
+        requires_rules=False,
         requires_calculator=False,
         reason="Không khớp mẫu nào cụ thể — dùng đường hội thoại AI đầy đủ (đã có RAG + citation verification) làm mặc định an toàn.",
     )

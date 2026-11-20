@@ -13,6 +13,7 @@ Test này khoá lại 2 việc:
    week_plan mà checklist/lưu/xuất đã dùng, và bằng chứng (evidence/reason) là
    TÍNH TỪ ĐÚNG plan trả về — không bịa.
 """
+
 from __future__ import annotations
 
 import inspect
@@ -51,8 +52,10 @@ def test_ai_advisor_no_longer_uses_demo_builder_for_the_real_provider_weekly_pla
 
 def _fake_profile(pseudonym="stu_test", quiz_avg=4.0, assignment_avg=5.0, accuracy=0.5):
     from dss.services.learning_profile import AcademicEvidence, QuestionLevelEvidence
+
     return StudentLearningProfile(
-        student_pseudonym=pseudonym, course_id="COURSE_X",
+        student_pseudonym=pseudonym,
+        course_id="COURSE_X",
         academic=AcademicEvidence(quiz_average=quiz_avg, assignment_average=assignment_avg),
         question_level=QuestionLevelEvidence(accuracy_rate=accuracy),
     )
@@ -89,11 +92,23 @@ def test_week_plan_adapter_handles_plan_with_no_activities_without_inventing_dat
     """Nếu plan (giả lập) không có activities, KHÔNG được bịa hành động —
     dùng đúng câu trung lập 'Ôn tập chủ đề: <topic>'."""
     from dss.services.learning_plan import StudentLearningPlan
+
     empty_plan = StudentLearningPlan(
-        plan_id="p1", student_pseudonym="s1", version=1, created_at="", valid_until="",
-        strengths=[], weaknesses=["Chủ đề A"], diagnoses=[], priority_topics=[],
-        activities=[], assessment_plan="", success_metrics={}, evidence_used=[],
-        confidence=0.5, next_review_at="",
+        plan_id="p1",
+        student_pseudonym="s1",
+        version=1,
+        created_at="",
+        valid_until="",
+        strengths=[],
+        weaknesses=["Chủ đề A"],
+        diagnoses=[],
+        priority_topics=[],
+        activities=[],
+        assessment_plan="",
+        success_metrics={},
+        evidence_used=[],
+        confidence=0.5,
+        next_review_at="",
     )
     week_plan = ai_advisor._week_plan_from_structured_plan(empty_plan, weeks=2)
     assert all("Ôn tập chủ đề" in wp["action"] for wp in week_plan)

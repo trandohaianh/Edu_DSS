@@ -1,4 +1,5 @@
 """Unit tests for PDF Certificate & Career Passport Generator."""
+
 from dss.services.pdf_certificate_service import generate_career_passport_pdf
 
 

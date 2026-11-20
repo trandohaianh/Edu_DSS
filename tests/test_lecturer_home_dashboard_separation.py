@@ -10,6 +10,7 @@ biến về NỘI DUNG hiển thị thật (hero/KPI/bảng...) đã có ở
 `tests/e2e/test_role_flows.py` (test_lecturer_lands_on_home_after_login,
 test_home_and_dashboard_render_distinct_content, ...).
 """
+
 import inspect
 
 from dss.tabs import dashboard, home
@@ -41,5 +42,5 @@ def test_dashboard_tab_label_renamed_and_distinct_from_home_label():
     from dss.core.roles import ALL_TABS, HOME_TAB_LABEL, TAB_ACCESS
 
     assert "📊 Dashboard" in ALL_TABS
-    assert "📊 Dashboard" != HOME_TAB_LABEL
+    assert HOME_TAB_LABEL != "📊 Dashboard"
     assert TAB_ACCESS["📊 Dashboard"] == {"Giảng viên / CVHT"}

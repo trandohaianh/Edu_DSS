@@ -1,4 +1,5 @@
 """Bounded validation for Streamlit CSV and spreadsheet uploads."""
+
 from __future__ import annotations
 
 import csv
@@ -159,7 +160,11 @@ def parse_tabular_upload(uploaded_file: object, *, allowed_extensions: set[str] 
         raise UploadValidationError("Tệp rỗng hoặc không hợp lệ.")
     if len(data) > max_bytes:
         raise UploadValidationError("Tệp vượt quá giới hạn dung lượng.")
-    frame = _validate_csv(data, max_rows, max_columns) if suffix == ".csv" else _validate_excel(data, suffix, max_bytes, max_rows)
+    frame = (
+        _validate_csv(data, max_rows, max_columns)
+        if suffix == ".csv"
+        else _validate_excel(data, suffix, max_bytes, max_rows)
+    )
     if frame.empty or len(frame) > max_rows or len(frame.columns) > max_columns:
         raise UploadValidationError("Tệp không có dữ liệu hoặc vượt giới hạn bảng.")
     return ParsedUpload(name=name, sha256=hashlib.sha256(data).hexdigest(), frame=frame)

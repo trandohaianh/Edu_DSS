@@ -19,6 +19,7 @@ gọi rag_service.retrieve_unified_context thay vì find_relevant_documents_rag)
    `retrieve_unified_context` (ảnh hưởng namespace được phép truy cập).
 
 Dùng model embedding THẬT (giống test_rag_service.py, test_rag_retrieve_unified_context.py)."""
+
 from __future__ import annotations
 
 import pytest
@@ -34,6 +35,7 @@ from dss.services.rag_namespaces import NAMESPACE_STUDENT_LEARNING
 def llm_integration():
     dss_config._ensure_local_llm_libs()
     from dss.core.models import MultiAIProvider
+
     provider = MultiAIProvider()
     provider.get_embedding("khởi động model")
     return provider
@@ -50,11 +52,25 @@ def _isolated_vector_store(tmp_path, monkeypatch):
     return tmp_path
 
 
-def _seed_document(llm_integration, *, title, content, status, uploaded_by="gv_a",
-                    doc_type="bai_giang", namespace=NAMESPACE_STUDENT_LEARNING, course_id="CS101"):
+def _seed_document(
+    llm_integration,
+    *,
+    title,
+    content,
+    status,
+    uploaded_by="gv_a",
+    doc_type="bai_giang",
+    namespace=NAMESPACE_STUDENT_LEARNING,
+    course_id="CS101",
+):
     ingested = ingest_document(
-        file_bytes=content.encode("utf-8"), file_name=f"{title}.txt", title=title,
-        course_id=course_id, permission_scope=namespace, uploaded_by=uploaded_by, doc_type=doc_type,
+        file_bytes=content.encode("utf-8"),
+        file_name=f"{title}.txt",
+        title=title,
+        course_id=course_id,
+        permission_scope=namespace,
+        uploaded_by=uploaded_by,
+        doc_type=doc_type,
     )
     for c in ingested.chunks:
         c.embedding = llm_integration.get_embedding(c.content)
@@ -63,13 +79,18 @@ def _seed_document(llm_integration, *, title, content, status, uploaded_by="gv_a
 
     if status == "APPROVED":
         approval.approve_document(
-            document_id=ingested.document_id, namespace=namespace,
-            actor_username="admin_1", actor_role="Admin",
+            document_id=ingested.document_id,
+            namespace=namespace,
+            actor_username="admin_1",
+            actor_role="Admin",
         )
     elif status == "REJECTED":
         approval.reject_document(
-            document_id=ingested.document_id, namespace=namespace,
-            actor_username="admin_1", actor_role="Admin", review_note="test",
+            document_id=ingested.document_id,
+            namespace=namespace,
+            actor_username="admin_1",
+            actor_role="Admin",
+            review_note="test",
         )
     return ingested.document_id
 
@@ -91,11 +112,16 @@ def test_generate_personalized_advice_does_not_use_legacy_knowledge_base(llm_int
         )
 
     monkeypatch.setattr(type(llm_integration), "find_relevant_documents_rag", _boom)
-    _drain(llm_integration.generate_personalized_advice(
-        student_weaknesses=["Quản lý thời gian (SV: 3, TB lớp: 7)"],
-        predicted_gpa=5.0, provider="gemini", use_rag=True,
-        student_profile={}, role="Sinh viên",
-    ))
+    _drain(
+        llm_integration.generate_personalized_advice(
+            student_weaknesses=["Quản lý thời gian (SV: 3, TB lớp: 7)"],
+            predicted_gpa=5.0,
+            provider="gemini",
+            use_rag=True,
+            student_profile={},
+            role="Sinh viên",
+        )
+    )
 
 
 def test_generate_personalized_advice_only_cites_approved_documents(llm_integration, monkeypatch):
@@ -109,21 +135,28 @@ def test_generate_personalized_advice_only_cites_approved_documents(llm_integrat
     monkeypatch.setattr(type(llm_integration), "_prepare_personalized_advice_prompt", _spy)
 
     _seed_document(
-        llm_integration, title="Quản lý thời gian (CHƯA duyệt)",
+        llm_integration,
+        title="Quản lý thời gian (CHƯA duyệt)",
         content="Phương pháp Pomodoro giúp quản lý thời gian học tập hiệu quả, chia nhỏ thời gian ôn tập.",
         status="PENDING_REVIEW",
     )
     approved_id = _seed_document(
-        llm_integration, title="Quản lý thời gian (đã duyệt)",
+        llm_integration,
+        title="Quản lý thời gian (đã duyệt)",
         content="Phương pháp Pomodoro giúp quản lý thời gian học tập hiệu quả, chia nhỏ thời gian ôn tập.",
         status="APPROVED",
     )
 
-    _drain(llm_integration.generate_personalized_advice(
-        student_weaknesses=["Quản lý thời gian (SV: 3, TB lớp: 7)"],
-        predicted_gpa=5.0, provider="gemini", use_rag=True,
-        student_profile={}, role="Sinh viên",
-    ))
+    _drain(
+        llm_integration.generate_personalized_advice(
+            student_weaknesses=["Quản lý thời gian (SV: 3, TB lớp: 7)"],
+            predicted_gpa=5.0,
+            provider="gemini",
+            use_rag=True,
+            student_profile={},
+            role="Sinh viên",
+        )
+    )
 
     docs = captured.get("relevant_docs") or []
     assert docs, "Phải có ít nhất 1 tài liệu ĐÃ DUYỆT được trích dẫn cho truy vấn khớp nội dung."
@@ -144,16 +177,22 @@ def test_generate_personalized_advice_rejected_document_never_cited(llm_integrat
     monkeypatch.setattr(type(llm_integration), "_prepare_personalized_advice_prompt", _spy)
 
     _seed_document(
-        llm_integration, title="Quản lý thời gian (đã từ chối)",
+        llm_integration,
+        title="Quản lý thời gian (đã từ chối)",
         content="Phương pháp Pomodoro giúp quản lý thời gian học tập hiệu quả, chia nhỏ thời gian ôn tập.",
         status="REJECTED",
     )
 
-    _drain(llm_integration.generate_personalized_advice(
-        student_weaknesses=["Quản lý thời gian (SV: 3, TB lớp: 7)"],
-        predicted_gpa=5.0, provider="gemini", use_rag=True,
-        student_profile={}, role="Sinh viên",
-    ))
+    _drain(
+        llm_integration.generate_personalized_advice(
+            student_weaknesses=["Quản lý thời gian (SV: 3, TB lớp: 7)"],
+            predicted_gpa=5.0,
+            provider="gemini",
+            use_rag=True,
+            student_profile={},
+            role="Sinh viên",
+        )
+    )
 
     docs = captured.get("relevant_docs") or []
     assert docs == [], "Tài liệu REJECTED không bao giờ được trích dẫn, kể cả khi không có tài liệu nào khác."

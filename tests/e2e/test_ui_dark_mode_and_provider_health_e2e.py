@@ -19,17 +19,21 @@ xác nhận KHÔNG tái hiện được trên code hiện tại — xem báo cá
    thật (`llm_gateway.check_provider_health`). Test xác nhận cả 2 trang giờ
    hiển thị CÙNG MỘT nhãn cho cùng 1 provider sau khi chạy kiểm tra thật.
 """
+
 from __future__ import annotations
 
 
-
 def _open_ai_advisor_tab(page):
-    page.locator("[data-testid='stSidebar']").get_by_role("button", name="Trợ lý AI", exact=False).first.click(timeout=30000)
+    page.locator("[data-testid='stSidebar']").get_by_role("button", name="Trợ lý AI", exact=False).first.click(
+        timeout=30000
+    )
     page.get_by_role("button", name="Tạo Kế hoạch Học tập", exact=False).first.wait_for(state="visible", timeout=30000)
 
 
 def _open_ai_config_tab(page):
-    page.locator("[data-testid='stSidebar']").get_by_role("button", name="Cấu hình AI", exact=False).first.click(timeout=30000)
+    page.locator("[data-testid='stSidebar']").get_by_role("button", name="Cấu hình AI", exact=False).first.click(
+        timeout=30000
+    )
     page.get_by_text("Trạng thái provider", exact=False).first.wait_for(state="visible", timeout=30000)
 
 
@@ -127,6 +131,7 @@ def test_provider_health_consistent_between_ai_advisor_and_ai_config(login, wait
     # đáng tin cậy hơn regex bắt ngữ cảnh tên provider (dễ vỡ vì xuống dòng).
     config_text = page.inner_text("body")
     import re
+
     all_category_tokens = re.findall(r"\(\s*([A-Z][A-Z_]{2,})\s*\)", config_text)
     provider_order = ["gemini", "groq", "openai", "ollama"]
     categories = dict(zip(provider_order, all_category_tokens))

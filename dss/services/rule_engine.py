@@ -21,10 +21,11 @@ Backend lưu trữ thật (bảng `academic_rules` + migration Alembic) LÀ CÔN
 VIỆC CHƯA LÀM trong đợt này (BLOCKED_BY_RUNNING_SIMULATION, cùng lý do với
 regulation_store.py) — interface `AcademicRule` được thiết kế độc lập với
 backend lưu trữ để dễ thay thế sau."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime, timezone
 from typing import Any, Dict, Optional
 
 STATUS_ALLOW = "ALLOW"
@@ -80,42 +81,56 @@ def _parse_date(value: Optional[str]) -> Optional[date]:
     return datetime.fromisoformat(str(value).replace("Z", "+00:00")).date()
 
 
-def _rule_not_in_effect_result(rule: AcademicRule, inputs_echo: Dict[str, Any], at_date: date) -> Optional[RuleEvaluationResult]:
+def _rule_not_in_effect_result(
+    rule: AcademicRule, inputs_echo: Dict[str, Any], at_date: date
+) -> Optional[RuleEvaluationResult]:
     """Kiểm tra chung: rule phải APPROVED và đang trong hiệu lực tại
     `at_date` — nếu không, trả INSUFFICIENT_DATA (không được coi là DENY hay
     ALLOW ngầm định) kèm lý do cụ thể."""
     if rule.status != _REG_STATUS_APPROVED:
         return RuleEvaluationResult(
-            status=STATUS_INSUFFICIENT_DATA, rule_id=rule.rule_id,
-            regulation_id=rule.regulation_id, regulation_version=rule.regulation_version,
+            status=STATUS_INSUFFICIENT_DATA,
+            rule_id=rule.rule_id,
+            regulation_id=rule.regulation_id,
+            regulation_version=rule.regulation_version,
             reason=f"Quy tắc '{rule.rule_id}' chưa ở trạng thái APPROVED (hiện: {rule.status}).",
-            evidence={"rule_status": rule.status}, inputs_echo=inputs_echo,
+            evidence={"rule_status": rule.status},
+            inputs_echo=inputs_echo,
         )
     ef = _parse_date(rule.effective_from)
     et = _parse_date(rule.effective_to)
     if ef is not None and at_date < ef:
         return RuleEvaluationResult(
-            status=STATUS_INSUFFICIENT_DATA, rule_id=rule.rule_id,
-            regulation_id=rule.regulation_id, regulation_version=rule.regulation_version,
+            status=STATUS_INSUFFICIENT_DATA,
+            rule_id=rule.rule_id,
+            regulation_id=rule.regulation_id,
+            regulation_version=rule.regulation_version,
             reason=f"Quy tắc '{rule.rule_id}' chưa có hiệu lực (từ {rule.effective_from}).",
-            evidence={"effective_from": rule.effective_from}, inputs_echo=inputs_echo,
+            evidence={"effective_from": rule.effective_from},
+            inputs_echo=inputs_echo,
         )
     if et is not None and at_date > et:
         return RuleEvaluationResult(
-            status=STATUS_INSUFFICIENT_DATA, rule_id=rule.rule_id,
-            regulation_id=rule.regulation_id, regulation_version=rule.regulation_version,
+            status=STATUS_INSUFFICIENT_DATA,
+            rule_id=rule.rule_id,
+            regulation_id=rule.regulation_id,
+            regulation_version=rule.regulation_version,
             reason=f"Quy tắc '{rule.rule_id}' đã hết hiệu lực (đến {rule.effective_to}).",
-            evidence={"effective_to": rule.effective_to}, inputs_echo=inputs_echo,
+            evidence={"effective_to": rule.effective_to},
+            inputs_echo=inputs_echo,
         )
     return None
 
 
 def evaluate_credit_limit(
-    rule: AcademicRule, *, requested_credits: float, at_date: Optional[str] = None,
+    rule: AcademicRule,
+    *,
+    requested_credits: float,
+    at_date: Optional[str] = None,
 ) -> RuleEvaluationResult:
     """RULE_TYPE_CREDIT_LIMIT — `rule.params["max_credits"]`."""
     inputs_echo = {"requested_credits": requested_credits}
-    resolve_date = _parse_date(at_date) or datetime.now(timezone.utc).date()
+    resolve_date = _parse_date(at_date) or datetime.now(UTC).date()
     not_in_effect = _rule_not_in_effect_result(rule, inputs_echo, resolve_date)
     if not_in_effect is not None:
         return not_in_effect
@@ -123,32 +138,44 @@ def evaluate_credit_limit(
     max_credits = rule.params.get("max_credits")
     if max_credits is None:
         return RuleEvaluationResult(
-            status=STATUS_INSUFFICIENT_DATA, rule_id=rule.rule_id,
-            regulation_id=rule.regulation_id, regulation_version=rule.regulation_version,
+            status=STATUS_INSUFFICIENT_DATA,
+            rule_id=rule.rule_id,
+            regulation_id=rule.regulation_id,
+            regulation_version=rule.regulation_version,
             reason="Quy tắc thiếu tham số 'max_credits' — không thể đánh giá.",
-            evidence={}, inputs_echo=inputs_echo,
+            evidence={},
+            inputs_echo=inputs_echo,
         )
     if requested_credits > max_credits:
         return RuleEvaluationResult(
-            status=STATUS_DENY, rule_id=rule.rule_id,
-            regulation_id=rule.regulation_id, regulation_version=rule.regulation_version,
+            status=STATUS_DENY,
+            rule_id=rule.rule_id,
+            regulation_id=rule.regulation_id,
+            regulation_version=rule.regulation_version,
             reason=f"Số tín chỉ đăng ký ({requested_credits}) vượt giới hạn tối đa ({max_credits}).",
-            evidence={"max_credits": max_credits}, inputs_echo=inputs_echo,
+            evidence={"max_credits": max_credits},
+            inputs_echo=inputs_echo,
         )
     return RuleEvaluationResult(
-        status=STATUS_ALLOW, rule_id=rule.rule_id,
-        regulation_id=rule.regulation_id, regulation_version=rule.regulation_version,
+        status=STATUS_ALLOW,
+        rule_id=rule.rule_id,
+        regulation_id=rule.regulation_id,
+        regulation_version=rule.regulation_version,
         reason=f"Số tín chỉ đăng ký ({requested_credits}) trong giới hạn cho phép ({max_credits}).",
-        evidence={"max_credits": max_credits}, inputs_echo=inputs_echo,
+        evidence={"max_credits": max_credits},
+        inputs_echo=inputs_echo,
     )
 
 
 def evaluate_academic_warning(
-    rule: AcademicRule, *, gpa: float, at_date: Optional[str] = None,
+    rule: AcademicRule,
+    *,
+    gpa: float,
+    at_date: Optional[str] = None,
 ) -> RuleEvaluationResult:
     """RULE_TYPE_ACADEMIC_WARNING — `rule.params["warning_gpa_threshold"]`."""
     inputs_echo = {"gpa": gpa}
-    resolve_date = _parse_date(at_date) or datetime.now(timezone.utc).date()
+    resolve_date = _parse_date(at_date) or datetime.now(UTC).date()
     not_in_effect = _rule_not_in_effect_result(rule, inputs_echo, resolve_date)
     if not_in_effect is not None:
         return not_in_effect
@@ -156,33 +183,46 @@ def evaluate_academic_warning(
     threshold = rule.params.get("warning_gpa_threshold")
     if threshold is None:
         return RuleEvaluationResult(
-            status=STATUS_INSUFFICIENT_DATA, rule_id=rule.rule_id,
-            regulation_id=rule.regulation_id, regulation_version=rule.regulation_version,
+            status=STATUS_INSUFFICIENT_DATA,
+            rule_id=rule.rule_id,
+            regulation_id=rule.regulation_id,
+            regulation_version=rule.regulation_version,
             reason="Quy tắc thiếu tham số 'warning_gpa_threshold' — không thể đánh giá.",
-            evidence={}, inputs_echo=inputs_echo,
+            evidence={},
+            inputs_echo=inputs_echo,
         )
     if gpa < threshold:
         return RuleEvaluationResult(
-            status=STATUS_WARNING, rule_id=rule.rule_id,
-            regulation_id=rule.regulation_id, regulation_version=rule.regulation_version,
+            status=STATUS_WARNING,
+            rule_id=rule.rule_id,
+            regulation_id=rule.regulation_id,
+            regulation_version=rule.regulation_version,
             reason=f"GPA hiện tại ({gpa}) dưới ngưỡng cảnh báo học vụ ({threshold}).",
-            evidence={"warning_gpa_threshold": threshold}, inputs_echo=inputs_echo,
+            evidence={"warning_gpa_threshold": threshold},
+            inputs_echo=inputs_echo,
         )
     return RuleEvaluationResult(
-        status=STATUS_ALLOW, rule_id=rule.rule_id,
-        regulation_id=rule.regulation_id, regulation_version=rule.regulation_version,
+        status=STATUS_ALLOW,
+        rule_id=rule.rule_id,
+        regulation_id=rule.regulation_id,
+        regulation_version=rule.regulation_version,
         reason=f"GPA hiện tại ({gpa}) trên ngưỡng cảnh báo học vụ ({threshold}) — không bị cảnh báo.",
-        evidence={"warning_gpa_threshold": threshold}, inputs_echo=inputs_echo,
+        evidence={"warning_gpa_threshold": threshold},
+        inputs_echo=inputs_echo,
     )
 
 
 def evaluate_thesis_eligibility(
-    rule: AcademicRule, *, gpa: float, credits_completed: float, at_date: Optional[str] = None,
+    rule: AcademicRule,
+    *,
+    gpa: float,
+    credits_completed: float,
+    at_date: Optional[str] = None,
 ) -> RuleEvaluationResult:
     """RULE_TYPE_THESIS_ELIGIBILITY — `rule.params["min_gpa"]` +
     `rule.params["min_credits_completed"]` (CẢ HAI đều phải đạt)."""
     inputs_echo = {"gpa": gpa, "credits_completed": credits_completed}
-    resolve_date = _parse_date(at_date) or datetime.now(timezone.utc).date()
+    resolve_date = _parse_date(at_date) or datetime.now(UTC).date()
     not_in_effect = _rule_not_in_effect_result(rule, inputs_echo, resolve_date)
     if not_in_effect is not None:
         return not_in_effect
@@ -191,43 +231,59 @@ def evaluate_thesis_eligibility(
     min_credits = rule.params.get("min_credits_completed")
     if min_gpa is None or min_credits is None:
         return RuleEvaluationResult(
-            status=STATUS_INSUFFICIENT_DATA, rule_id=rule.rule_id,
-            regulation_id=rule.regulation_id, regulation_version=rule.regulation_version,
+            status=STATUS_INSUFFICIENT_DATA,
+            rule_id=rule.rule_id,
+            regulation_id=rule.regulation_id,
+            regulation_version=rule.regulation_version,
             reason="Quy tắc thiếu tham số 'min_gpa'/'min_credits_completed' — không thể đánh giá.",
-            evidence={}, inputs_echo=inputs_echo,
+            evidence={},
+            inputs_echo=inputs_echo,
         )
     evidence = {"min_gpa": min_gpa, "min_credits_completed": min_credits}
     if gpa < min_gpa:
         return RuleEvaluationResult(
-            status=STATUS_DENY, rule_id=rule.rule_id,
-            regulation_id=rule.regulation_id, regulation_version=rule.regulation_version,
+            status=STATUS_DENY,
+            rule_id=rule.rule_id,
+            regulation_id=rule.regulation_id,
+            regulation_version=rule.regulation_version,
             reason=f"GPA hiện tại ({gpa}) chưa đạt tối thiểu ({min_gpa}) để làm khóa luận.",
-            evidence=evidence, inputs_echo=inputs_echo,
+            evidence=evidence,
+            inputs_echo=inputs_echo,
         )
     if credits_completed < min_credits:
         return RuleEvaluationResult(
-            status=STATUS_DENY, rule_id=rule.rule_id,
-            regulation_id=rule.regulation_id, regulation_version=rule.regulation_version,
+            status=STATUS_DENY,
+            rule_id=rule.rule_id,
+            regulation_id=rule.regulation_id,
+            regulation_version=rule.regulation_version,
             reason=f"Số tín chỉ đã hoàn thành ({credits_completed}) chưa đạt tối thiểu ({min_credits}) để làm khóa luận.",
-            evidence=evidence, inputs_echo=inputs_echo,
+            evidence=evidence,
+            inputs_echo=inputs_echo,
         )
     return RuleEvaluationResult(
-        status=STATUS_ALLOW, rule_id=rule.rule_id,
-        regulation_id=rule.regulation_id, regulation_version=rule.regulation_version,
+        status=STATUS_ALLOW,
+        rule_id=rule.rule_id,
+        regulation_id=rule.regulation_id,
+        regulation_version=rule.regulation_version,
         reason="Đủ điều kiện GPA và số tín chỉ đã hoàn thành để làm khóa luận.",
-        evidence=evidence, inputs_echo=inputs_echo,
+        evidence=evidence,
+        inputs_echo=inputs_echo,
     )
 
 
 def evaluate_graduation_eligibility(
-    rule: AcademicRule, *, gpa: float, credits_completed: float, credits_required: float,
+    rule: AcademicRule,
+    *,
+    gpa: float,
+    credits_completed: float,
+    credits_required: float,
     at_date: Optional[str] = None,
 ) -> RuleEvaluationResult:
     """RULE_TYPE_GRADUATION_ELIGIBILITY — `rule.params["min_gpa_graduation"]`
     (tối thiểu, có thể lấy từ `RegulationVersion.rules["min_gpa_graduation"]`
     như trong `test_regulation_store.py`)."""
     inputs_echo = {"gpa": gpa, "credits_completed": credits_completed, "credits_required": credits_required}
-    resolve_date = _parse_date(at_date) or datetime.now(timezone.utc).date()
+    resolve_date = _parse_date(at_date) or datetime.now(UTC).date()
     not_in_effect = _rule_not_in_effect_result(rule, inputs_echo, resolve_date)
     if not_in_effect is not None:
         return not_in_effect
@@ -235,31 +291,43 @@ def evaluate_graduation_eligibility(
     min_gpa = rule.params.get("min_gpa_graduation")
     if min_gpa is None:
         return RuleEvaluationResult(
-            status=STATUS_INSUFFICIENT_DATA, rule_id=rule.rule_id,
-            regulation_id=rule.regulation_id, regulation_version=rule.regulation_version,
+            status=STATUS_INSUFFICIENT_DATA,
+            rule_id=rule.rule_id,
+            regulation_id=rule.regulation_id,
+            regulation_version=rule.regulation_version,
             reason="Quy tắc thiếu tham số 'min_gpa_graduation' — không thể đánh giá.",
-            evidence={}, inputs_echo=inputs_echo,
+            evidence={},
+            inputs_echo=inputs_echo,
         )
     evidence = {"min_gpa_graduation": min_gpa}
     if credits_completed < credits_required:
         return RuleEvaluationResult(
-            status=STATUS_DENY, rule_id=rule.rule_id,
-            regulation_id=rule.regulation_id, regulation_version=rule.regulation_version,
+            status=STATUS_DENY,
+            rule_id=rule.rule_id,
+            regulation_id=rule.regulation_id,
+            regulation_version=rule.regulation_version,
             reason=f"Số tín chỉ đã hoàn thành ({credits_completed}) chưa đủ yêu cầu tốt nghiệp ({credits_required}).",
-            evidence=evidence, inputs_echo=inputs_echo,
+            evidence=evidence,
+            inputs_echo=inputs_echo,
         )
     if gpa < min_gpa:
         return RuleEvaluationResult(
-            status=STATUS_DENY, rule_id=rule.rule_id,
-            regulation_id=rule.regulation_id, regulation_version=rule.regulation_version,
+            status=STATUS_DENY,
+            rule_id=rule.rule_id,
+            regulation_id=rule.regulation_id,
+            regulation_version=rule.regulation_version,
             reason=f"GPA hiện tại ({gpa}) chưa đạt tối thiểu tốt nghiệp ({min_gpa}).",
-            evidence=evidence, inputs_echo=inputs_echo,
+            evidence=evidence,
+            inputs_echo=inputs_echo,
         )
     return RuleEvaluationResult(
-        status=STATUS_ALLOW, rule_id=rule.rule_id,
-        regulation_id=rule.regulation_id, regulation_version=rule.regulation_version,
+        status=STATUS_ALLOW,
+        rule_id=rule.rule_id,
+        regulation_id=rule.regulation_id,
+        regulation_version=rule.regulation_version,
         reason="Đủ điều kiện tốt nghiệp (đủ tín chỉ và GPA tối thiểu).",
-        evidence=evidence, inputs_echo=inputs_echo,
+        evidence=evidence,
+        inputs_echo=inputs_echo,
     )
 
 

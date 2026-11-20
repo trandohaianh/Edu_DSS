@@ -10,10 +10,14 @@ class") that had NO test verifying them before this file. These tests close
 that gap so the claim is enforced, not just asserted in a comment — and so
 that if/when this class is ever wired into a real path, its safety
 properties are already guarded by regression tests."""
+
 from __future__ import annotations
 
 from dss.services.semantic_cache import (
-    CACHE_CLASS_COURSE, CACHE_CLASS_GLOBAL, CACHE_CLASS_STUDENT, SemanticCache,
+    CACHE_CLASS_COURSE,
+    CACHE_CLASS_GLOBAL,
+    CACHE_CLASS_STUDENT,
+    SemanticCache,
 )
 
 
@@ -25,8 +29,11 @@ def test_lookup_never_returns_a_hit_for_student_class_even_with_identical_embedd
     cache = SemanticCache(similarity_threshold=0.5)
     embedding = [1.0, 0.0, 0.0]
     cache.store(
-        key="k1", content="CÂU TRẢ LỜI CÁ NHÂN CỦA SINH VIÊN A", query_embedding=embedding,
-        cache_class=CACHE_CLASS_STUDENT, dimensions={"student_pseudonym": "A"},
+        key="k1",
+        content="CÂU TRẢ LỜI CÁ NHÂN CỦA SINH VIÊN A",
+        query_embedding=embedding,
+        cache_class=CACHE_CLASS_STUDENT,
+        dimensions={"student_pseudonym": "A"},
     )
     result = cache.lookup(query_embedding=embedding, cache_class=CACHE_CLASS_STUDENT)
     assert result is None, (
@@ -42,8 +49,11 @@ def test_store_is_a_silent_noop_for_student_class():
     serving it."""
     cache = SemanticCache()
     cache.store(
-        key="k1", content="riêng tư", query_embedding=[1.0, 0.0],
-        cache_class=CACHE_CLASS_STUDENT, dimensions={},
+        key="k1",
+        content="riêng tư",
+        query_embedding=[1.0, 0.0],
+        cache_class=CACHE_CLASS_STUDENT,
+        dimensions={},
     )
     assert cache._entries == [], "STUDENT-class store() phải là no-op thật sự, không lưu entry nào."
 
@@ -55,13 +65,15 @@ def test_lookup_does_not_cross_course_boundaries():
     cache = SemanticCache(similarity_threshold=0.5)
     embedding = [1.0, 0.0, 0.0]
     cache.store(
-        key="k1", content="Nội dung môn CS101", query_embedding=embedding,
-        cache_class=CACHE_CLASS_COURSE, dimensions={"course_id": "CS101"},
+        key="k1",
+        content="Nội dung môn CS101",
+        query_embedding=embedding,
+        cache_class=CACHE_CLASS_COURSE,
+        dimensions={"course_id": "CS101"},
     )
     result = cache.lookup(query_embedding=embedding, cache_class=CACHE_CLASS_COURSE, course_id="MATH101")
     assert result is None, (
-        "Semantic hit của môn CS101 KHÔNG được phục vụ cho truy vấn của môn MATH101 "
-        "dù embedding giống hệt."
+        "Semantic hit của môn CS101 KHÔNG được phục vụ cho truy vấn của môn MATH101 dù embedding giống hệt."
     )
 
 
@@ -71,8 +83,11 @@ def test_lookup_same_course_still_hits_above_threshold():
     cache = SemanticCache(similarity_threshold=0.5)
     embedding = [1.0, 0.0, 0.0]
     cache.store(
-        key="k1", content="Nội dung môn CS101", query_embedding=embedding,
-        cache_class=CACHE_CLASS_COURSE, dimensions={"course_id": "CS101"},
+        key="k1",
+        content="Nội dung môn CS101",
+        query_embedding=embedding,
+        cache_class=CACHE_CLASS_COURSE,
+        dimensions={"course_id": "CS101"},
     )
     result = cache.lookup(query_embedding=embedding, cache_class=CACHE_CLASS_COURSE, course_id="CS101")
     assert result is not None
@@ -87,8 +102,11 @@ def test_global_class_lookup_ignores_course_filter_by_design():
     cache = SemanticCache(similarity_threshold=0.5)
     embedding = [1.0, 0.0, 0.0]
     cache.store(
-        key="k1", content="Câu trả lời chung", query_embedding=embedding,
-        cache_class=CACHE_CLASS_GLOBAL, dimensions={},
+        key="k1",
+        content="Câu trả lời chung",
+        query_embedding=embedding,
+        cache_class=CACHE_CLASS_GLOBAL,
+        dimensions={},
     )
     result = cache.lookup(query_embedding=embedding, cache_class=CACHE_CLASS_GLOBAL)
     assert result is not None

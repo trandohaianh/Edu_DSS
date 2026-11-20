@@ -6,6 +6,7 @@ tab Trợ lý AI > Giải thích bài giảng của Giảng viên (dss/services/
     python tools/seed_demo_lectures.py            # nạp vào kho dữ liệu đang dùng
     python tools/seed_demo_lectures.py --ask      # nạp + hỏi thử AI 1 câu
 """
+
 from __future__ import annotations
 
 import argparse
@@ -36,11 +37,20 @@ def main() -> None:
 
         lesson = cms.get_lesson("CS301-L03")
         r = le.generate_explanation(
-            llm, "Vì sao không nên chỉ dùng Accuracy khi lớp Yếu rất ít sinh viên?", demo_lectures.COURSE_ID,
-            lesson.lesson_id, lesson.topic_id, "Standard", socratic_mode=False, mode=le.CMS_ONLY, user_id="demo",
+            llm,
+            "Vì sao không nên chỉ dùng Accuracy khi lớp Yếu rất ít sinh viên?",
+            demo_lectures.COURSE_ID,
+            lesson.lesson_id,
+            lesson.topic_id,
+            "Standard",
+            socratic_mode=False,
+            mode=le.CMS_ONLY,
+            user_id="demo",
         )
-        print("\n--- AI trả lời (có nội dung CMS: %s) ---\n%s\n--- nguồn: %s" % (
-            r.has_cms_content, r.answer, sorted({c.label for c in r.citations})))
+        print(
+            "\n--- AI trả lời (có nội dung CMS: %s) ---\n%s\n--- nguồn: %s"
+            % (r.has_cms_content, r.answer, sorted({c.label for c in r.citations}))
+        )
 
 
 if __name__ == "__main__":

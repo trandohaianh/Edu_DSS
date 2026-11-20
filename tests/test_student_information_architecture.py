@@ -7,6 +7,7 @@ test hồi quy cho lớp trình bày (labels/headers/expanders) vừa sửa, đ�
 tiếp mã nguồn bằng `inspect.getsource` (không import dss.main vì đó là kịch
 bản Streamlit cấp cao nhất, chạy toàn bộ khi import ngoài phiên Streamlit thật).
 """
+
 from __future__ import annotations
 
 import inspect
@@ -19,7 +20,7 @@ def test_main_py_source_role_branches_ml_hub_section_header():
     source = _MAIN_PY.read_text(encoding="utf-8")
     idx_tab = source.find('elif selected_main_tab == "🧪 Huấn luyện — Dự đoán":')
     assert idx_tab != -1
-    window = source[idx_tab: idx_tab + 1500]
+    window = source[idx_tab : idx_tab + 1500]
     assert 'current_role == "Sinh viên"' in window
     assert "Dự đoán kết quả học tập của bạn" in window
     assert "Huấn luyện & Dự đoán" in window
@@ -41,7 +42,7 @@ def test_main_py_source_llm_sub_tabs_use_role_aware_labels_for_student():
     source = _MAIN_PY.read_text(encoding="utf-8")
     idx_map = source.find("_student_llm_tab_labels")
     assert idx_map != -1
-    window = source[idx_map: idx_map + 800]
+    window = source[idx_map : idx_map + 800]
     assert "Kế hoạch học tập" in window
     assert "Hướng nghiệp" in window
     assert "Giải thích bài học" in window
@@ -54,7 +55,7 @@ def test_clustering_tab_role_branches_header_and_hides_technical_guide_for_stude
     source = inspect.getsource(clustering)
     idx_fn = source.find("def clustering_hybrid_tab(")
     assert idx_fn != -1
-    window = source[idx_fn: idx_fn + 2500]
+    window = source[idx_fn : idx_fn + 2500]
     assert 'role == "Sinh viên"' in window
     assert "Nhóm học tập của bạn" in window
     assert "Phân cụm & Gợi ý" in window
@@ -77,7 +78,7 @@ def test_clustering_tab_student_kpi_row_has_no_technical_cluster_count_label():
     idx_else = source.find('else:\n        first_card = ("Dataset"', idx_role_check)
     assert idx_role_check != -1 and idx_else != -1
     student_branch = source[idx_role_check:idx_else]
-    non_student_branch = source[idx_else: idx_else + 1200]
+    non_student_branch = source[idx_else : idx_else + 1200]
     assert "Số cụm (k)" not in student_branch
     assert "Nhóm học tập của bạn" in student_branch
     assert "Số cụm (k)" in non_student_branch
@@ -115,7 +116,9 @@ def test_learning_explainer_tab_role_branches_header_without_cms_acronym_for_stu
     assert 'role in ("Giảng viên / CVHT", "Admin")' in source
     assert "Giải thích bài học" in source
     assert "Giải thích bài giảng" in source
-    assert '"AI Giải thích Bài giảng (CMS)"' not in source, "Tiêu đề kỹ thuật cũ không được dùng làm tham số section_header nữa."
+    assert '"AI Giải thích Bài giảng (CMS)"' not in source, (
+        "Tiêu đề kỹ thuật cũ không được dùng làm tham số section_header nữa."
+    )
     idx_if = source.find('role in ("Giảng viên / CVHT", "Admin")')
     idx_staff_title = source.find('"Giải thích bài giảng"')
     idx_student_title = source.find('"Giải thích bài học"')
@@ -152,8 +155,8 @@ def test_main_py_sidebar_groups_consultation_history_with_ai_assistant_for_stude
     idx_ai_group = student_block.find('("TRỢ LÝ AI"')
     idx_study_group = student_block.find('("HỌC TẬP & PHÂN TÍCH"')
     assert idx_ai_group != -1 and idx_study_group != -1
-    ai_group_line = student_block[idx_ai_group: student_block.find("]),", idx_ai_group)]
-    study_group_line = student_block[idx_study_group: student_block.find("]),", idx_study_group)]
+    ai_group_line = student_block[idx_ai_group : student_block.find("]),", idx_ai_group)]
+    study_group_line = student_block[idx_study_group : student_block.find("]),", idx_study_group)]
     assert "📝 Lịch sử tư vấn" in ai_group_line
     assert "📝 Lịch sử tư vấn" not in study_group_line
 
@@ -165,6 +168,7 @@ def test_clustering_tab_student_section_has_no_cosine_or_kmeans_jargon():
     Sinh viên không có quyền bấm (nút đó chỉ tồn tại trong khối cấu hình
     dành Giảng viên/Admin, role != Sinh viên)."""
     import inspect
+
     from dss.tabs import clustering
 
     source = inspect.getsource(clustering.clustering_hybrid_tab)
@@ -187,6 +191,7 @@ def test_clustering_tab_cluster_legend_has_no_english_jargon_parentheticals():
     thích tiếng Anh kỹ thuật không cần thiết, hiển thị cho mọi vai trò kể cả
     Sinh viên."""
     import inspect
+
     from dss.tabs import clustering
 
     source = inspect.getsource(clustering.clustering_hybrid_tab)
@@ -205,6 +210,7 @@ def test_ai_advisor_tab_page_header_role_branches_for_student():
     trạng thái mong muốn (trước đây test này chỉ đặc tả hành vi CŨ đã biết
     là vấn đề, không khẳng định đó là đúng)."""
     import inspect
+
     from dss.tabs import ai_advisor
 
     source = inspect.getsource(ai_advisor.ai_advisor_tab)
@@ -223,14 +229,15 @@ def test_clustering_interpretation_panel_uses_feature_label_not_raw_columns():
     gpa_previous") thay vì nhãn thân thiện qua feature_label() -- phát hiện
     qua ảnh chụp màn hình thật, không phải chỉ đọc code."""
     import inspect
+
     from dss.tabs import clustering
 
     source = inspect.getsource(clustering.clustering_hybrid_tab)
     idx_manh = source.find('f"✅ Mạnh: {')
     idx_yeu = source.find('f"⚠️ Yếu: {')
     assert idx_manh != -1 and idx_yeu != -1
-    assert "feature_label(c) for c in strengths_r" in source[idx_manh: idx_manh + 100]
-    assert "feature_label(c) for c in weaknesses_r" in source[idx_yeu: idx_yeu + 100]
+    assert "feature_label(c) for c in strengths_r" in source[idx_manh : idx_manh + 100]
+    assert "feature_label(c) for c in weaknesses_r" in source[idx_yeu : idx_yeu + 100]
 
 
 def test_home_student_dashboard_card_has_no_raw_shap_wording():

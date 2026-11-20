@@ -6,6 +6,7 @@ gated by `dss.core.persistence_config.is_postgres_enabled("PREDICTIONS")` —
 when enabled, Postgres becomes the PRIMARY store for new predictions (no
 dual-write); when disabled, existing local JSON behavior is unchanged.
 """
+
 from __future__ import annotations
 
 import time
@@ -40,11 +41,7 @@ def _resolve_or_create_model_version_id(session, organization_id: int, training_
     committed row; a short bounded retry absorbs the sub-millisecond window
     where the winner hasn't committed yet. Found and fixed via
     tests/load/test_concurrency_capacity.py, not a hypothetical concern."""
-    mv = (
-        session.query(ModelVersion)
-        .filter_by(organization_id=organization_id, training_id=training_id)
-        .one_or_none()
-    )
+    mv = session.query(ModelVersion).filter_by(organization_id=organization_id, training_id=training_id).one_or_none()
     if mv:
         return mv.id
     for attempt in range(3):
@@ -124,6 +121,7 @@ def import_from_local_history(organization_id: int, warehouse=None) -> dict[str,
     imported, so a repeat run does not create duplicates."""
     if warehouse is None:
         from dss.core.warehouse import DataWarehouse
+
         warehouse = DataWarehouse()
 
     local_records = warehouse.get_history("prediction", limit=10_000_000)

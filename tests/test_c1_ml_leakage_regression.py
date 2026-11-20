@@ -6,6 +6,7 @@ derived from the target. These tests call the real trainers with the leaky
 columns deliberately offered as features and assert they never reach the
 fitted model, for the canonical target and its legacy alias.
 """
+
 from __future__ import annotations
 
 import warnings
@@ -33,7 +34,8 @@ def test_regression_never_trains_on_target_derived_columns(df, target):
     offered = [c for c in df.columns if c != "student_id" and c != target]
     assert "xep_loai" in offered  # the exact historical mistake is offered on purpose
     _, pipelines, _, trained_feats, *_ = RegressionTrainer().train_and_evaluate(
-        df, offered, target, ["Linear Regression"], cv_folds=3, save_model=False)
+        df, offered, target, ["Linear Regression"], cv_folds=3, save_model=False
+    )
     assert not (set(trained_feats) & LEAKY), f"leaky features reached the model: {set(trained_feats) & LEAKY}"
     fitted = pipelines["Linear Regression"]
     n_in = getattr(fitted.named_steps.get("preprocessor", fitted), "n_features_in_", None)
@@ -45,7 +47,8 @@ def test_classification_on_grade_band_never_uses_the_score_it_derives_from(df):
     offered = [c for c in df.columns if c not in ("student_id", "xep_loai")]
     assert "diem_ky_sau" in offered
     _, _, _, trained_feats, *_ = ClassificationTrainer().train_and_evaluate(
-        df, offered, "xep_loai", ["Logistic Regression (Softmax)"], cv_folds=3, save_model=False)
+        df, offered, "xep_loai", ["Logistic Regression (Softmax)"], cv_folds=3, save_model=False
+    )
     assert not (set(trained_feats) & LEAKY)
 
 

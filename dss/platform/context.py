@@ -1,8 +1,9 @@
 """Authenticated server-resolved context for dedicated-school deployments."""
+
 from __future__ import annotations
 
-from dataclasses import dataclass
 import os
+from dataclasses import dataclass
 
 from dss.core.runtime_mode import is_production
 
@@ -28,6 +29,7 @@ class Actor:
 
 def current_actor() -> Actor:
     from dss.services.auth_service import current_user
+
     user = current_user()
     if not user:
         raise PermissionError("Authentication is required.")
@@ -37,7 +39,8 @@ def current_actor() -> Actor:
             raise RuntimeError("EDUDSS_ORGANIZATION_ID is required.")
         school_id = "demo"
     return Actor(
-        school_id=school_id, username=str(user.get("username") or ""),
+        school_id=school_id,
+        username=str(user.get("username") or ""),
         role=str(user.get("role") or ""),
         student_id=str(user["student_id"]) if user.get("student_id") is not None else None,
     )

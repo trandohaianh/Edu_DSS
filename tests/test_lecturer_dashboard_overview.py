@@ -1,6 +1,7 @@
 """Regression test — `model_service.compute_lecturer_dashboard_overview`, dùng
 để dựng Lecturer Dashboard (KPI + rủi ro theo lớp) từ ĐÚNG bản Production hiện
 tại trong Model Registry, không phải một pipeline tính riêng cho dashboard."""
+
 from __future__ import annotations
 
 import pandas as pd
@@ -11,6 +12,7 @@ from dss.services.model_service import compute_lecturer_dashboard_overview
 class _LinearPipeline:
     """Trả về chính giá trị cột 'score' làm dự đoán — đủ để kiểm tra phân loại
     rủi ro theo phân vị mà không cần model sklearn thật."""
+
     def predict(self, X):
         return X["score"].to_numpy()
 
@@ -19,6 +21,7 @@ class _OffsetPipeline:
     """Dự đoán = score - 100 — dùng để tạo 1 bản Production KHÁC HẲN bản A,
     chứng minh Promote đổi ngay kết quả dashboard. Định nghĩa ở module-level
     (không phải trong hàm test) vì joblib.dump cần pickle được class."""
+
     def predict(self, X):
         return (X["score"] - 100).to_numpy()
 
@@ -35,7 +38,6 @@ def _save_reg_model(warehouse, dataset_id="ds1", target_col="score", metrics=Non
     )
     warehouse.set_production_model(tid, promoted_by="admin")
     return tid, meta
-
 
 
 def _class_df():
@@ -101,8 +103,13 @@ def test_overview_promote_changes_dashboard_immediately(warehouse, as_role):
     df_b["score"] = df_b["score"] + 100  # bản B dự đoán khác hẳn bản A
 
     id_b, _ = warehouse.save_model_training(
-        dataset_id="ds1", model_pipeline=_OffsetPipeline(), model_name="OffsetModel",
-        feature_cols=["score"], target_col="score", metrics={"R2 Score": 0.9}, is_best=False,
+        dataset_id="ds1",
+        model_pipeline=_OffsetPipeline(),
+        model_name="OffsetModel",
+        feature_cols=["score"],
+        target_col="score",
+        metrics={"R2 Score": 0.9},
+        is_best=False,
     )
 
     as_role("Admin")

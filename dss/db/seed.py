@@ -9,6 +9,7 @@ safe to run more than once (checks for existing rows by unique key first).
 Usage: python -m dss.db.seed  (requires DATABASE_URL or DB_HOST/DB_NAME/DB_USER
 in the environment — see dss/db/session.py).
 """
+
 from __future__ import annotations
 
 from datetime import date, timedelta

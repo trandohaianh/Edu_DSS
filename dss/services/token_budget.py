@@ -10,6 +10,7 @@ QUAN TRỌNG (trung thực về phạm vi): các con số ngân sách dưới đ
 trị KHỞI ĐIỂM hợp lý (không phải đo thực nghiệm từ traffic thật — chưa có
 traffic thật để đo). Xem `docs/ai/CONTEXT_BUILDER_AND_TOKEN_BUDGET.md` để biết lý
 do và khuyến nghị điều chỉnh khi có dữ liệu thật."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -34,8 +35,12 @@ class BudgetCheckResult:
 
 
 _DEFAULT_BUDGET = TokenBudget(
-    max_recent_turns=5, max_summary_chars=500, max_rag_chunks=4, max_rag_chars=2000,
-    max_structured_context_chars=4000, max_provider_output_tokens=1024,
+    max_recent_turns=5,
+    max_summary_chars=500,
+    max_rag_chunks=4,
+    max_rag_chars=2000,
+    max_structured_context_chars=4000,
+    max_provider_output_tokens=1024,
 )
 
 _INTENT_BUDGETS: Dict[str, TokenBudget] = {
@@ -52,8 +57,12 @@ _INTENT_BUDGETS: Dict[str, TokenBudget] = {
 # Ngân sách "bảo thủ" cho intent chưa định nghĩa riêng — KHÔNG unbounded,
 # và tối đa bằng RAG_QA (không được rộng hơn 1 intent đã biết cụ thể).
 _FALLBACK_BUDGET = TokenBudget(
-    max_recent_turns=3, max_summary_chars=300, max_rag_chunks=3, max_rag_chars=1500,
-    max_structured_context_chars=1500, max_provider_output_tokens=512,
+    max_recent_turns=3,
+    max_summary_chars=300,
+    max_rag_chunks=3,
+    max_rag_chars=1500,
+    max_structured_context_chars=1500,
+    max_provider_output_tokens=512,
 )
 
 
@@ -67,7 +76,7 @@ def trim_conversation_history(turns: List[dict], budget: TokenBudget) -> List[di
     thoại cũ trước (giữ lại các lượt MỚI NHẤT)."""
     if budget.max_recent_turns <= 0:
         return []
-    return turns[-budget.max_recent_turns:] if len(turns) > budget.max_recent_turns else list(turns)
+    return turns[-budget.max_recent_turns :] if len(turns) > budget.max_recent_turns else list(turns)
 
 
 def trim_rag_chunks(chunks: List[dict], budget: TokenBudget) -> List[dict]:
@@ -94,5 +103,6 @@ def check_structured_context_budget(structured_context: str, budget: TokenBudget
     size = estimate_context_size_chars(structured_context)
     return BudgetCheckResult(
         over_budget=size > budget.max_structured_context_chars,
-        size_chars=size, limit_chars=budget.max_structured_context_chars,
+        size_chars=size,
+        limit_chars=budget.max_structured_context_chars,
     )

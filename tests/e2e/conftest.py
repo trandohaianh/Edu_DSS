@@ -8,6 +8,7 @@ Mỗi test dùng 1 `browser.new_context()` RIÊNG (không chỉ 1 tab mới) đ�
 phỏng đúng 2 người dùng khác nhau — Streamlit cấp session server-side theo kết
 nối WebSocket của context, không theo tab.
 """
+
 from __future__ import annotations
 
 import os
@@ -77,18 +78,25 @@ def base_url():
     # Cách ly khỏi API key / Ollama THẬT trên máy chạy test (app/.env): đặt rỗng
     # để load_dotenv(override=False) không nạp key thật — kết quả E2E không phụ
     # thuộc việc máy có key hay có cài Ollama hay không.
-    for _key in ("OPENAI_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY", "GROQ_API_KEY",
-                 "HF_TOKEN", "OLLAMA_API_KEY", "OLLAMA_HOST"):
+    for _key in (
+        "OPENAI_API_KEY",
+        "GEMINI_API_KEY",
+        "GOOGLE_API_KEY",
+        "GROQ_API_KEY",
+        "HF_TOKEN",
+        "OLLAMA_API_KEY",
+        "OLLAMA_HOST",
+    ):
         env[_key] = ""
     env["OLLAMA_BASE_URL"] = "http://127.0.0.1:9"  # cổng không có dịch vụ -> Ollama "chưa chạy"
 
     port = _free_port()
     proc = subprocess.Popen(
-        [_PYTHON, "-m", "streamlit", "run", "run_dss.py",
-         "--server.port", str(port), "--server.headless", "true"],
+        [_PYTHON, "-m", "streamlit", "run", "run_dss.py", "--server.port", str(port), "--server.headless", "true"],
         cwd=str(_APP_DIR),
         env=env,
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
     )
     try:
         _wait_listening(port)

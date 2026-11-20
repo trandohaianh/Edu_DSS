@@ -1,6 +1,7 @@
 """dss/services/subscription_service.py — real PostgreSQL wiring (Phase 1B,
 migration order item 9). Skipped (not faked) without a configured database.
 """
+
 from __future__ import annotations
 
 import uuid
@@ -77,9 +78,11 @@ def test_subscriptions_are_tenant_isolated(org_id, monkeypatch):
     monkeypatch.setenv("EDUDSS_ORGANIZATION_ID", str(org_id))
 
     from dss.services import subscription_service
+
     subscription_service.update_subscription_status("SUSPENDED")
 
     from dss.db.repositories import subscription_repository
+
     org_a_sub = subscription_repository.get_or_create_subscription(org_id)
     org_b_sub = subscription_repository.get_or_create_subscription(other_org_id)
     assert org_a_sub["status"] == "SUSPENDED"

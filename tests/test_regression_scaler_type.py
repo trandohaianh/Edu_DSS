@@ -5,6 +5,7 @@ scaler_type, nên preprocessor thật sự dùng để fit luôn là StandardSca
 định — mọi lựa chọn scaler_type khác (MinMaxScaler, RobustScaler) trên UI
 không có tác dụng gì với hồi quy.
 """
+
 from __future__ import annotations
 
 import warnings
@@ -18,18 +19,26 @@ from dss.core.data_helpers import generate_data
 from dss.core.trainers import RegressionTrainer
 
 
-@pytest.mark.parametrize("scaler_type,expected_cls", [
-    ("StandardScaler", StandardScaler),
-    ("MinMaxScaler", MinMaxScaler),
-    ("RobustScaler", RobustScaler),
-])
+@pytest.mark.parametrize(
+    "scaler_type,expected_cls",
+    [
+        ("StandardScaler", StandardScaler),
+        ("MinMaxScaler", MinMaxScaler),
+        ("RobustScaler", RobustScaler),
+    ],
+)
 def test_regression_pipeline_uses_selected_scaler_type(scaler_type, expected_cls):
     df = generate_data()
     feats = [c for c in df.columns if c not in ("student_id", "diem_ky_sau", "xep_loai", "final_score", "grade")]
     reg = RegressionTrainer()
     results, pipelines, *_ = reg.train_and_evaluate(
-        df, feats, "diem_ky_sau", ["Linear Regression"],
-        cv_folds=3, save_model=False, scaler_type=scaler_type,
+        df,
+        feats,
+        "diem_ky_sau",
+        ["Linear Regression"],
+        cv_folds=3,
+        save_model=False,
+        scaler_type=scaler_type,
     )
     pipeline = pipelines["Linear Regression"]
     preprocessor = pipeline.named_steps["preprocessor"]

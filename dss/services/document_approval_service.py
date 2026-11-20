@@ -9,9 +9,10 @@ ghi audit log cho mọi quyết định.
 Không có UI (`st.*`) ở đây — hàm thuần, gọi được trực tiếp từ test và từ
 `dss/tabs/knowledge_base.py`.
 """
+
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 from dss.core.logging_config import get_logger
@@ -27,6 +28,7 @@ def _resolve_organization_id_best_effort() -> Optional[int]:
     không chặn hành động nếu chưa cấu hình tenant."""
     try:
         import os
+
         raw = os.environ.get("EDUDSS_ORGANIZATION_ID", "").strip()
         return int(raw) if raw else None
     except Exception:
@@ -49,12 +51,14 @@ def _lecturer_owns_course(actor_username: str, course_id: Optional[str]) -> bool
         return False
     try:
         from dss.services import cms_lecture_repository
+
         lessons = cms_lecture_repository.list_lessons(course_id=course_id)
         return any(lesson.lecturer_id == actor_username for lesson in lessons)
     except Exception:
         _logger.warning(
             "Không thể xác minh giảng viên '%s' có phụ trách môn '%s' qua CMS — từ chối an toàn.",
-            actor_username, course_id,
+            actor_username,
+            course_id,
         )
         return False
 
@@ -75,7 +79,10 @@ def list_pending_documents(namespace: str = NAMESPACE_STUDENT_LEARNING) -> List[
 
 
 def list_pending_documents_for_approver(
-    namespace: str, *, actor_username: str, actor_role: str,
+    namespace: str,
+    *,
+    actor_username: str,
+    actor_role: str,
 ) -> List[Dict[str, Any]]:
     """Như `list_pending_documents`, nhưng lọc thêm CHỈ những tài liệu
     `actor` thực sự có thẩm quyền duyệt (dùng cho hàng đợi hẹp của Giảng
@@ -88,10 +95,13 @@ def list_pending_documents_for_approver(
     qua, backend vẫn từ chối hành động không được phép (fail-closed)."""
     pending = list_pending_documents(namespace)
     return [
-        d for d in pending
+        d
+        for d in pending
         if can_approve_document(
-            actor_username=actor_username, actor_role=actor_role,
-            doc_type=d.get("doc_type"), course_id=d.get("course_id"),
+            actor_username=actor_username,
+            actor_role=actor_role,
+            doc_type=d.get("doc_type"),
+            course_id=d.get("course_id"),
             uploaded_by=d.get("uploaded_by"),
         )[0]
     ]
@@ -132,26 +142,33 @@ def approve_document(
         return False, f"Không tìm thấy tài liệu '{document_id}' trong không gian '{namespace}'."
 
     allowed, reason = can_approve_document(
-        actor_username=actor_username, actor_role=actor_role,
-        doc_type=doc_meta.get("doc_type"), course_id=doc_meta.get("course_id"),
+        actor_username=actor_username,
+        actor_role=actor_role,
+        doc_type=doc_meta.get("doc_type"),
+        course_id=doc_meta.get("course_id"),
         uploaded_by=doc_meta.get("uploaded_by"),
     )
     if not allowed:
         return False, reason
 
-    now_iso = datetime.now(timezone.utc).isoformat()
+    now_iso = datetime.now(UTC).isoformat()
     vstore = vector_store_module.get_vector_store(namespace=namespace)
-    updated = vstore.update_document_metadata(document_id, {
-        "status": gov.STATUS_APPROVED,
-        "approved_by": actor_username,
-        "approved_at": now_iso,
-        "review_note": review_note,
-    })
+    updated = vstore.update_document_metadata(
+        document_id,
+        {
+            "status": gov.STATUS_APPROVED,
+            "approved_by": actor_username,
+            "approved_at": now_iso,
+            "review_note": review_note,
+        },
+    )
     if not updated:
         return False, "Cập nhật trạng thái thất bại (tài liệu có thể đã bị xóa)."
 
     _record_audit(
-        action="document.approved", document_id=document_id, actor_username=actor_username,
+        action="document.approved",
+        document_id=document_id,
+        actor_username=actor_username,
         before={"status": doc_meta.get("status")},
         after={"status": gov.STATUS_APPROVED, "review_note": review_note},
     )
@@ -176,25 +193,32 @@ def reject_document(
         return False, f"Không tìm thấy tài liệu '{document_id}' trong không gian '{namespace}'."
 
     allowed, reason = can_approve_document(
-        actor_username=actor_username, actor_role=actor_role,
-        doc_type=doc_meta.get("doc_type"), course_id=doc_meta.get("course_id"),
+        actor_username=actor_username,
+        actor_role=actor_role,
+        doc_type=doc_meta.get("doc_type"),
+        course_id=doc_meta.get("course_id"),
         uploaded_by=doc_meta.get("uploaded_by"),
     )
     if not allowed:
         return False, reason
 
     vstore = vector_store_module.get_vector_store(namespace=namespace)
-    updated = vstore.update_document_metadata(document_id, {
-        "status": gov.STATUS_REJECTED,
-        "approved_by": None,
-        "approved_at": None,
-        "review_note": review_note,
-    })
+    updated = vstore.update_document_metadata(
+        document_id,
+        {
+            "status": gov.STATUS_REJECTED,
+            "approved_by": None,
+            "approved_at": None,
+            "review_note": review_note,
+        },
+    )
     if not updated:
         return False, "Cập nhật trạng thái thất bại (tài liệu có thể đã bị xóa)."
 
     _record_audit(
-        action="document.rejected", document_id=document_id, actor_username=actor_username,
+        action="document.rejected",
+        document_id=document_id,
+        actor_username=actor_username,
         before={"status": doc_meta.get("status")},
         after={"status": gov.STATUS_REJECTED, "review_note": review_note},
     )
@@ -222,15 +246,20 @@ def retire_document(
         return False, f"Vai trò '{actor_role}' không có thẩm quyền rút loại tài liệu '{normalized_type}'."
 
     vstore = vector_store_module.get_vector_store(namespace=namespace)
-    updated = vstore.update_document_metadata(document_id, {
-        "status": gov.STATUS_RETIRED,
-        "review_note": review_note,
-    })
+    updated = vstore.update_document_metadata(
+        document_id,
+        {
+            "status": gov.STATUS_RETIRED,
+            "review_note": review_note,
+        },
+    )
     if not updated:
         return False, "Cập nhật trạng thái thất bại (tài liệu có thể đã bị xóa)."
 
     _record_audit(
-        action="document.retired", document_id=document_id, actor_username=actor_username,
+        action="document.retired",
+        document_id=document_id,
+        actor_username=actor_username,
         before={"status": doc_meta.get("status")},
         after={"status": gov.STATUS_RETIRED, "review_note": review_note},
     )
@@ -242,6 +271,7 @@ def _record_audit(*, action: str, document_id: str, actor_username: str, before:
     thất bại (giống mọi service khác đang dùng audit_log_repository)."""
     try:
         from dss.db.repositories import audit_log_repository
+
         audit_log_repository.record(
             action=action,
             target_type="document",

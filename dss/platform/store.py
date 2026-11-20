@@ -3,12 +3,13 @@
 SQLite is a local development store. PostgreSQL uses the existing configured
 engine and migrated schema; it never silently falls back or creates tables.
 """
+
 from __future__ import annotations
 
-from contextlib import contextmanager
 import hashlib
 import os
 import threading
+from contextlib import contextmanager
 
 from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import Session
@@ -29,6 +30,7 @@ def get_platform_engine():
         raise RuntimeError("Production classroom storage requires EDUDSS_PLATFORM_STORE=postgres.")
     if mode == "postgres":
         from dss.db.session import get_engine
+
         engine = get_engine()
         if engine.dialect.name != "postgresql":
             raise RuntimeError("The configured platform database must be PostgreSQL.")
@@ -43,12 +45,14 @@ def get_platform_engine():
                 connect_args={"check_same_thread": False, "timeout": 30},
                 future=True,
             )
+
             @event.listens_for(engine, "connect")
             def configure_connection(connection, record):
                 cursor = connection.cursor()
                 cursor.execute("PRAGMA foreign_keys=ON")
                 cursor.execute("PRAGMA busy_timeout=30000")
                 cursor.close()
+
             PlatformBase.metadata.create_all(engine)
             _engines[key] = engine
         return _engines[key]
@@ -62,7 +66,9 @@ def reset_platform_engines():
 
 
 def _lock_id(kind, scope):
-    return int.from_bytes(hashlib.blake2b(f"edudss-platform:{kind}:{scope}".encode(), digest_size=8).digest(), "big", signed=True)
+    return int.from_bytes(
+        hashlib.blake2b(f"edudss-platform:{kind}:{scope}".encode(), digest_size=8).digest(), "big", signed=True
+    )
 
 
 @contextmanager
@@ -80,7 +86,9 @@ def platform_session(school_id=None, *, write=False, program_id=None, actor=None
                     "app.actor_username": actor.username if actor is not None else "",
                     "app.principal_school_id": actor.school_id if actor is not None else "",
                     "app.actor_role": actor.role if actor is not None else "",
-                    "app.platform_operator": "true" if actor is not None and actor.role == "Platform Admin" else "false",
+                    "app.platform_operator": "true"
+                    if actor is not None and actor.role == "Platform Admin"
+                    else "false",
                 }
                 for name, value in settings.items():
                     session.execute(text("SELECT set_config(:name, :value, true)"), {"name": name, "value": value})
@@ -88,11 +96,17 @@ def platform_session(school_id=None, *, write=False, program_id=None, actor=None
                     # Global provisioning uses a stable registry key. When both
                     # scopes exist every writer acquires programme before school.
                     if program_id is not None:
-                        session.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": _lock_id("program", program_id)})
+                        session.execute(
+                            text("SELECT pg_advisory_xact_lock(:key)"), {"key": _lock_id("program", program_id)}
+                        )
                     if school_id is not None:
-                        session.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": _lock_id("school", school_id)})
+                        session.execute(
+                            text("SELECT pg_advisory_xact_lock(:key)"), {"key": _lock_id("school", school_id)}
+                        )
                     if program_id is None and school_id is None:
-                        session.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": _lock_id("registry", "global")})
+                        session.execute(
+                            text("SELECT pg_advisory_xact_lock(:key)"), {"key": _lock_id("registry", "global")}
+                        )
             yield session
             if write:
                 session.commit()
@@ -107,8 +121,10 @@ def audit(session, actor, action, entity_id, *, school_id=None, program_id=None,
     row = AuditEvent(
         school_id=str(school_id) if school_id is not None else None,
         program_id=str(program_id) if program_id is not None else None,
-        actor=f"{actor.school_id}:{actor.username}", action=action,
-        entity_id=str(entity_id), details=dict(details or {}),
+        actor=f"{actor.school_id}:{actor.username}",
+        action=action,
+        entity_id=str(entity_id),
+        details=dict(details or {}),
     )
     session.add(row)
     return row

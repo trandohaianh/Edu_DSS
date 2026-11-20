@@ -1,6 +1,7 @@
 """E-4: Kho 19 tài liệu viết cứng (_init_enhanced_knowledge_base) được trình bày
 làm "nguồn" trong câu trả lời RAG mà không phân biệt với tài liệu do trường tải
 lên/kiểm duyệt — người đọc dễ hiểu nhầm đây là tài liệu đã được thẩm định."""
+
 from __future__ import annotations
 
 import inspect
@@ -10,7 +11,12 @@ from dss.tabs import ai_advisor
 
 
 def test_unverified_internal_kb_doc_labeled_not_reviewed():
-    doc = {"title": "Kỹ năng quản lý thời gian", "source": "knowledge_base", "status": "DRAFT", "source_verified": False}
+    doc = {
+        "title": "Kỹ năng quản lý thời gian",
+        "source": "knowledge_base",
+        "status": "DRAFT",
+        "source_verified": False,
+    }
     citation = format_document_citation(doc)
     assert "CHƯA kiểm duyệt" in citation
     assert "Kỹ năng quản lý thời gian" in citation

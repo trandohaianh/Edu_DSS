@@ -8,14 +8,16 @@ admin, the last result of every ops pipeline job, data quality / drift and the b
 drill. Access: `Authorization: Bearer $EDUDSS_METRICS_TOKEN`; without a token configured only
 loopback clients are served.
 """
+
 from __future__ import annotations
 
 import hmac
 import os
 import threading
 import time
+from datetime import UTC
 
-from prometheus_client import CollectorRegistry, generate_latest, CONTENT_TYPE_LATEST
+from prometheus_client import CONTENT_TYPE_LATEST, CollectorRegistry, generate_latest
 from prometheus_client.core import GaugeMetricFamily
 
 _STATUS_VALUE = {"ok": 1.0, "degraded": 0.5, "failed": 0.0}
@@ -53,9 +55,10 @@ def _business_snapshot() -> dict:
         snap["budget"] = None
     try:
         from datetime import datetime, timezone
+
         from ops import pipeline
 
-        snap["infra_month"] = pipeline.infra_total(datetime.now(timezone.utc).strftime("%Y-%m"))
+        snap["infra_month"] = pipeline.infra_total(datetime.now(UTC).strftime("%Y-%m"))
         snap["runs"] = pipeline.last_runs()
     except Exception:
         snap["infra_month"], snap["runs"] = None, {}
@@ -92,9 +95,15 @@ class BusinessCollector:
             infra.add_metric([], float(snap["infra_month"]))
             yield infra
         runs = snap.get("runs") or {}
-        status = GaugeMetricFamily("edudss_pipeline_last_status", "Last run: 1 ok, 0.5 degraded, 0 failed", labels=["task"])
-        success = GaugeMetricFamily("edudss_pipeline_last_success_timestamp_seconds", "Unix time of last ok run", labels=["task"])
-        duration = GaugeMetricFamily("edudss_pipeline_last_duration_seconds", "Duration of the last run", labels=["task"])
+        status = GaugeMetricFamily(
+            "edudss_pipeline_last_status", "Last run: 1 ok, 0.5 degraded, 0 failed", labels=["task"]
+        )
+        success = GaugeMetricFamily(
+            "edudss_pipeline_last_success_timestamp_seconds", "Unix time of last ok run", labels=["task"]
+        )
+        duration = GaugeMetricFamily(
+            "edudss_pipeline_last_duration_seconds", "Duration of the last run", labels=["task"]
+        )
         for job, row in runs.items():
             status.add_metric([job], _STATUS_VALUE.get(row.get("status"), 0.0))
             duration.add_metric([job], float(row.get("duration_s") or 0))
@@ -113,7 +122,9 @@ class BusinessCollector:
             yield psi
         bk = (runs.get("backup") or {}).get("detail") or {}
         if bk:
-            drill = GaugeMetricFamily("edudss_backup_restore_verified", "1 when the last backup passed its restore drill")
+            drill = GaugeMetricFamily(
+                "edudss_backup_restore_verified", "1 when the last backup passed its restore drill"
+            )
             drill.add_metric([], 1.0 if bk.get("restore_drill") == "VERIFIED" else 0.0)
             yield drill
             size = GaugeMetricFamily("edudss_backup_archive_bytes", "Size of the last backup archive")

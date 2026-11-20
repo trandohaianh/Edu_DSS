@@ -13,6 +13,7 @@ Bao gồm:
 3. Chuyển đổi nghề nghiệp (Career Transition Plan):
    - Phân tích chuyển từ Nghề A sang Nghề B: Kỹ năng dùng chung, Kỹ năng còn thiếu, Độ khả thi & Lộ trình chuyển đổi
 """
+
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
@@ -90,7 +91,9 @@ def _find_resource_for_skill(role: CareerRole, skill_name: str):
 
 def _task_from_gap(gap: GapItem, role: CareerRole, completed_tasks: List[str]) -> RoadmapTask:
     resource = _find_resource_for_skill(role, gap.skill_name)
-    target_next_level = {"None": "Basic", "Basic": "Intermediate", "Intermediate": "Advanced"}.get(gap.current_level, "Intermediate")
+    target_next_level = {"None": "Basic", "Basic": "Intermediate", "Intermediate": "Advanced"}.get(
+        gap.current_level, "Intermediate"
+    )
     task_id = f"task_{role.role_id}_{gap.skill_name.lower().replace(' ', '_')}"
     is_completed = task_id in completed_tasks
 
@@ -142,31 +145,35 @@ def generate_roadmap(
 
     # Nếu không còn thiếu kỹ năng nào (hoặc đã làm hết) -> Bổ sung task tối ưu & nộp hồ sơ
     if not any(buckets.values()):
-        buckets[_BUCKET_1M].append(RoadmapTask(
-            task_id=f"task_{role.role_id}_advanced_capstone",
-            action=f"Xây dựng dự án Capstone đột phá thể hiện toàn bộ kỹ năng {role.role_name}",
-            reason="Bạn đã đáp ứng đầy đủ kỹ năng nền tảng và chuyên sâu — bước tiếp theo là tạo sản phẩm nổi bật so với các ứng viên khác.",
-            resource=role.learning_resources[0].title if role.learning_resources else "Dự án thực tế doanh nghiệp",
-            resource_url=role.learning_resources[0].url if role.learning_resources else None,
-            estimated_effort="6-8 giờ / tuần",
-            target_result="Dự án hoàn chỉnh có tài liệu kỹ thuật, demo trực quan và mã nguồn clean code.",
-            priority=PRIORITY_HIGH,
-            is_completed="task_advanced_capstone" in completed_set,
-        ))
+        buckets[_BUCKET_1M].append(
+            RoadmapTask(
+                task_id=f"task_{role.role_id}_advanced_capstone",
+                action=f"Xây dựng dự án Capstone đột phá thể hiện toàn bộ kỹ năng {role.role_name}",
+                reason="Bạn đã đáp ứng đầy đủ kỹ năng nền tảng và chuyên sâu — bước tiếp theo là tạo sản phẩm nổi bật so với các ứng viên khác.",
+                resource=role.learning_resources[0].title if role.learning_resources else "Dự án thực tế doanh nghiệp",
+                resource_url=role.learning_resources[0].url if role.learning_resources else None,
+                estimated_effort="6-8 giờ / tuần",
+                target_result="Dự án hoàn chỉnh có tài liệu kỹ thuật, demo trực quan và mã nguồn clean code.",
+                priority=PRIORITY_HIGH,
+                is_completed="task_advanced_capstone" in completed_set,
+            )
+        )
 
     # Luôn đảm bảo mốc 6 tháng có nhiệm vụ chuẩn bị phỏng vấn & apply nếu chưa có
     if not buckets[_BUCKET_6M]:
-        buckets[_BUCKET_6M].append(RoadmapTask(
-            task_id=f"task_{role.role_id}_apply_jobs",
-            action=f"Chuẩn bị CV chuyên nghiệp và nộp hồ sơ ứng tuyển vị trí Fresher/Junior {role.role_name}",
-            reason="Tích luỹ kinh nghiệm phỏng vấn thực tế và nắm bắt cơ hội việc làm tại các công ty mục tiêu.",
-            resource="LinkedIn / TopCV / VietnamWorks / ITviec",
-            resource_url="https://itviec.com",
-            estimated_effort="3-5 giờ / tuần",
-            target_result="Gửi ít nhất 5-10 hồ sơ ứng tuyển và tham gia các buổi phỏng vấn tuyển dụng.",
-            priority=PRIORITY_MEDIUM,
-            is_completed=f"task_{role.role_id}_apply_jobs" in completed_set,
-        ))
+        buckets[_BUCKET_6M].append(
+            RoadmapTask(
+                task_id=f"task_{role.role_id}_apply_jobs",
+                action=f"Chuẩn bị CV chuyên nghiệp và nộp hồ sơ ứng tuyển vị trí Fresher/Junior {role.role_name}",
+                reason="Tích luỹ kinh nghiệm phỏng vấn thực tế và nắm bắt cơ hội việc làm tại các công ty mục tiêu.",
+                resource="LinkedIn / TopCV / VietnamWorks / ITviec",
+                resource_url="https://itviec.com",
+                estimated_effort="3-5 giờ / tuần",
+                target_result="Gửi ít nhất 5-10 hồ sơ ứng tuyển và tham gia các buổi phỏng vấn tuyển dụng.",
+                priority=PRIORITY_MEDIUM,
+                is_completed=f"task_{role.role_id}_apply_jobs" in completed_set,
+            )
+        )
 
     return CareerRoadmap(
         target_role_id=role.role_id,
@@ -183,8 +190,8 @@ def generate_roadmap(
 class AlternativePathsResult:
     primary_role_id: str
     primary_role_name: str
-    secondary_roles: List[Dict[str, str]]             # role_id, role_name, explanation
-    long_term_roles: List[Dict[str, str]]             # role_id, role_name, explanation
+    secondary_roles: List[Dict[str, str]]  # role_id, role_name, explanation
+    long_term_roles: List[Dict[str, str]]  # role_id, role_name, explanation
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -233,8 +240,8 @@ class CareerTransitionPlan:
     to_role_name: str
     shared_skills: List[str]
     missing_skills: List[str]
-    feasibility_score: float                          # Độ khả thi chuyển dịch 0-100%
-    gap_size: str                                     # Nhỏ | Trung bình | Lớn
+    feasibility_score: float  # Độ khả thi chuyển dịch 0-100%
+    gap_size: str  # Nhỏ | Trung bình | Lớn
     roadmap: CareerRoadmap
 
     def to_dict(self) -> Dict[str, Any]:

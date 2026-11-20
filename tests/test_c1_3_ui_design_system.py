@@ -5,6 +5,7 @@ Rendering is exercised with Streamlit's AppTest (real script execution, real
 widgets) where behaviour matters; static checks are used only for invariants
 that are properties of the source (token definitions, no hard-coded colours).
 """
+
 from __future__ import annotations
 
 import ast
@@ -18,13 +19,33 @@ APP = Path(__file__).resolve().parent.parent
 MAIN_CSS = APP / "dss" / "styles" / "main.css"
 
 REQUIRED_TOKENS = [
-    "--bg-primary", "--bg-secondary", "--surface", "--surface-hover", "--surface-elevated",
-    "--text-primary", "--text-secondary", "--text-muted", "--text-inverse",
-    "--border", "--border-strong",
-    "--primary", "--primary-hover", "--primary-soft",
-    "--success", "--success-soft", "--warning", "--warning-soft",
-    "--danger", "--danger-soft", "--info", "--info-soft",
-    "--shadow-sm", "--shadow-md", "--radius-sm", "--radius-md", "--radius-lg",
+    "--bg-primary",
+    "--bg-secondary",
+    "--surface",
+    "--surface-hover",
+    "--surface-elevated",
+    "--text-primary",
+    "--text-secondary",
+    "--text-muted",
+    "--text-inverse",
+    "--border",
+    "--border-strong",
+    "--primary",
+    "--primary-hover",
+    "--primary-soft",
+    "--success",
+    "--success-soft",
+    "--warning",
+    "--warning-soft",
+    "--danger",
+    "--danger-soft",
+    "--info",
+    "--info-soft",
+    "--shadow-sm",
+    "--shadow-md",
+    "--radius-sm",
+    "--radius-md",
+    "--radius-lg",
 ]
 # Colour tokens that must be redefined for dark mode (shape tokens need not be).
 DARK_COLOUR_TOKENS = [t for t in REQUIRED_TOKENS if not t.startswith("--radius")]
@@ -32,7 +53,7 @@ DARK_COLOUR_TOKENS = [t for t in REQUIRED_TOKENS if not t.startswith("--radius")
 
 def _block(css: str, selector: str) -> str:
     start = css.index(selector)
-    return css[start: css.index("}", start)]
+    return css[start : css.index("}", start)]
 
 
 # ---------------------------------------------------------------- design tokens
@@ -57,10 +78,18 @@ def test_component_library_has_no_hard_coded_colours():
     assert not hexes, f"ui_kit.py còn mã màu hex: {sorted(set(hexes))}"
 
 
-@pytest.mark.parametrize("rel", [
-    "dss/tabs/home.py", "dss/tabs/admin_settings.py", "dss/tabs/admin_reports.py",
-    "dss/tabs/dashboard.py", "dss/tabs/loading_screen.py", "dss/services/auth_service.py", "dss/main.py",
-])
+@pytest.mark.parametrize(
+    "rel",
+    [
+        "dss/tabs/home.py",
+        "dss/tabs/admin_settings.py",
+        "dss/tabs/admin_reports.py",
+        "dss/tabs/dashboard.py",
+        "dss/tabs/loading_screen.py",
+        "dss/services/auth_service.py",
+        "dss/main.py",
+    ],
+)
 def test_redesigned_pages_have_no_hex_in_inline_styles(rel):
     source = (APP / rel).read_text(encoding="utf-8")
     offenders = [m.group(0)[:80] for m in re.finditer(r"style=(['\"])(.*?)\1", source, re.S) if "#" in m.group(2)]
@@ -87,7 +116,13 @@ def _sidebar_nav_groups():
     tree = ast.parse((APP / "dss" / "main.py").read_text(encoding="utf-8"))
     for node in ast.walk(tree):
         if isinstance(node, ast.Assign) and any(getattr(t, "id", None) == "SIDEBAR_NAV_GROUPS" for t in node.targets):
-            return eval(compile(ast.Expression(node.value), "main.py", "eval"), {name: getattr(roles, name) for name in ("HOME_TAB_LABEL", "CLASSROOM_TAB_LABEL", "PROGRAM_TAB_LABEL", "MATERIALS_TAB_LABEL")})
+            return eval(
+                compile(ast.Expression(node.value), "main.py", "eval"),
+                {
+                    name: getattr(roles, name)
+                    for name in ("HOME_TAB_LABEL", "CLASSROOM_TAB_LABEL", "PROGRAM_TAB_LABEL", "MATERIALS_TAB_LABEL")
+                },
+            )
     raise AssertionError("Không tìm thấy SIDEBAR_NAV_GROUPS trong main.py")
 
 
@@ -110,8 +145,15 @@ def test_new_admin_pages_are_admin_only():
         assert TAB_ACCESS[tab] == {"Admin"}
     for role in ("Sinh viên", "Giảng viên / CVHT"):
         visible = filter_tabs_for_role(ALL_TABS, role)
-        for admin_only in ("👥 Người dùng", "🔗 Tích hợp LMS/CMS", "⚙️ Cấu hình AI", "🔧 Cài đặt",
-                           "📈 Báo cáo hệ thống", "🗄️ Model Registry", "📚 Quản lý tri thức (RAG)"):
+        for admin_only in (
+            "👥 Người dùng",
+            "🔗 Tích hợp LMS/CMS",
+            "⚙️ Cấu hình AI",
+            "🔧 Cài đặt",
+            "📈 Báo cáo hệ thống",
+            "🗄️ Model Registry",
+            "📚 Quản lý tri thức (RAG)",
+        ):
             assert admin_only not in visible, f"{role} không được thấy {admin_only}"
     student = filter_tabs_for_role(ALL_TABS, "Sinh viên")
     for staff_only in ("📊 Dashboard", "📦 Kho dữ liệu", "🔍 Khám phá — Xử lý dữ liệu", "📄 Duyệt tài liệu"):
@@ -192,6 +234,7 @@ def test_login_validation_wrong_password_and_success(dev_env):
 
 def test_logout_clears_identity_and_ui_state(as_role):
     import streamlit as st
+
     from dss.services import auth_service
 
     as_role("Admin", username="admin")
@@ -211,6 +254,7 @@ def test_report_error_does_not_render_exception_text():
     # (cp1252 on Windows) — keep the function body ASCII-only.
     def script():
         from dss.tabs import ui_kit
+
         ui_kit.report_error("Save failed", RuntimeError("SECRET C:/internal/path.sql"))
 
     at = AppTest.from_function(script, default_timeout=30).run()
@@ -243,9 +287,11 @@ def test_ai_configuration_never_renders_api_keys_and_is_honest_about_status():
 
     def script():
         import streamlit as st
+
         st.session_state["_auth_role"] = "Admin"
         from dss.tabs.ai_advisor import ai_configuration_tab
         from tests.test_c1_3_ui_design_system import _FakeLLM
+
         ai_configuration_tab(_FakeLLM())
 
     at = AppTest.from_function(script, default_timeout=60).run()
@@ -284,6 +330,7 @@ def test_admin_integration_page_does_not_claim_a_live_connection():
 
     def script():
         from dss.tabs.admin_settings import admin_integration_tab
+
         admin_integration_tab()
 
     at = AppTest.from_function(script, default_timeout=60).run()
@@ -298,12 +345,14 @@ def test_admin_users_page_lists_accounts_and_crud_is_wired(dev_env):
     sau (tránh CRUD giả). Nay form gọi auth_service.admin_* thật (kiểm tra vai trò Admin ở tầng
     service + nhật ký kiểm toán): bấm Tạo phải thật sự tạo tài khoản."""
     from streamlit.testing.v1 import AppTest
+
     from dss.services import auth_service
 
     auth_service._seed_default_accounts_if_missing()
 
     def script():
         from dss.tabs.admin_settings import admin_users_tab
+
         admin_users_tab()
 
     at = AppTest.from_function(script, default_timeout=60)
@@ -332,6 +381,7 @@ def test_student_home_quick_ask_no_longer_reads_undefined_role_variable():
     tên `role` trong hàm này."""
     import inspect
     import textwrap
+
     from dss.tabs import home
 
     tree = ast.parse(textwrap.dedent(inspect.getsource(home._render_student_home_dashboard)))

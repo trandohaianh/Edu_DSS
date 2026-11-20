@@ -1,26 +1,37 @@
 """Sample data generation and loading."""
-from __future__ import annotations
 
+from __future__ import annotations
 
 import numpy as np
 import pandas as pd
 import streamlit as st
 
 from dss.config import (
-    IMB_LEARN_AVAILABLE, SMOTE, BorderlineSMOTE, ADASYN, ImbPipeline,
-    ColumnTransformer, RobustScaler, MinMaxScaler, StandardScaler,
-    Pipeline, KNNImputer, SimpleImputer, OneHotEncoder,
+    ADASYN,
+    IMB_LEARN_AVAILABLE,
+    SMOTE,
+    BorderlineSMOTE,
+    ColumnTransformer,
+    ImbPipeline,
+    KNNImputer,
+    MinMaxScaler,
+    OneHotEncoder,
+    Pipeline,
+    RobustScaler,
+    SimpleImputer,
+    StandardScaler,
 )
-from dss.security.upload_security import UploadValidationError, parse_tabular_upload
 from dss.core.target_utils import (
     score_to_xep_loai,
 )
+from dss.security.upload_security import UploadValidationError, parse_tabular_upload
 
 try:
     # imbalanced-learn (tùy chọn) cho SMOTE/Borderline/ADASYN — dùng tên riêng
     # IMBLEARN_AVAILABLE/SVMSMOTE (khác IMB_LEARN_AVAILABLE ở dss.config) vì 5.py gốc
     # cũng có 2 khối try/except import imblearn độc lập ở 2 vị trí khác nhau.
     from imblearn.over_sampling import SVMSMOTE  # type: ignore
+
     IMBLEARN_AVAILABLE = True
 except Exception:
     SVMSMOTE = None
@@ -78,7 +89,7 @@ WEAKNESS_DETECTION_DIRECTIONS = {
     "so_lan_dang_nhap": "higher_is_better",
     "ty_le_hoan_thanh_bai_tap": "higher_is_better",
     "ngay_hoat_dong_gan_nhat": "lower_is_better",
-    **{col: "higher_is_better" for col in TOPIC_SCORE_COLUMNS},
+    **dict.fromkeys(TOPIC_SCORE_COLUMNS, "higher_is_better"),
 }
 
 
@@ -106,6 +117,7 @@ def is_production_environment() -> bool:
     # C1.1: ủy quyền cho hợp đồng môi trường DUY NHẤT (dss/core/runtime_mode.py):
     # EDUDSS_ENV=production (hoặc giá trị lạ → coi là production) HOẶC EDUDSS_MODE=REAL_LMS.
     from dss.core.runtime_mode import is_production
+
     return is_production()
 
 
@@ -124,15 +136,23 @@ def feature_label(column_name: str) -> str:
 # danh sách (danh sách môn có thể đổi khi dataset đổi). Palette pastel/chuyên
 # nghiệp, đủ tương phản để đọc số trên nền màu.
 COURSE_COLOR_MAP = {
-    "Thống kê": "#2563EB",              # xanh dương
-    "Xử lý dữ liệu": "#F59E0B",         # cam
-    "Trực quan hóa dữ liệu": "#16A34A", # xanh lá
+    "Thống kê": "#2563EB",  # xanh dương
+    "Xử lý dữ liệu": "#F59E0B",  # cam
+    "Trực quan hóa dữ liệu": "#16A34A",  # xanh lá
     "Machine Learning cơ bản": "#7C3AED",  # tím
-    "Lập trình Python": "#DB2777",      # hồng/đỏ
+    "Lập trình Python": "#DB2777",  # hồng/đỏ
 }
 _COURSE_COLOR_FALLBACK_PALETTE = [
-    "#0D9488", "#EA580C", "#4338CA", "#B45309", "#0891B2",
-    "#65A30D", "#C026D3", "#334155", "#DC2626", "#0EA5E9",
+    "#0D9488",
+    "#EA580C",
+    "#4338CA",
+    "#B45309",
+    "#0891B2",
+    "#65A30D",
+    "#C026D3",
+    "#334155",
+    "#DC2626",
+    "#0EA5E9",
 ]
 
 
@@ -147,6 +167,7 @@ def topic_color(topic_name: str) -> str:
     # dùng md5 (ổn định tuyệt đối giữa các lần chạy/tiến trình khác nhau) để
     # cùng 1 tên môn LUÔN ra cùng 1 màu, kể cả sau khi khởi động lại server.
     import hashlib
+
     digest = hashlib.md5(str(topic_name).encode("utf-8")).hexdigest()
     idx = int(digest, 16) % len(_COURSE_COLOR_FALLBACK_PALETTE)
     return _COURSE_COLOR_FALLBACK_PALETTE[idx]
@@ -186,18 +207,19 @@ def generate_data(n_students=1000, n_samples=None, random_state: int | None = 42
     for _topic_col in TOPIC_SCORE_COLUMNS:
         data[_topic_col] = np.clip(
             0.55 * diem_ky_nay + 0.45 * rng.normal(6.5, 2.0, n_students),
-            0, 10,
+            0,
+            10,
         )
 
     df = pd.DataFrame(data)
 
     # TẠO SYNTHETIC TARGET CHO DEMO (Chỉ dùng cho simulation/demo mode)
     df['diem_ky_sau'] = (
-        0.60 * df['diem_ky_nay'] +
-        0.15 * df['diem_giua_ky'] +
-        0.10 * df['diem_du_an'] +
-        0.10 * (df['ty_le_diem_danh'] * 10) +
-        0.05 * (df['so_gio_hoc_tuan'] / 3.5)
+        0.60 * df['diem_ky_nay']
+        + 0.15 * df['diem_giua_ky']
+        + 0.10 * df['diem_du_an']
+        + 0.10 * (df['ty_le_diem_danh'] * 10)
+        + 0.05 * (df['so_gio_hoc_tuan'] / 3.5)
     ) + rng.normal(0, 0.08, n_students)
 
     df['diem_ky_sau'] = df['diem_ky_sau'].clip(0, 10)
@@ -261,6 +283,7 @@ def load_data(uploaded_file):
     if uploaded_file is None:
         return None
     from pathlib import Path
+
     if isinstance(uploaded_file, (str, Path)):
         # Đường dẫn cục bộ do code nội bộ truyền vào (không phải file người dùng
         # tải lên qua trình duyệt) — không đi qua parse_tabular_upload (validate
@@ -296,10 +319,11 @@ def create_shared_preprocessor(numeric_features, categorical_features, scaler_ty
     """Tạo một ColumnTransformer CHUNG cho cả 2 loại mô hình (để đảm bảo tính nhất quán)."""
     if ColumnTransformer is None:
         raise ImportError(
-            "ColumnTransformer không khả dụng. Vui lòng cập nhật scikit-learn >= 0.20 để sử dụng tính năng này.")
-    
+            "ColumnTransformer không khả dụng. Vui lòng cập nhật scikit-learn >= 0.20 để sử dụng tính năng này."
+        )
+
     transformers = []
-    
+
     # Chọn Scaler dựa trên tham số
     if scaler_type == "RobustScaler":
         scaler = RobustScaler()
@@ -307,25 +331,20 @@ def create_shared_preprocessor(numeric_features, categorical_features, scaler_ty
         scaler = MinMaxScaler()
     else:
         scaler = StandardScaler()
-        
+
     if numeric_features:
-        numeric_transformer = Pipeline(steps=[
-            ('imputer', KNNImputer(n_neighbors=5)),
-            ('scaler', scaler)
-        ])
+        numeric_transformer = Pipeline(steps=[('imputer', KNNImputer(n_neighbors=5)), ('scaler', scaler)])
         transformers.append(('num', numeric_transformer, numeric_features))
     if categorical_features:
         categorical_transformer = Pipeline(
             steps=[
-                ('imputer', SimpleImputer(
-                    strategy='most_frequent')), ('onehot', OneHotEncoder(
-                        handle_unknown='ignore', sparse_output=False))])
-        transformers.append(
-            ('cat', categorical_transformer, categorical_features))
+                ('imputer', SimpleImputer(strategy='most_frequent')),
+                ('onehot', OneHotEncoder(handle_unknown='ignore', sparse_output=False)),
+            ]
+        )
+        transformers.append(('cat', categorical_transformer, categorical_features))
 
-    return ColumnTransformer(
-        transformers=transformers,
-        remainder='passthrough')
+    return ColumnTransformer(transformers=transformers, remainder='passthrough')
 
 
 def balance_dataset(X, y, method="smote", random_state=42):
@@ -343,11 +362,12 @@ def balance_dataset(X, y, method="smote", random_state=42):
         # imblearn không cài -> fallback
         try:
             import warnings as _w
+
             _w.warn("imblearn không có — bỏ qua bước cân bằng lớp. Cài đặt imbalanced-learn để bật SMOTE.")
         except ImportError:
             pass
         return X, y
-        
+
     sampler = None
     method = (method or "smote").lower()
     if method == "smote":
@@ -372,6 +392,7 @@ def balance_dataset(X, y, method="smote", random_state=42):
         # Nếu lỗi, trả về bản gốc và log
         try:
             import streamlit as _st
+
             _st.warning(f"⚠️ Cân bằng dữ liệu thất bại ({method}): {e}. Bỏ qua cân bằng.")
         except ImportError:
             pass

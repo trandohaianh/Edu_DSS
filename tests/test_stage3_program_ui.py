@@ -1,4 +1,5 @@
 """Streamlit acceptance for programme allocation and school-controlled reporting."""
+
 import json
 
 import pytest

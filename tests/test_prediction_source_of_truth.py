@@ -7,6 +7,7 @@ trỏ Production + cache artifact) và `dss.services.model_service.
 resolve_production_for_prediction` (tầng UI Dự đoán thật sự gọi) — dùng
 warehouse THẬT (fixture `warehouse`, tmp_path), không mock.
 """
+
 from __future__ import annotations
 
 import streamlit as st
@@ -17,6 +18,7 @@ from dss.services.model_service import resolve_production_for_prediction
 
 class _FakePipeline:
     """Đại diện tối giản cho 1 model đã train — chỉ cần picklable + predict()."""
+
     def __init__(self, tag):
         self.tag = tag
 
@@ -38,7 +40,6 @@ def _save(warehouse, dataset_id, target_col, model_name, tag, is_best=True, metr
     if is_best:
         warehouse.set_production_model(training_id, promoted_by="admin", promotion_reason="Test setup promotion")
     return training_id, meta
-
 
 
 def setup_function(_):
@@ -104,9 +105,7 @@ def test_rollback_changes_prediction_model_immediately(warehouse, as_role):
 
     after = resolve_production_for_prediction(warehouse, "ds1", "final_score")
     assert after["training_id"] == id_a
-    assert after["pipeline"].tag == "model-A", (
-        "Rollback về A xong nhưng prediction vẫn dùng B."
-    )
+    assert after["pipeline"].tag == "model-A", "Rollback về A xong nhưng prediction vẫn dùng B."
 
 
 # ---------------------------------------------------------------------------
@@ -215,8 +214,13 @@ def test_resolve_never_triggers_training(warehouse, monkeypatch):
 # ---------------------------------------------------------------------------
 def test_clustering_production_model_reports_error_not_crash(warehouse):
     _save(
-        warehouse, "ds1", "cluster_label", "KMeans", "kmeans-v1",
-        is_best=True, metrics={"type": "clustering", "silhouette": 0.5},
+        warehouse,
+        "ds1",
+        "cluster_label",
+        "KMeans",
+        "kmeans-v1",
+        is_best=True,
+        metrics={"type": "clustering", "silhouette": 0.5},
     )
 
     resolved = resolve_production_for_prediction(warehouse, "ds1", "cluster_label")

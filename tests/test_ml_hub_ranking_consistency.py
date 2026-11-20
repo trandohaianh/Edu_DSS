@@ -5,6 +5,7 @@ vì main.py hard-code Accuracy còn pick_best_model_name dùng F1 Score (Macro).
 Trường hợp metric bất đồng dùng fixture cố định; kết quả mô hình thực tế
 được kiểm tra riêng để bảo đảm bảng xếp hạng và lựa chọn mô hình thống nhất.
 """
+
 from __future__ import annotations
 
 import warnings
@@ -23,14 +24,9 @@ from dss.services.model_service import (
 
 def _train_classification_results():
     df = generate_data()
-    feats = [
-        c for c in df.columns
-        if c not in ("student_id", "diem_ky_sau", "xep_loai", "final_score", "grade")
-    ]
+    feats = [c for c in df.columns if c not in ("student_id", "diem_ky_sau", "xep_loai", "final_score", "grade")]
     clf = ClassificationTrainer()
-    results, *_ = clf.train_and_evaluate(
-        df, feats, "xep_loai", list(clf.models), cv_folds=5, save_model=False
-    )
+    results, *_ = clf.train_and_evaluate(df, feats, "xep_loai", list(clf.models), cv_folds=5, save_model=False)
     return results
 
 
@@ -70,8 +66,7 @@ def test_main_py_does_not_hardcode_accuracy_as_ranking_metric():
     main_file = Path(__file__).resolve().parents[1] / "dss" / "main.py"
     main_py = main_file.read_text(encoding="utf-8")
     assert 'resolve_ranking_col' in main_py, (
-        "main.py phải gọi model_service.resolve_ranking_col thay vì hard-code "
-        "tiêu chí xếp hạng \"Accuracy\"."
+        "main.py phải gọi model_service.resolve_ranking_col thay vì hard-code tiêu chí xếp hạng \"Accuracy\"."
     )
     assert '_eval_rank_metric = "Accuracy" if _eval_hub_type == "clf"' not in main_py
     assert 'rank_metric = "Accuracy" if current_hub_type == "clf"' not in main_py

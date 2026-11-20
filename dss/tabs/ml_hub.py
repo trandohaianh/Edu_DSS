@@ -1,16 +1,46 @@
 """Shared runtime imports for Streamlit tab modules."""
+
 from dss.config import *  # noqa: F403
+from dss.core.data_helpers import feature_label
+from dss.core.feature_utils import render_save_export_buttons
+from dss.core.observability import predict_with_metrics
+from dss.core.target_utils import infer_default_target_column, infer_problem_type, is_id_like
 from dss.core.utils import (
+    _ensure_label_mapping,
+    _make_safe_cv_strategy,
     render_chart_guide,
     render_chart_guide_advanced,
-    _make_safe_cv_strategy,
-    _ensure_label_mapping,
 )
-from dss.core.data_helpers import feature_label
-from dss.core.observability import predict_with_metrics
-from dss.core.feature_utils import render_save_export_buttons
-from dss.core.target_utils import infer_default_target_column, infer_problem_type
-from dss.tabs import ui_kit
+from dss.services.model_service import (
+    compute_shap_local_explanation as _compute_shap_local_explanation,
+)
+from dss.services.model_service import (
+    compute_shap_summary as _compute_shap_summary,
+)
+from dss.services.model_service import (
+    describe_prediction_model as _describe_prediction_model,
+)
+from dss.services.model_service import (
+    drop_near_duplicate_columns as _drop_near_duplicate_columns,
+)
+from dss.services.model_service import (
+    find_leaky_feature_cols as _find_leaky_feature_cols,
+)
+from dss.services.model_service import (
+    resolve_hub_train_config as _resolve_hub_train_config,
+)
+from dss.services.model_service import (
+    resolve_model_for_prediction as _resolve_model_for_prediction,
+)
+from dss.services.model_service import (
+    resolve_predicted_output_col as _resolve_predicted_output_col,
+)
+from dss.services.model_service import (
+    resolve_saved_feature_cols as _resolve_saved_feature_cols,
+)
+from dss.services.model_service import (
+    run_preview_benchmark as _run_preview_benchmark,
+)
 
 # Phase 2 refactor: logic huấn luyện/đánh giá THUẦN (không UI) đã chuyển sang
 # services/model_service.py — file này (tabs/ml_hub.py) giờ chỉ còn UI, gọi
@@ -19,19 +49,11 @@ from dss.tabs import ui_kit
 # đọc code thật.
 from dss.services.model_service import (
     run_training as _run_ml_hub_training,
-    resolve_predicted_output_col as _resolve_predicted_output_col,
-    drop_near_duplicate_columns as _drop_near_duplicate_columns,
-    resolve_saved_feature_cols as _resolve_saved_feature_cols,
-    resolve_hub_train_config as _resolve_hub_train_config,
-    find_leaky_feature_cols as _find_leaky_feature_cols,
-    training_target_widget_callback as _training_target_widget_callback,
-    resolve_model_for_prediction as _resolve_model_for_prediction,
-    describe_prediction_model as _describe_prediction_model,
-    run_preview_benchmark as _run_preview_benchmark,
-    compute_shap_local_explanation as _compute_shap_local_explanation,
-    compute_shap_summary as _compute_shap_summary,
 )
-from dss.core.target_utils import is_id_like
+from dss.services.model_service import (
+    training_target_widget_callback as _training_target_widget_callback,
+)
+from dss.tabs import ui_kit
 
 
 def render_training_config_ui(df, classification_trainer, regression_trainer, key_prefix="config"):
@@ -53,7 +75,9 @@ def render_training_config_ui(df, classification_trainer, regression_trainer, ke
 
         data_src_type = getattr(df, "attrs", {}).get("data_source_type", "synthetic")
         if data_src_type == "synthetic":
-            ui_kit.data_strip("Dữ liệu mô phỏng (demo)", "chỉ dùng để minh hoạ quy trình ML, không phải kết quả học tập thật.")
+            ui_kit.data_strip(
+                "Dữ liệu mô phỏng (demo)", "chỉ dùng để minh hoạ quy trình ML, không phải kết quả học tập thật."
+            )
         else:
             ui_kit.data_strip("Dữ liệu thực tế", "dữ liệu quan sát thật của sinh viên.", kind="success")
 
@@ -84,7 +108,7 @@ def render_training_config_ui(df, classification_trainer, regression_trainer, ke
                 key=f"{key_prefix}_target",
                 on_change=_training_target_widget_callback,
             )
-        
+
         # Determine problem type automatically from selected target
         problem_type = "Unknown"
         if target_col:
@@ -109,7 +133,7 @@ def render_training_config_ui(df, classification_trainer, regression_trainer, ke
                             f"(mất cân bằng ~{imbalance_ratio:.1f}x). Nên bật cân bằng dữ liệu "
                             "hoặc gộp lớp hiếm để tránh precision/recall/f1 về 0."
                         )
-        
+
         with col_type:
             problem_type_label = problem_type
             if problem_type == "Phân loại (Classification)":
@@ -119,9 +143,7 @@ def render_training_config_ui(df, classification_trainer, regression_trainer, ke
             st.markdown(f"**Loại bài toán (đang dùng):** {problem_type_label}")
 
         available_features = [col for col in all_cols if col != target_col]
-        id_cols = [
-            col for col in all_cols if is_id_like(col) or "name" in str(col).lower()
-        ]
+        id_cols = [col for col in all_cols if is_id_like(col) or "name" in str(col).lower()]
 
         # Phát hiện rò rỉ dữ liệu (leakage): cột feature gắn kết gần như tuyệt đối với Target
         # thường là bản sao/suy ra trực tiếp từ Target dưới tên khác (vd. dữ liệu mẫu có
@@ -138,7 +160,8 @@ def render_training_config_ui(df, classification_trainer, regression_trainer, ke
         default_features, _dropped_near_dup_ui = _drop_near_duplicate_columns(df, default_features)
         if _dropped_near_dup_ui:
             st.caption(
-                "ℹ️ Đã tự bỏ chọn " + ", ".join(f"`{c}`" for c in _dropped_near_dup_ui)
+                "ℹ️ Đã tự bỏ chọn "
+                + ", ".join(f"`{c}`" for c in _dropped_near_dup_ui)
                 + " khỏi lựa chọn mặc định (tương quan rất cao với 1 cột đã chọn khác — "
                 "gần như trùng lặp thông tin). Vẫn có thể tự chọn lại bên dưới."
             )
@@ -170,14 +193,14 @@ def render_training_config_ui(df, classification_trainer, regression_trainer, ke
             key=_fk,
             help="Giữ nguyên hoặc bỏ chọn cột không muốn dùng. Đổi Target ở trên sẽ gợi ý lại danh sách.",
         )
-        
+
         if selected_features:
             st.success(f"✅ Đã chọn **{len(selected_features)}** thuộc tính")
 
     if not target_col or not selected_features:
         st.warning("⚠️ Vui lòng chọn Target và ít nhất một Feature.")
         return None
-        
+
     # ========================================================================
     # STEP 1.5: [NEW] EVALUATE TARGET & FEATURES
     # ========================================================================
@@ -215,7 +238,7 @@ def render_training_config_ui(df, classification_trainer, regression_trainer, ke
                 - Số này càng nhỏ thì kết quả càng ổn định giữa các lần chia dữ liệu (cross-validation).
                 """
             )
-        
+
         col_eval1, col_eval2 = st.columns([1, 1])
         with col_eval1:
             if st.button("🔍 Đánh giá bộ Features hiện tại", key=f"{key_prefix}_eval_current"):
@@ -228,7 +251,7 @@ def render_training_config_ui(df, classification_trainer, regression_trainer, ke
                             st.success(f"**Kết quả ước tính (R2 Score):** {bench['mean']:.4f} ± {bench['std']:.4f}")
                     except Exception as e:
                         ui_kit.report_error("Lỗi khi đánh giá", e)
-        
+
         with col_eval2:
             st.caption(
                 "Gợi ý: Nếu kết quả thấp (< 50% hoặc R2 < 0.3), thử đổi Target/Features trước khi tiến hành huấn luyện chính thức bên dưới."
@@ -253,7 +276,7 @@ def render_training_config_ui(df, classification_trainer, regression_trainer, ke
 - `RMSE / MAE / R2`: chỉ số chính cho bài toán hồi quy.
 """
         )
-    
+
     with st.expander("Cấu hình huấn luyện (mô hình, CV, nâng cao)", expanded=False):
         if problem_type == "Phân loại (Classification)":
             available_models = list(classification_trainer.models.keys())
@@ -301,22 +324,22 @@ def render_training_config_ui(df, classification_trainer, regression_trainer, ke
             key=strategy_key,
             label_visibility="collapsed",
         )
-        
+
         # Select Models based on strategy
         is_single = training_strategy == "Chọn 1 mô hình"
         is_ensemble = training_strategy == "Kết hợp nhiều mô hình"
-        
-        st.caption(f"Chọn Thuật toán ({'Chọn ít nhất 2' if is_ensemble else 'Chọn 1' if is_single else 'Chọn nhiều để so sánh'}):")
-        
+
+        st.caption(
+            f"Chọn Thuật toán ({'Chọn ít nhất 2' if is_ensemble else 'Chọn 1' if is_single else 'Chọn nhiều để so sánh'}):"
+        )
+
         if is_single:
             _def_m = (
                 "Random Forest Classifier"
                 if problem_type == "Phân loại (Classification)"
                 else "Random Forest Regressor"
             )
-            _idx = (
-                available_models.index(_def_m) if _def_m in available_models else 0
-            )
+            _idx = available_models.index(_def_m) if _def_m in available_models else 0
             selected_single_model = st.selectbox(
                 "Mô hình:",
                 available_models,
@@ -325,32 +348,32 @@ def render_training_config_ui(df, classification_trainer, regression_trainer, ke
                 label_visibility="collapsed",
             )
             models_to_run = [selected_single_model]
-            
+
         else:
             # For Compare or Ensemble, use multiselect
             default_models = available_models[:3] if len(available_models) >= 3 else available_models
             if is_ensemble and len(default_models) < 2 and len(available_models) >= 2:
                 default_models = available_models[:2]
-                
+
             models_to_run = st.multiselect(
-                "Các mô hình:", 
-                available_models, 
-                default=default_models, 
+                "Các mô hình:",
+                available_models,
+                default=default_models,
                 key=f'{key_prefix}_models_multi',
-                label_visibility="collapsed"
+                label_visibility="collapsed",
             )
-        
+
         if not models_to_run:
             st.warning("⚠️ Vui lòng chọn ít nhất một mô hình.")
             return None
-            
+
         if is_ensemble and len(models_to_run) < 2:
             st.warning("⚠️ Chiến lược [Kết hợp mô hình] yêu cầu chọn ít nhất **2 mô hình**.")
             return None
 
         # Advanced Configuration
         st.markdown("**⚙️ Cấu hình nâng cao (tham số):**")
-        
+
         split_mode = None
         test_size_val = 0.2
         cv_folds_val = 5
@@ -365,40 +388,43 @@ def render_training_config_ui(df, classification_trainer, regression_trainer, ke
             with col_split1:
                 # 1. Train/Test Split Config
                 st.markdown("##### 1. Chia dữ liệu (huấn luyện/kiểm tra)")
-                
+
                 # Gợi ý tỷ lệ dựa trên chiến lược
-                suggested_split = "🤖 Tự động (80/20) - Đề xuất cho kết hợp/so sánh" if (is_ensemble or not is_single) else "🤖 Tự động (70/30) - Đề xuất cho 1 mô hình"
-                
+                suggested_split = (
+                    "🤖 Tự động (80/20) - Đề xuất cho kết hợp/so sánh"
+                    if (is_ensemble or not is_single)
+                    else "🤖 Tự động (70/30) - Đề xuất cho 1 mô hình"
+                )
+
                 split_mode = st.radio(
                     "Chế độ chia:",
                     [suggested_split, "🛠️ Tự điều chỉnh"],
                     horizontal=True,
-                    key=f"{key_prefix}_split_mode"
+                    key=f"{key_prefix}_split_mode",
                 )
-                
+
                 if split_mode == suggested_split:
                     test_size_val = 0.2 if (is_ensemble or not is_single) else 0.3
                     st.info(
-                        f"Dùng **{int((1-test_size_val)*100)}%** dữ liệu để huấn luyện và kiểm tra chéo; "
-                        f"giữ lại **{int(test_size_val*100)}%** để đánh giá kết quả cuối."
+                        f"Dùng **{int((1 - test_size_val) * 100)}%** dữ liệu để huấn luyện và kiểm tra chéo; "
+                        f"giữ lại **{int(test_size_val * 100)}%** để đánh giá kết quả cuối."
                     )
                 else:
                     test_size_val = st.slider(
-                        "Phần dữ liệu giữ lại để đánh giá:", 0.1, 0.5, 0.2, 0.05,
-                        key=f"{key_prefix}_split_slider"
+                        "Phần dữ liệu giữ lại để đánh giá:", 0.1, 0.5, 0.2, 0.05, key=f"{key_prefix}_split_slider"
                     )
                     st.info(
-                        f"Dùng **{100-int(test_size_val*100)}%** dữ liệu để huấn luyện và kiểm tra chéo; "
-                        f"giữ lại **{int(test_size_val*100)}%** để đánh giá kết quả cuối."
+                        f"Dùng **{100 - int(test_size_val * 100)}%** dữ liệu để huấn luyện và kiểm tra chéo; "
+                        f"giữ lại **{int(test_size_val * 100)}%** để đánh giá kết quả cuối."
                     )
-                
+
                 # Save to session state for persistence if needed
                 st.session_state[f'{key_prefix}_test_size'] = test_size_val
 
             with col_split2:
                 # 2. Cross-Validation Config
                 st.markdown("##### 2. Kiểm định chéo")
-                
+
                 # Gợi ý CV dựa trên chiến lược
                 cv_options = [3, 5, 7, 10]
                 default_cv_index = 1  # Mặc định 5-fold để tăng ổn định và độ chính xác
@@ -442,9 +468,9 @@ def render_training_config_ui(df, classification_trainer, regression_trainer, ke
                         ["none", "smote", "borderline", "adasyn"],
                         format_func=lambda x: balance_labels.get(x, x),
                         key=f"{key_prefix}_balance",
-                        help="Kỹ thuật xử lý mất cân bằng lớp (class imbalance)."
+                        help="Kỹ thuật xử lý mất cân bằng lớp (class imbalance).",
                     )
-            
+
             st.markdown("---")
             # 4. Feature Selection Config
             col_fs1, col_fs2 = st.columns(2)
@@ -460,22 +486,19 @@ def render_training_config_ui(df, classification_trainer, regression_trainer, ke
                     "rf_imp": "RF - Độ quan trọng từ rừng ngẫu nhiên",
                 }
                 fs_method = st.selectbox(
-                    "Phương pháp chọn đặc trưng:", 
-                    ["none", "mi", "pe", "pbc", "rfe", "pc", "sc", "rf_imp"], 
+                    "Phương pháp chọn đặc trưng:",
+                    ["none", "mi", "pe", "pbc", "rfe", "pc", "sc", "rf_imp"],
                     format_func=lambda x: fs_labels.get(x, x),
-                    key=f"{key_prefix}_fs"
+                    key=f"{key_prefix}_fs",
                 )
             with col_fs2:
                 # Ensure input is within bounds
                 max_k = len(selected_features)
                 default_k = min(10, max_k)
-                if default_k < 1: default_k = 1
-                
-                k_features = st.number_input(
-                    "Số đặc trưng giữ lại (k):", 
-                    1, max_k, default_k, 
-                    key=f"{key_prefix}_k"
-                )
+                if default_k < 1:
+                    default_k = 1
+
+                k_features = st.number_input("Số đặc trưng giữ lại (k):", 1, max_k, default_k, key=f"{key_prefix}_k")
 
             # 5. Preprocessing (Regression Only / Optional) for consistency
             if problem_type == "Hồi quy (Regression)":
@@ -512,14 +535,15 @@ def render_training_config_ui(df, classification_trainer, regression_trainer, ke
                         "MinMaxScaler": "Chuẩn hóa min-max (MinMaxScaler: đưa về [0,1])",
                     }
                     scaler_type = st.selectbox(
-                        "Phương pháp chuẩn hóa:", 
-                        ["StandardScaler", "RobustScaler", "MinMaxScaler"], 
+                        "Phương pháp chuẩn hóa:",
+                        ["StandardScaler", "RobustScaler", "MinMaxScaler"],
                         index=0,
                         format_func=lambda x: scaler_labels.get(x, x),
-                        key=f"{key_prefix}_scaler"
+                        key=f"{key_prefix}_scaler",
                     )
 
     from dss.core.target_utils import detect_temporal_column
+
     # Không dùng một đặc trưng mô hình làm cột thời gian (vd. total_time_minutes).
     time_col = detect_temporal_column(df, feature_cols=selected_features)
     split_strategy = "temporal" if time_col else "random"
@@ -559,16 +583,16 @@ def render_shap_explanation(pipeline, input_df, background_data, feature_names, 
         return
 
     st.write("⏳ Đang tính toán SHAP (có thể mất vài giây)...")
-    shap_val, err = _compute_shap_local_explanation(
-        pipeline, input_df, background_data, feature_names, problem_type
-    )
+    shap_val, err = _compute_shap_local_explanation(pipeline, input_df, background_data, feature_names, problem_type)
     if shap_val is None:
         st.warning(err or "Không thể hiển thị giải thích SHAP cho mô hình này.")
         return
 
     st.markdown("##### Phân tích Tác động của các Đặc trưng (SHAP Waterfall Plot):")
-    st.caption("Biểu đồ Waterfall giải thích tại sao mô hình lại đưa ra kết quả như vậy. "
-               "Các thanh màu đỏ 🔴 làm tăng dự đoán, thanh màu xanh 🔵 làm giảm dự đoán so với giá trị cơ sở (E[f(x)]).")
+    st.caption(
+        "Biểu đồ Waterfall giải thích tại sao mô hình lại đưa ra kết quả như vậy. "
+        "Các thanh màu đỏ 🔴 làm tăng dự đoán, thanh màu xanh 🔵 làm giảm dự đoán so với giá trị cơ sở (E[f(x)])."
+    )
     try:
         st_shap(shap.plots.waterfall(shap_val[0]), height=400)
     except Exception as e:
@@ -592,10 +616,13 @@ def render_shap_summary(pipeline, background_data, feature_names, problem_type="
         return
 
     st.markdown("##### Biểu đồ SHAP Summary (Bee Swarm Plot)")
-    st.caption("Biểu đồ này hiển thị Top các đặc trưng quan trọng nhất đối với toàn bộ tập dữ liệu. "
-               "Mỗi điểm trên biểu đồ là một giá trị SHAP của một mẫu dữ liệu cho một feature nhất định.")
+    st.caption(
+        "Biểu đồ này hiển thị Top các đặc trưng quan trọng nhất đối với toàn bộ tập dữ liệu. "
+        "Mỗi điểm trên biểu đồ là một giá trị SHAP của một mẫu dữ liệu cho một feature nhất định."
+    )
     try:
         import matplotlib.pyplot as plt
+
         fig, ax = plt.subplots(figsize=(8, 6))
         shap.plots.beeswarm(shap_val, show=False)
         st.pyplot(fig)
@@ -604,9 +631,7 @@ def render_shap_summary(pipeline, background_data, feature_names, problem_type="
         ui_kit.report_error("Không thể hiển thị giải thích SHAP cho mô hình này", e, level="warning")
 
 
-def personal_prediction_tab(
-    df, classification_trainer, regression_trainer, wh, train_config=None, role=None
-):
+def personal_prediction_tab(df, classification_trainer, regression_trainer, wh, train_config=None, role=None):
     """Phiếu nhập tay; `train_config` từ khối cấu hình chung."""
     ui_kit.subsection_header(
         "Dự đoán — Nhập tay",
@@ -782,18 +807,11 @@ def _personal_prediction_student_form(df, wh, train_config=None, role=None):
 
                         try:
                             proba = best_pipeline.predict_proba(input_df)[0]
-                            proba_dict = {
-                                labels_map.get(i, str(i)): proba[i]
-                                for i in range(len(proba))
-                            }
-                            top_label, confidence = sorted(
-                                proba_dict.items(),
-                                key=lambda x: x[1],
-                                reverse=True
-                            )[0]
+                            proba_dict = {labels_map.get(i, str(i)): proba[i] for i in range(len(proba))}
+                            top_label, confidence = sorted(proba_dict.items(), key=lambda x: x[1], reverse=True)[0]
                             st.markdown("**Xác suất:**")
                             for lbl, prob in sorted(proba_dict.items(), key=lambda x: x[1], reverse=True):
-                                st.write(f"- {lbl}: {prob*100:.2f}%")
+                                st.write(f"- {lbl}: {prob * 100:.2f}%")
                         except Exception:
                             pass
                     else:
@@ -801,10 +819,12 @@ def _personal_prediction_student_form(df, wh, train_config=None, role=None):
 
                 with col_result2:
                     st.markdown("#### Bạn đã nhập")
-                    input_display = pd.DataFrame({
-                        "Mục": list(predict_values.keys()),
-                        "Giá trị": list(predict_values.values()),
-                    })
+                    input_display = pd.DataFrame(
+                        {
+                            "Mục": list(predict_values.keys()),
+                            "Giá trị": list(predict_values.values()),
+                        }
+                    )
                     st.dataframe(input_display, width="stretch", hide_index=True)
 
                     if wh:
@@ -837,9 +857,11 @@ def _personal_prediction_student_form(df, wh, train_config=None, role=None):
                         # định, tránh gây hiểu nhầm số này phản ánh đúng xác suất thật.
                         st.success(
                             f"Kết luận: Bạn được dự đoán thuộc nhóm **{final_label}** "
-                            f"(xác suất theo mô hình: **{confidence*100:.1f}%**)."
+                            f"(xác suất theo mô hình: **{confidence * 100:.1f}%**)."
                         )
-                        st.caption("⚠️ Đây là xác suất mô hình tự ước lượng, CHƯA HIỆU CHUẨN — không nên coi là % chắc chắn tuyệt đối.")
+                        st.caption(
+                            "⚠️ Đây là xác suất mô hình tự ước lượng, CHƯA HIỆU CHUẨN — không nên coi là % chắc chắn tuyệt đối."
+                        )
                         # C1.1: điểm CHƯA hiệu chuẩn không được diễn giải thành "độ tin cậy"
                         # (≥0.8 ≠ "khá ổn định"). Chỉ nêu thứ hạng tương đối giữa các lớp.
                         st.info(
@@ -870,8 +892,13 @@ def _personal_prediction_student_form(df, wh, train_config=None, role=None):
 
 
 def file_prediction_tab(
-    df, classification_trainer, regression_trainer, wh, train_config=None,
-    role=None, current_student_id=None,
+    df,
+    classification_trainer,
+    regression_trainer,
+    wh,
+    train_config=None,
+    role=None,
+    current_student_id=None,
 ):
     """Dự đoán cho 1 dòng dữ liệu đã có sẵn trong dataset — dùng mô hình
     Production hiện tại trong Model Registry. LƯU Ý (audit 2026-09): tab này
@@ -888,11 +915,11 @@ def file_prediction_tab(
     # không có mục "Kho dữ liệu" trong sidebar), khiến Sinh viên bị dẫn tới
     # một hướng dẫn bế tắc không thể thực hiện được.
     if role == "Sinh viên":
-        st.info("ℹ️ Kết quả dự đoán dùng mô hình chính thức hiện tại của lớp bạn — không cần thao tác huấn luyện gì thêm.")
-    else:
         st.info(
-            "⬅️ **Huấn luyện** thực hiện ở tab **Huấn luyện mô hình** (không train lại ở đây)."
+            "ℹ️ Kết quả dự đoán dùng mô hình chính thức hiện tại của lớp bạn — không cần thao tác huấn luyện gì thêm."
         )
+    else:
+        st.info("⬅️ **Huấn luyện** thực hiện ở tab **Huấn luyện mô hình** (không train lại ở đây).")
     config = _resolve_hub_train_config(train_config)
     dataset_id = st.session_state.get("current_dataset_id")
     target_col = config["target_col"] if config else None
@@ -920,8 +947,7 @@ def file_prediction_tab(
         hub_type_prod = resolved["hub_type"]
         class_labels_prod = resolved["class_labels"]
         st.caption(
-            "Phân tích bằng mô hình EduDSS hiện hành." if role == "Sinh viên"
-            else _describe_prediction_model(resolved)
+            "Phân tích bằng mô hình EduDSS hiện hành." if role == "Sinh viên" else _describe_prediction_model(resolved)
         )
         st.markdown("#### Chọn Sinh viên để Dự đoán")
 
@@ -941,7 +967,7 @@ def file_prediction_tab(
                     "Chọn ID Sinh viên:",
                     student_ids,
                     key='file_student_sel',
-                    help="Chọn một sinh viên từ danh sách để xem dự đoán"
+                    help="Chọn một sinh viên từ danh sách để xem dự đoán",
                 )
 
             with col_info:
@@ -968,13 +994,10 @@ def file_prediction_tab(
                         # Hiển thị xác suất nếu có
                         try:
                             proba = pipeline.predict_proba(input_data)[0]
-                            proba_dict = {
-                                labels_map.get(i, str(i)): proba[i]
-                                for i in range(len(proba))
-                            }
+                            proba_dict = {labels_map.get(i, str(i)): proba[i] for i in range(len(proba))}
                             st.markdown("**Xác suất:**")
                             for lbl, prob in sorted(proba_dict.items(), key=lambda x: x[1], reverse=True):
-                                st.write(f"- {lbl}: {prob*100:.2f}%")
+                                st.write(f"- {lbl}: {prob * 100:.2f}%")
                         except Exception:
                             pass
                     else:
@@ -991,25 +1014,23 @@ def file_prediction_tab(
 
                 with col_result2:
                     st.markdown("#### Thông tin Sinh viên:")
-                    input_display = pd.DataFrame({
-                        'Thuộc tính': list(input_data.columns),
-                        'Giá trị': [input_data[col].values[0] for col in input_data.columns]
-                    })
+                    input_display = pd.DataFrame(
+                        {
+                            'Thuộc tính': list(input_data.columns),
+                            'Giá trị': [input_data[col].values[0] for col in input_data.columns],
+                        }
+                    )
                     st.dataframe(input_display, width="stretch", hide_index=True)
 
 
-def batch_prediction_tab(
-    df, classification_trainer, regression_trainer, wh, train_config=None
-):
+def batch_prediction_tab(df, classification_trainer, regression_trainer, wh, train_config=None):
     """Dự đoán hàng loạt (chỉ Giảng viên/Admin) — xem resolve_model_for_prediction."""
     ui_kit.subsection_header(
         "Dự đoán — Hàng loạt",
         subtitle="Áp dụng mô hình hiện hành cho toàn bộ danh sách.",
         icon="📊",
     )
-    st.info(
-        "⬅️ **Huấn luyện** ở tab **Huấn luyện mô hình**. Ở đây chỉ chạy dự đoán hàng loạt trên dataset hiện tại."
-    )
+    st.info("⬅️ **Huấn luyện** ở tab **Huấn luyện mô hình**. Ở đây chỉ chạy dự đoán hàng loạt trên dataset hiện tại.")
     config = _resolve_hub_train_config(train_config)
     dataset_id = st.session_state.get("current_dataset_id")
     target_col = config["target_col"] if config else None
@@ -1043,7 +1064,9 @@ def batch_prediction_tab(
             with col_info:
                 st.info(f"📊 Sẽ dự đoán cho **{len(df)}** sinh viên trong file bằng mô hình **{model_name_prod}**")
             with col_btn:
-                if st.button("🔮 Chạy Dự đoán cho toàn bộ Dataset", key="batch_run_pred", type="primary", width="stretch"):
+                if st.button(
+                    "🔮 Chạy Dự đoán cho toàn bộ Dataset", key="batch_run_pred", type="primary", width="stretch"
+                ):
                     with st.spinner("⏳ Đang dự đoán..."):
                         full_data = df[feature_cols]
                         all_preds = predict_with_metrics(pipeline, full_data)
@@ -1073,7 +1096,9 @@ def batch_prediction_tab(
 
                 _bdf = st.session_state.batch_final_df
                 _saved_tgt = st.session_state.get("batch_pred_target_col", target_col)
-                pred_col = _resolve_predicted_output_col(_bdf, _saved_tgt) or _resolve_predicted_output_col(_bdf, target_col)
+                pred_col = _resolve_predicted_output_col(_bdf, _saved_tgt) or _resolve_predicted_output_col(
+                    _bdf, target_col
+                )
                 if pred_col is None:
                     st.warning(
                         "Không tìm thấy cột dự đoán (Predicted_…). "
@@ -1109,16 +1134,17 @@ def batch_prediction_tab(
                 st.markdown("#### Giải thích mô hình toàn cục (Global Explainability - SHAP)")
                 render_chart_guide("shap_summary")
                 render_chart_guide_advanced("shap_summary")
-                st.caption("Biểu đồ SHAP Summary (hoặc Beeswarm) cho thấy mức độ quan trọng tổng thể của các đặc trưng (features) đối với toàn bộ dữ liệu mẫu. Tính toán này có thể mất chút thời gian.")
+                st.caption(
+                    "Biểu đồ SHAP Summary (hoặc Beeswarm) cho thấy mức độ quan trọng tổng thể của các đặc trưng (features) đối với toàn bộ dữ liệu mẫu. Tính toán này có thể mất chút thời gian."
+                )
                 if st.button("📊 Xem Phân tích Tầm quan trọng (SHAP Summary)", key="shap_summary_btn"):
                     render_shap_summary(
                         pipeline=pipeline,
                         background_data=background_data,
                         feature_names=feature_cols,
-                        problem_type="classification" if hub_type_prod == "clf" else "regression"
+                        problem_type="classification" if hub_type_prod == "clf" else "regression",
                     )
 
 
 def model_2_regression_tab(df, regression_trainer):
     """Placeholder tab hoi quy (logic o file_prediction / batch / personal)."""
-    pass

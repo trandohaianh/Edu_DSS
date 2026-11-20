@@ -15,6 +15,7 @@ Vì vậy:
 - Ghi nhớ tham số tốt nhất theo (mô hình, cấu hình pipeline, lưới, scoring, số
   fold, DẤU VÂN TAY dữ liệu train) — dữ liệu đổi dù 1 ô là dò lại.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -33,7 +34,7 @@ _logger = get_logger(__name__)
 LARGE_DATA_ROWS = int(os.environ.get("DSS_LARGE_DATA_ROWS", "10000") or 10000)
 LARGE_DATA_CV_FOLDS = 3
 _CACHE_MAX = 128
-_BEST_PARAMS_CACHE: "OrderedDict[str, dict]" = OrderedDict()
+_BEST_PARAMS_CACHE: OrderedDict[str, dict] = OrderedDict()
 
 
 def is_large(n_train: int) -> bool:
@@ -79,8 +80,14 @@ def _pipeline_signature(pipeline, param_grid) -> str:
 
 
 def _cache_key(name, pipeline, param_grid, scoring, cv, X, y) -> str:
-    parts = [name, _pipeline_signature(pipeline, param_grid), repr(sorted(param_grid.items())),
-             str(scoring), _cv_signature(cv), _fingerprint(X, y)]
+    parts = [
+        name,
+        _pipeline_signature(pipeline, param_grid),
+        repr(sorted(param_grid.items())),
+        str(scoring),
+        _cv_signature(cv),
+        _fingerprint(X, y),
+    ]
     return hashlib.sha1("|".join(parts).encode()).hexdigest()
 
 

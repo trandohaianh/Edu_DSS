@@ -9,6 +9,7 @@ registry digest. `verify` fetches /version from a running instance and fails (ex
 version, Git SHA, dependency lock, Alembic head or RAG config differ, or if the running
 database is not at the release's Alembic head. No secrets are read or written.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -31,8 +32,15 @@ def _docker(*args: str) -> str:
 
 
 def image_release_identity(image: str) -> dict:
-    out = _docker("run", "--rm", "--entrypoint", "python", image, "-c",
-                  "import json; from dss.core.release import release_identity; print(json.dumps(release_identity()))")
+    out = _docker(
+        "run",
+        "--rm",
+        "--entrypoint",
+        "python",
+        image,
+        "-c",
+        "import json; from dss.core.release import release_identity; print(json.dumps(release_identity()))",
+    )
     return json.loads(out.splitlines()[-1])
 
 
@@ -42,18 +50,24 @@ def generate(image: str, evidence: list[str]) -> dict:
     ev = []
     for item in evidence:
         path = Path(item)
-        ev.append({"path": path.as_posix(), "sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
-                  if path.is_file() else {"path": path.as_posix(), "sha256": None})
+        ev.append(
+            {"path": path.as_posix(), "sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
+            if path.is_file()
+            else {"path": path.as_posix(), "sha256": None}
+        )
     return {
         "manifest_version": 1,
-        "generated_at": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
+        "generated_at": dt.datetime.now(dt.UTC).isoformat(timespec="seconds"),
         "release": identity,
         "artifact": {
             "image": image,
-            "image_id": info.get("Id"),                       # content-addressed local ID
-            "repo_digests": info.get("RepoDigests") or [],    # registry digest once pushed
-            "labels": {k: v for k, v in (info.get("Config", {}).get("Labels") or {}).items()
-                       if k.startswith("org.opencontainers.image.")},
+            "image_id": info.get("Id"),  # content-addressed local ID
+            "repo_digests": info.get("RepoDigests") or [],  # registry digest once pushed
+            "labels": {
+                k: v
+                for k, v in (info.get("Config", {}).get("Labels") or {}).items()
+                if k.startswith("org.opencontainers.image.")
+            },
         },
         "test_evidence": ev,
     }
@@ -68,7 +82,9 @@ def verify(manifest: dict, running: dict) -> list[str]:
             problems.append(f"{key}: manifest={release.get(key)!r} running={live.get(key)!r}")
     db = (running.get("runtime") or {}).get("database") or {}
     if db and db.get("at_head") is False:
-        problems.append(f"database revision {db.get('database_revision')} is not at release head {release.get('alembic_head')}")
+        problems.append(
+            f"database revision {db.get('database_revision')} is not at release head {release.get('alembic_head')}"
+        )
     return problems
 
 
@@ -94,8 +110,12 @@ def main(argv=None) -> int:
     with urllib.request.urlopen(args.url, timeout=10) as resp:
         running = json.loads(resp.read().decode("utf-8"))
     problems = verify(manifest, running)
-    print(json.dumps({"ok": not problems, "problems": problems,
-                      "running_version": running.get("release", {}).get("version")}, indent=2))
+    print(
+        json.dumps(
+            {"ok": not problems, "problems": problems, "running_version": running.get("release", {}).get("version")},
+            indent=2,
+        )
+    )
     return 0 if not problems else 1
 
 

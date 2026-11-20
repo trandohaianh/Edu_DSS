@@ -4,6 +4,7 @@ corrupted metadata files -- this also silently swallows KeyboardInterrupt/
 SystemExit/GeneratorExit, not just real file-corruption errors. Narrowed to
 `except Exception` (still skips corrupted files, no longer eats control-flow
 exceptions) plus a warning log for observability."""
+
 from __future__ import annotations
 
 import inspect
@@ -55,13 +56,20 @@ def test_warehouse_source_no_longer_uses_base_exception():
 # ------------------------------------------------------------------ audit 17/11/2026: ký artifact
 def _train(wh):
     training_id, _ = wh.save_model_training(
-        dataset_id="ds_sig", model_pipeline={"kind": "dummy"}, model_name="RandomForest",
-        feature_cols=["f1"], target_col="y", metrics={"R2 Score": 0.5}, auto_promote=False)
+        dataset_id="ds_sig",
+        model_pipeline={"kind": "dummy"},
+        model_name="RandomForest",
+        feature_cols=["f1"],
+        target_col="y",
+        metrics={"R2 Score": 0.5},
+        auto_promote=False,
+    )
     return training_id
 
 
 def _meta_path(wh, training_id):
     import os
+
     return os.path.join(wh.metadata_path, f"{training_id}_model.json")
 
 
@@ -86,7 +94,9 @@ def test_artifact_is_signed_and_signed_load_works(wh, monkeypatch):
 def test_replacing_artifact_and_its_sha256_together_is_rejected(wh, monkeypatch):
     """Kẻ ghi được thư mục dữ liệu thay cả tệp lẫn mã băm: trước đây vẫn tải (joblib.load = chạy mã)."""
     import hashlib
+
     import joblib
+
     monkeypatch.setenv("EDUDSS_ARTIFACT_SIGNING_KEY", "k" * 40)
     tid = _train(wh)
     path = wh.models_path + f"/{tid}.joblib"
@@ -98,13 +108,14 @@ def test_replacing_artifact_and_its_sha256_together_is_rejected(wh, monkeypatch)
 
 def test_model_path_in_metadata_is_ignored(wh, monkeypatch, tmp_path_factory):
     import joblib
+
     monkeypatch.setenv("EDUDSS_ARTIFACT_SIGNING_KEY", "k" * 40)
     tid = _train(wh)
     outside = tmp_path_factory.mktemp("outside") / "evil.joblib"
     joblib.dump({"kind": "evil"}, outside)
     _rewrite(wh, tid, model_path=str(outside))
     pipeline, _, _ = wh.load_model_training(tid)
-    assert pipeline == {"kind": "dummy"}                       # tải tệp trong kho, không phải đường dẫn metadata
+    assert pipeline == {"kind": "dummy"}  # tải tệp trong kho, không phải đường dẫn metadata
     assert wh.load_model_training("../../etc/passwd")[0] is None
 
 
@@ -114,6 +125,7 @@ def test_unsigned_legacy_artifact_is_refused_in_production_until_resigned(wh, mo
     _rewrite(wh, tid, model_hmac=None)
     assert wh.load_model_training(tid)[0] == {"kind": "dummy"}  # ngoài production: vẫn tải (cảnh báo)
     from dss.core import runtime_mode
+
     monkeypatch.setattr(runtime_mode, "is_production", lambda: True)
     pipeline, _, msg = wh.load_model_training(tid)
     assert pipeline is None and "chưa được ký" in msg

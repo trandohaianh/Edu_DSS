@@ -8,6 +8,7 @@ Mục 16 Yêu cầu:
   resource_id, title, type, provider, url, course, topic, level, language, duration,
   verified_at, reviewed_by, status
 """
+
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
@@ -149,6 +150,7 @@ class ResourceCatalog:
     def verify_resource_urls(self, text: str) -> bool:
         """Kiểm tra xem văn bản có chứa URL lạ không nằm trong Catalog không."""
         import re
+
         urls = re.findall(r"https?://[^\s)\]\"'>]+", text)
         allowed_urls = {res.url for res in self._resources.values() if res.status == "APPROVED"}
         for u in urls:

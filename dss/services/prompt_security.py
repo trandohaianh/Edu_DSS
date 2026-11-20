@@ -6,6 +6,7 @@ Nguyên tắc cốt lõi:
 - Lọc bỏ các dấu hiệu tấn công chèn lệnh (Prompt Injection delimiters & override patterns).
 - Sử dụng cấu trúc ranh giới XML chặt chẽ để phân tách vùng tin cậy và vùng không tin cậy.
 """
+
 from __future__ import annotations
 
 import re
@@ -109,9 +110,9 @@ def build_secure_rag_prompt(
     """
     sanitized_chunks = []
     for i, c in enumerate(retrieved_chunks):
-        c_title = sanitize_untrusted_text(c.get("title", f"Tài liệu #{i+1}"), max_chars=200)
+        c_title = sanitize_untrusted_text(c.get("title", f"Tài liệu #{i + 1}"), max_chars=200)
         c_content = sanitize_untrusted_text(c.get("content", ""), max_chars=1000)
-        c_id = c.get("id") or c.get("chunk_id") or f"doc_{i+1}"
+        c_id = c.get("id") or c.get("chunk_id") or f"doc_{i + 1}"
         c_source = c.get("source", "lms_knowledge")
         c_score = c.get("relevance_score", 0.0)
 
@@ -122,7 +123,11 @@ def build_secure_rag_prompt(
         )
         sanitized_chunks.append(chunk_repr)
 
-    evidence_block = "\n".join(sanitized_chunks) if sanitized_chunks else "<no_evidence>KHÔNG CÓ TÀI LIỆU NÀO ĐẠT ĐỘ TIN CẬY</no_evidence>"
+    evidence_block = (
+        "\n".join(sanitized_chunks)
+        if sanitized_chunks
+        else "<no_evidence>KHÔNG CÓ TÀI LIỆU NÀO ĐẠT ĐỘ TIN CẬY</no_evidence>"
+    )
     clean_query = sanitize_untrusted_text(user_query, max_chars=1000)
 
     prompt = f"""<system_instructions>

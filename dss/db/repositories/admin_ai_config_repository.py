@@ -11,6 +11,7 @@ Only SAFE_DATABASE_CONFIG fields ever pass through here (`provider_key`,
 Actual API keys/secrets are handled entirely separately via `st.secrets`/
 environment variables and NEVER reach this table or this module.
 """
+
 from __future__ import annotations
 
 from typing import Any, Optional
@@ -32,7 +33,9 @@ def set_config(organization_id: int, provider_key: str, model_name: str) -> None
         row = session.query(AdminAiConfig).filter_by(organization_id=organization_id).one_or_none()
         if row is None:
             row = AdminAiConfig(
-                organization_id=organization_id, provider_key=provider_key, model_name=model_name,
+                organization_id=organization_id,
+                provider_key=provider_key,
+                model_name=model_name,
             )
             session.add(row)
         else:

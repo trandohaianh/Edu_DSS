@@ -2,6 +2,7 @@
 (Phase 1C, priority item 1 — users/authentication). Skipped (not faked)
 without a configured database.
 """
+
 from __future__ import annotations
 
 import uuid
@@ -96,8 +97,9 @@ def test_list_users_and_count_by_role(org_id):
 
 
 def test_duplicate_username_in_same_org_rejected(org_id):
-    from dss.db.repositories.user_repository import UserRepository
     from sqlalchemy.exc import IntegrityError
+
+    from dss.db.repositories.user_repository import UserRepository
 
     repo = UserRepository(org_id)
     repo.create_user(username="admin", password="admin123", role_name="Admin")
@@ -107,8 +109,8 @@ def test_duplicate_username_in_same_org_rejected(org_id):
 
 def test_same_username_allowed_across_different_orgs(org_id):
     from dss.db.models import Organization
-    from dss.db.session import session_scope
     from dss.db.repositories.user_repository import UserRepository
+    from dss.db.session import session_scope
 
     with session_scope() as session:
         other = Organization(org_code=f"AUTH_OTHER_{uuid.uuid4().hex[:8]}", name="Other Org")
@@ -119,14 +121,16 @@ def test_same_username_allowed_across_different_orgs(org_id):
     UserRepository(org_id).create_user(username="admin", password="pw1", role_name="Admin")
     UserRepository(other_org_id).create_user(username="admin", password="pw2", role_name="Admin")
 
-    assert UserRepository(org_id).get_user_by_username("admin")["hash"] != \
-           UserRepository(other_org_id).get_user_by_username("admin")["hash"]
+    assert (
+        UserRepository(org_id).get_user_by_username("admin")["hash"]
+        != UserRepository(other_org_id).get_user_by_username("admin")["hash"]
+    )
 
 
 def test_cross_tenant_isolation_read(org_id):
     from dss.db.models import Organization
-    from dss.db.session import session_scope
     from dss.db.repositories.user_repository import UserRepository
+    from dss.db.session import session_scope
 
     with session_scope() as session:
         other = Organization(org_code=f"AUTH_OTHER_{uuid.uuid4().hex[:8]}", name="Other Org")
@@ -146,14 +150,16 @@ def test_cross_tenant_isolation_via_real_rls(org_id):
     the repository's own organization_id filter — proves RLS itself (not
     just application-level filtering) blocks cross-tenant reads."""
     import os
+
     app_role_url = os.environ.get("DATABASE_APP_ROLE_URL")
     if not app_role_url:
         pytest.skip("DATABASE_APP_ROLE_URL not configured — real RLS check skipped, not faked")
 
-    from dss.db.models import Organization
-    from dss.db.session import session_scope
-    from dss.db.repositories.user_repository import UserRepository
     from sqlalchemy import create_engine, text
+
+    from dss.db.models import Organization
+    from dss.db.repositories.user_repository import UserRepository
+    from dss.db.session import session_scope
 
     with session_scope() as session:
         other = Organization(org_code=f"AUTH_RLS_{uuid.uuid4().hex[:8]}", name="RLS Other Org")
@@ -167,9 +173,7 @@ def test_cross_tenant_isolation_via_real_rls(org_id):
     try:
         with engine.begin() as conn:
             conn.execute(text("SET LOCAL app.organization_id = :org_id"), {"org_id": str(other_org_id)})
-            rows = conn.execute(
-                text("SELECT id FROM users WHERE username = :u"), {"u": "rls_admin"}
-            ).fetchall()
+            rows = conn.execute(text("SELECT id FROM users WHERE username = :u"), {"u": "rls_admin"}).fetchall()
         assert rows == [], "RLS FAILED: org B's session could see org A's user row"
     finally:
         engine.dispose()
@@ -218,9 +222,9 @@ def test_authenticate_auto_provision_via_postgres(org_id, monkeypatch):
 
 
 def test_authenticate_never_logs_password_or_hash_via_postgres(org_id, monkeypatch, tmp_path):
+    from dss.core import logging_config
     from dss.db.repositories.user_repository import UserRepository
     from dss.services import auth_service
-    from dss.core import logging_config
 
     monkeypatch.setenv("EDUDSS_IDENTITY_STORE", "postgres")
     monkeypatch.setenv("EDUDSS_ORGANIZATION_ID", str(org_id))

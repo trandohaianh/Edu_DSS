@@ -22,6 +22,7 @@ GIỚI HẠN ĐÃ BIẾT (ghi rõ để không ai nhầm là bảo mật cấp p
     - Đây KHÔNG phải SSO/OAuth thật, chỉ là auth nội bộ tối thiểu cho phạm vi
       đồ án — nhưng vẫn chặn đúng lỗ hổng "ai cũng chọn được ID người khác".
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -35,8 +36,8 @@ from typing import Optional, TypedDict
 import streamlit as st
 
 from dss.core.data_root import get_data_root
-from dss.core.persistence_config import repository_for
 from dss.core.logging_config import get_logger
+from dss.core.persistence_config import repository_for
 
 _logger = get_logger(__name__)
 # C1.1: 600.000 vòng cho PBKDF2-HMAC-SHA256 (khuyến nghị OWASP hiện hành) — băm
@@ -50,6 +51,7 @@ _HASH_SCHEME = "pbkdf2_sha256"
 def _users_path() -> Path:
     """PERF-002: tính lại mỗi lần gọi, không cache mức module (xem dss/core/data_root.py)."""
     return get_data_root() / "users.json"
+
 
 # Định dạng student_id do generate_data() sinh ra: f"SV{i:03d}". Phần {i:03d} ĐỆM TỐI THIỂU 3 chữ
 # số chứ không giới hạn ở 3: bộ dữ liệu demo của app là 20.000 sinh viên (dss/main.py), nên mã chạy
@@ -107,6 +109,7 @@ def _seed_default_accounts_into(users: dict) -> bool:
     if repository_for("IDENTITY") is not None:
         return False
     from dss.core.runtime_mode import demo_accounts_seed_allowed
+
     if not demo_accounts_seed_allowed():
         _logger.info("Chế độ REAL_LMS / PRODUCTION: Bỏ qua việc tự động tạo tài khoản demo mặc định.")
         return False
@@ -155,9 +158,12 @@ def _load_users() -> dict[str, UserRecord]:
             users = json.load(f)
     except Exception as exc:
         # Trước đây trả {}: nơi gọi tạo lại 2 tài khoản mặc định rồi GHI ĐÈ tệp hỏng, mất mọi tài khoản khác.
-        _logger.error("users.json không đọc được (%s); từ chối ghi đè. Khôi phục tệp từ bản sao lưu.",
-                      type(exc).__name__)
-        raise AccountStoreCorrupted("Kho tài khoản bị hỏng. Liên hệ quản trị viên để khôi phục từ bản sao lưu.") from exc
+        _logger.error(
+            "users.json không đọc được (%s); từ chối ghi đè. Khôi phục tệp từ bản sao lưu.", type(exc).__name__
+        )
+        raise AccountStoreCorrupted(
+            "Kho tài khoản bị hỏng. Liên hệ quản trị viên để khôi phục từ bản sao lưu."
+        ) from exc
     if not isinstance(users, dict):
         raise AccountStoreCorrupted("Kho tài khoản không đúng định dạng. Liên hệ quản trị viên.")
     if not users:
@@ -212,7 +218,6 @@ _LOCKOUT_DURATION_SECONDS = _throttle.LOCKOUT_SECONDS
 
 class AuthenticationError(Exception):
     """Lỗi xác thực chung."""
-    pass
 
 
 class AccountStoreCorrupted(AuthenticationError):
@@ -221,7 +226,6 @@ class AccountStoreCorrupted(AuthenticationError):
 
 class AccountLockedError(AuthenticationError):
     """Tài khoản tạm thời bị khóa do thử sai mật khẩu nhiều lần."""
-    pass
 
 
 def _client_id() -> Optional[str]:
@@ -233,12 +237,13 @@ def _client_id() -> Optional[str]:
     Không đọc được thì trả None (khoá cả tài khoản như cũ)."""
     try:
         import streamlit as st
+
         ctx = st.context
         header = os.environ.get("EDUDSS_CLIENT_IP_HEADER", "").strip()
         value = None
         if header:
             raw = (ctx.headers or {}).get(header) or ""
-            value = raw.split(",")[-1].strip() or None      # giá trị proxy tin cậy thêm cuối cùng
+            value = raw.split(",")[-1].strip() or None  # giá trị proxy tin cậy thêm cuối cùng
         if not value:
             value = getattr(ctx, "ip_address", None)
         value = (str(value).strip()[:64]) if value else None
@@ -255,8 +260,13 @@ def is_account_locked(username: str, client: Optional[str] = None) -> tuple[bool
 def _record_failed_attempt(username: str, client: Optional[str] = None) -> None:
     key = username.strip().lower()
     if _throttle.record_failure(key, client):
-        _logger.warning("Bảo mật Auth: Tài khoản %s đã bị tạm khóa %d giây do nhập sai quá %d lần%s.", key,
-                        _LOCKOUT_DURATION_SECONDS, _MAX_FAILED_ATTEMPTS, " (từ một máy khách)" if client else "")
+        _logger.warning(
+            "Bảo mật Auth: Tài khoản %s đã bị tạm khóa %d giây do nhập sai quá %d lần%s.",
+            key,
+            _LOCKOUT_DURATION_SECONDS,
+            _MAX_FAILED_ATTEMPTS,
+            " (từ một máy khách)" if client else "",
+        )
 
 
 def _reset_failed_attempts(username: str, client: Optional[str] = None) -> None:
@@ -271,6 +281,7 @@ def _seed_default_accounts_if_missing() -> None:
     if repository_for("IDENTITY") is not None:
         return
     from dss.core.runtime_mode import demo_accounts_seed_allowed
+
     if not demo_accounts_seed_allowed():
         _logger.info("Chế độ REAL_LMS / PRODUCTION: Bỏ qua việc tự động tạo tài khoản demo mặc định.")
         return
@@ -312,7 +323,9 @@ def authenticate(username: str, password: str) -> Optional[UserRecord]:
     # Kiểm tra khóa tài khoản (theo máy khách nếu biết, xem login_throttle)
     locked, rem = is_account_locked(key, client)
     if locked:
-        raise AccountLockedError(f"Tài khoản '{key}' tạm thời bị khóa do nhập sai nhiều lần. Vui lòng thử lại sau {rem} giây.")
+        raise AccountLockedError(
+            f"Tài khoản '{key}' tạm thời bị khóa do nhập sai nhiều lần. Vui lòng thử lại sau {rem} giây."
+        )
 
     repository = repository_for("IDENTITY")
     users = {key: repository.get_user_by_username(key)} if repository is not None else _load_users()
@@ -328,7 +341,8 @@ def authenticate(username: str, password: str) -> Optional[UserRecord]:
             # chữ thường; băm cũ có thể là dạng hoa đã gõ lúc tạo, nên thử cả hai.
             candidate = f"{key}123"
         ok = _verify_password(candidate, record["hash"], record["salt"]) or (
-            candidate != password and _verify_password(password, record["hash"], record["salt"]))
+            candidate != password and _verify_password(password, record["hash"], record["salt"])
+        )
         if ok:
             _reset_failed_attempts(key, client)
             if password_needs_rehash(record["hash"]):
@@ -337,7 +351,7 @@ def authenticate(username: str, password: str) -> Optional[UserRecord]:
                     if repository is not None:
                         repository.reset_password(key, password)
                     else:
-                        with _local_accounts_lock:      # đọc lại dưới khoá: không ghi đè thay đổi của Admin
+                        with _local_accounts_lock:  # đọc lại dưới khoá: không ghi đè thay đổi của Admin
                             fresh = _load_users()
                             if key in fresh and fresh[key].get("hash") == record["hash"]:
                                 fresh[key]["hash"], fresh[key]["salt"] = _hash_password(candidate)
@@ -356,15 +370,18 @@ def authenticate(username: str, password: str) -> Optional[UserRecord]:
     # Auto-provision tài khoản Sinh viên (<mã>/<mã>123) — CHỈ ngoài production
     # (C1.1: trước đây chỉ chặn khi EDUDSS_MODE=REAL_LMS, bỏ sót EDUDSS_ENV=production).
     from dss.core.runtime_mode import student_autoprovision_allowed
+
     # Quy ước mật khẩu lần đầu là "<mã sinh viên>123". `key` đã được hạ chữ thường ở trên, nên so
     # sánh nguyên văn sẽ bắt sinh viên gõ mã thường ("sv001123") dù màn đăng nhập hiển thị mã hoa
     # ("SV001"). Hạ chữ thường cả hai vế để quy ước đúng như nó được viết ra cho người dùng.
-    if (student_autoprovision_allowed() and _STUDENT_ID_PATTERN.match(key)
-            and password.strip().lower() == f"{key}123"):
+    if student_autoprovision_allowed() and _STUDENT_ID_PATTERN.match(key) and password.strip().lower() == f"{key}123":
         if repository is not None:
             record = repository.create_user(
-                username=key, password=password, role_name="Sinh viên",
-                student_id=key.upper(), auto_provisioned=True,
+                username=key,
+                password=password,
+                role_name="Sinh viên",
+                student_id=key.upper(),
+                auto_provisioned=True,
             )
         else:
             with _local_accounts_lock:
@@ -373,7 +390,8 @@ def authenticate(username: str, password: str) -> Optional[UserRecord]:
                     # Vừa được tạo ở phiên/tiến trình khác (hoặc Admin vừa tạo): không ghi đè, xác thực như thường.
                     existing = fresh[key]
                     if existing.get("is_active", True) is False or not _verify_password(
-                            f"{key}123", existing["hash"], existing["salt"]):
+                        f"{key}123", existing["hash"], existing["salt"]
+                    ):
                         _record_failed_attempt(key, client)
                         return None
                     _reset_failed_attempts(key, client)
@@ -409,7 +427,6 @@ def _dummy_credentials() -> tuple[str, str]:
     return _DUMMY[0], _DUMMY[1]
 
 
-
 def require_role(*allowed_roles: str):
     """Decorator chặn NGAY TẦNG SERVICE (không chỉ ẩn nút trên UI) — dùng cho
     các hàm nghiệp vụ nhạy cảm (train model, đổi model production...). Ví dụ:
@@ -417,17 +434,19 @@ def require_role(*allowed_roles: str):
         @require_role("Admin")
         def train_new_model(config): ...
     """
+
     def decorator(func):
         def wrapper(*args, **kwargs):
             role = st.session_state.get("_auth_role")
             if role not in allowed_roles:
                 raise PermissionError(
-                    f"Vai trò '{role}' không có quyền gọi {func.__name__} "
-                    f"(yêu cầu: {', '.join(allowed_roles)})"
+                    f"Vai trò '{role}' không có quyền gọi {func.__name__} (yêu cầu: {', '.join(allowed_roles)})"
                 )
             return func(*args, **kwargs)
+
         wrapper.__name__ = getattr(func, "__name__", "wrapped")
         return wrapper
+
     return decorator
 
 
@@ -448,8 +467,14 @@ _KEEP_ON_LOGOUT = frozenset({"dss_theme"})
 def logout() -> None:
     was_google = st.session_state.get("_auth_method") == "google"
     for k in (
-        "_authenticated", "_auth_username", "_auth_role", "_auth_student_id", "_auth_method",
-        "_workspace_ready_for", "_app_started", "_auto_bootstrap_done_for",
+        "_authenticated",
+        "_auth_username",
+        "_auth_role",
+        "_auth_student_id",
+        "_auth_method",
+        "_workspace_ready_for",
+        "_app_started",
+        "_auto_bootstrap_done_for",
     ):
         st.session_state.pop(k, None)
     # Xoá TOÀN BỘ dữ liệu phiên (dataset đã tải, kết quả huấn luyện, lịch sử chat AI, lựa chọn sinh viên...) —
@@ -463,13 +488,17 @@ def logout() -> None:
     # xuất, Giảng viên đăng nhập cùng tab): không được để lại giá trị key cũ
     # trong session_state dù widget đó không còn được vẽ ra cho vai trò mới.
     for k in (
-        "gemini_key_input", "groq_key_input", "openai_key_input",
-        "hf_token_input", "ollama_url_input",
+        "gemini_key_input",
+        "groq_key_input",
+        "openai_key_input",
+        "hf_token_input",
+        "ollama_url_input",
     ):
         st.session_state.pop(k, None)
     if was_google:
         # Xoá cả cookie OIDC của Streamlit, nếu không lần tải trang sau sẽ tự đăng nhập lại.
         from dss.services import google_signin
+
         google_signin.logout()
 
 
@@ -488,6 +517,8 @@ ASSIGNABLE_ROLES = ("Sinh viên", "Giảng viên / CVHT", "Admin")
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 _USERNAME_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{2,63}$")
 _MIN_ADMIN_SET_PASSWORD = 10
+
+
 class _AccountsLock:
     """Khoá mọi lần đọc-sửa-ghi users.json: khoá luồng (RLock, cho phép lồng nhau) và khoá tệp của hệ điều hành
     (nhiều tiến trình Streamlit cùng dùng một tệp). Trước đây authenticate() và việc tạo tài khoản mặc định ghi
@@ -584,20 +615,32 @@ def _create_google_student(email: str) -> UserRecord:
         claimed = {str(r.get("student_id") or "").upper() for r in users.values()}
         pool = [f"SV{i:03d}" for i in range(1, _demo_student_pool_size() + 1) if f"SV{i:03d}" not in claimed]
         if not pool:
-            raise GoogleSignInRejected("pool_exhausted", "Bản demo đã hết sinh viên mô phỏng để cấp. Vui lòng liên hệ quản trị viên.")
+            raise GoogleSignInRejected(
+                "pool_exhausted", "Bản demo đã hết sinh viên mô phỏng để cấp. Vui lòng liên hệ quản trị viên."
+            )
         student_id = _secrets.choice(pool)
         password = _secrets.token_urlsafe(32)
         repository = repository_for("IDENTITY")
         if repository is not None:
-            repository.create_user(username=username, password=password, role_name="Sinh viên",
-                                   student_id=student_id, auto_provisioned=True)
+            repository.create_user(
+                username=username,
+                password=password,
+                role_name="Sinh viên",
+                student_id=student_id,
+                auto_provisioned=True,
+            )
             record = repository.update_user(username, email=email)
         else:
             hash_hex, salt_hex = _hash_password(password)
             record = {
-                "username": username, "role": "Sinh viên", "student_id": student_id,
-                "hash": hash_hex, "salt": salt_hex, "auto_provisioned": True,
-                "email": email, "auth_provider": "google",
+                "username": username,
+                "role": "Sinh viên",
+                "student_id": student_id,
+                "hash": hash_hex,
+                "salt": salt_hex,
+                "auto_provisioned": True,
+                "email": email,
+                "auth_provider": "google",
             }
             users[username] = record
             _save_users(users)
@@ -650,8 +693,12 @@ def _session_still_valid(identity: UserRecord) -> bool:
     except Exception:  # noqa: BLE001 - không đọc được kho tài khoản: đóng phiên (fail closed)
         _logger.warning("Không kiểm lại được tài khoản của phiên; đăng xuất để an toàn.")
         return False
-    if not record or record.get("is_active", True) is False or record.get("role") != identity.get("role") \
-            or (record.get("student_id") or None) != (identity.get("student_id") or None):
+    if (
+        not record
+        or record.get("is_active", True) is False
+        or record.get("role") != identity.get("role")
+        or (record.get("student_id") or None) != (identity.get("student_id") or None)
+    ):
         _logger.info("Phiên bị đóng vì tài khoản đã đổi: username=%s", username)
         return False
     st.session_state["_auth_checked_at"] = now
@@ -682,17 +729,23 @@ def _check_email_free(email: str, username: str) -> None:
 
 def _audit_local(action: str, username: str, details: dict) -> None:
     actor = st.session_state.get("_auth_username") or "system"
-    _logger.info("AUDIT %s target=%s actor=%s details=%s", action, username, actor,
-                 {k: v for k, v in details.items() if k not in {"hash", "salt", "password"}})
+    _logger.info(
+        "AUDIT %s target=%s actor=%s details=%s",
+        action,
+        username,
+        actor,
+        {k: v for k, v in details.items() if k not in {"hash", "salt", "password"}},
+    )
 
 
 def _org_id(repository) -> int:
-    return int(getattr(repository, "organization_id"))
+    return int(repository.organization_id)
 
 
 @require_role("Admin")
-def admin_create_account(username: str, password: str, role: str, *, email: Optional[str] = None,
-                         student_id: Optional[str] = None) -> UserRecord:
+def admin_create_account(
+    username: str, password: str, role: str, *, email: Optional[str] = None, student_id: Optional[str] = None
+) -> UserRecord:
     """Admin tạo tài khoản (Giảng viên/Admin/Sinh viên). Ghi nhật ký kiểm toán."""
     key = (username or "").strip().lower()
     if not _USERNAME_RE.fullmatch(key):
@@ -723,16 +776,25 @@ def admin_create_account(username: str, password: str, role: str, *, email: Opti
         if key in users:
             raise ValueError("Tên đăng nhập đã tồn tại.")
         hash_hex, salt_hex = _hash_password(password)
-        users[key] = {"username": key, "role": role, "student_id": sid, "hash": hash_hex, "salt": salt_hex,
-                      "auto_provisioned": False, "email": mail or None, "is_active": True}
+        users[key] = {
+            "username": key,
+            "role": role,
+            "student_id": sid,
+            "hash": hash_hex,
+            "salt": salt_hex,
+            "auto_provisioned": False,
+            "email": mail or None,
+            "is_active": True,
+        }
         _save_users(users)
     _audit_local("user.created", key, {"role": role, "email": mail, "student_id": sid})
     return users[key]
 
 
 @require_role("Admin")
-def admin_update_account(username: str, *, email: Optional[str] = None, active: Optional[bool] = None,
-                         role: Optional[str] = None) -> UserRecord:
+def admin_update_account(
+    username: str, *, email: Optional[str] = None, active: Optional[bool] = None, role: Optional[str] = None
+) -> UserRecord:
     """Gắn/đổi email (để đăng nhập Google), khoá/mở khoá, đổi vai trò."""
     key = (username or "").strip().lower()
     if key == (st.session_state.get("_auth_username") or "") and (active is False or (role and role != "Admin")):
@@ -823,8 +885,16 @@ def bootstrap_admin_from_env() -> bool:
             if username in users:
                 return False
             hash_hex, salt_hex = _hash_password(password)
-            users[username] = {"username": username, "role": "Admin", "student_id": None, "hash": hash_hex,
-                               "salt": salt_hex, "auto_provisioned": False, "email": email, "is_active": True}
+            users[username] = {
+                "username": username,
+                "role": "Admin",
+                "student_id": None,
+                "hash": hash_hex,
+                "salt": salt_hex,
+                "auto_provisioned": False,
+                "email": email,
+                "is_active": True,
+            }
             _save_users(users)
     _logger.info("Đã tạo tài khoản Admin ban đầu từ biến môi trường: username=%s", username)
     return True
@@ -859,6 +929,7 @@ def render_login_gate() -> Optional[UserRecord]:
 
     # Vừa quay lại từ Google (st.user đã đăng nhập): ánh xạ sang tài khoản EduDSS rồi vào thẳng.
     from dss.services import google_signin
+
     google_record = google_signin.pending_identity()
     if google_record is not None:
         establish_session(google_record, "google")
@@ -935,6 +1006,7 @@ def render_login_gate() -> Optional[UserRecord]:
                         with st.spinner("Đang xác thực…"):
                             record = authenticate(username, password)
                         from dss.core import metrics
+
                         if record is None:
                             metrics.record_login("password", "failed")
                             st.error("Sai tên đăng nhập hoặc mật khẩu.")
@@ -944,9 +1016,10 @@ def render_login_gate() -> Optional[UserRecord]:
                             st.rerun()
                     except AccountLockedError as ale:
                         from dss.core import metrics
+
                         metrics.record_login("password", "locked")
                         st.error(str(ale))
-                    except AuthenticationError as ae:          # VD kho tài khoản hỏng: báo rõ, không traceback
+                    except AuthenticationError as ae:  # VD kho tài khoản hỏng: báo rõ, không traceback
                         st.error(str(ae))
 
             google_signin.render_button()
@@ -954,6 +1027,7 @@ def render_login_gate() -> Optional[UserRecord]:
             # Không có tự đăng ký: tài khoản do Trường cấp (C1.3 — trình bày đúng
             # luồng cấp tài khoản thay vì dựng 1 form đăng ký không nối vào đâu).
             from dss.core.runtime_mode import google_self_signup_allowed
+
             if google_signin.configured() and google_self_signup_allowed():
                 st.markdown(
                     "<div class='dss-login-help'><strong>Bản demo công khai.</strong> Đăng nhập bằng Google để "
@@ -973,9 +1047,12 @@ def render_login_gate() -> Optional[UserRecord]:
             # C1.1: thông tin tài khoản demo KHÔNG BAO GIỜ hiện trong production; ngoài
             # production chỉ hiện khi bật tường minh EDUDSS_SHOW_DEMO_CREDENTIALS=1.
             from dss.core.runtime_mode import demo_credentials_visible
+
             if demo_credentials_visible():
                 with st.expander("Tài khoản dùng thử (môi trường đánh giá)", expanded=False, icon=None):
-                    st.caption("Chỉ dành cho môi trường phát triển và đánh giá. Khi triển khai thật, tài khoản do "
-                               "hệ thống quản lý học tập của Trường cấp.")
+                    st.caption(
+                        "Chỉ dành cho môi trường phát triển và đánh giá. Khi triển khai thật, tài khoản do "
+                        "hệ thống quản lý học tập của Trường cấp."
+                    )
                     st.markdown(demo_credentials_html(), unsafe_allow_html=True)
     return None

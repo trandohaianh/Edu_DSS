@@ -1,6 +1,7 @@
 """NHÓM F (F-0c CONFIRMED): document_ingestion.ingest_document trước đây KHÔNG
 gắn bất kỳ trường trạng thái/thẩm quyền nào — tài liệu tải lên dùng được ngay
 lập tức, không qua duyệt. Mọi tài liệu tải lên PHẢI bắt đầu ở PENDING_REVIEW."""
+
 from __future__ import annotations
 
 from dss.services import document_governance as gov
@@ -9,7 +10,7 @@ from dss.services.document_ingestion import ingest_document
 
 def _ingest(**kwargs):
     defaults = dict(
-        file_bytes="Nội dung tài liệu mẫu để kiểm thử.".encode("utf-8"),
+        file_bytes="Nội dung tài liệu mẫu để kiểm thử.".encode(),
         file_name="test.txt",
         title="Tài liệu kiểm thử",
         course_id="CS101",
@@ -58,6 +59,6 @@ def test_content_hash_matches_raw_text():
 
 
 def test_content_hash_differs_for_different_content():
-    doc_a = _ingest(file_bytes="Nội dung A khác nhau hoàn toàn.".encode("utf-8"))
-    doc_b = _ingest(file_bytes="Nội dung B khác hẳn nội dung A.".encode("utf-8"))
+    doc_a = _ingest(file_bytes="Nội dung A khác nhau hoàn toàn.".encode())
+    doc_b = _ingest(file_bytes="Nội dung B khác hẳn nội dung A.".encode())
     assert doc_a.chunks[0].metadata["content_hash"] != doc_b.chunks[0].metadata["content_hash"]

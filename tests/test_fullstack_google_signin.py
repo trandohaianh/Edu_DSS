@@ -1,4 +1,5 @@
 """Google Sign-In mapping, public-demo mode, admin account management, env admin bootstrap."""
+
 from __future__ import annotations
 
 import json
@@ -15,9 +16,17 @@ def _claims(email, verified=True):
 
 @pytest.fixture
 def clean_env(monkeypatch):
-    for name in ("EDUDSS_ENV", "EDUDSS_MODE", "EDUDSS_PUBLIC_DEMO", "EDUDSS_GOOGLE_SELF_SIGNUP",
-                 "EDUDSS_SHOW_DEMO_CREDENTIALS", "EDUDSS_ALLOW_STUDENT_AUTOPROVISION",
-                 "EDUDSS_BOOTSTRAP_ADMIN_USER", "EDUDSS_BOOTSTRAP_ADMIN_PASSWORD", "EDUDSS_BOOTSTRAP_ADMIN_EMAIL"):
+    for name in (
+        "EDUDSS_ENV",
+        "EDUDSS_MODE",
+        "EDUDSS_PUBLIC_DEMO",
+        "EDUDSS_GOOGLE_SELF_SIGNUP",
+        "EDUDSS_SHOW_DEMO_CREDENTIALS",
+        "EDUDSS_ALLOW_STUDENT_AUTOPROVISION",
+        "EDUDSS_BOOTSTRAP_ADMIN_USER",
+        "EDUDSS_BOOTSTRAP_ADMIN_PASSWORD",
+        "EDUDSS_BOOTSTRAP_ADMIN_EMAIL",
+    ):
         monkeypatch.delenv(name, raising=False)
     # EDUDSS_ENV không đặt = production (fail closed); bản demo công khai chạy ở development.
     monkeypatch.setenv("EDUDSS_ENV", "development")
@@ -107,11 +116,11 @@ def test_admin_account_management_rules(clean_env, isolated_users_file, as_role)
     as_role("Admin", username="boss")
     auth_service.admin_create_account("gv.an", "mat-khau-dai-123", "Giảng viên / CVHT", email="an@x.vn")
     with pytest.raises(ValueError):
-        auth_service.admin_create_account("gv.an", "mat-khau-dai-123", "Admin")            # duplicate
+        auth_service.admin_create_account("gv.an", "mat-khau-dai-123", "Admin")  # duplicate
     with pytest.raises(ValueError):
-        auth_service.admin_create_account("gv.chi", "ngan", "Admin")                         # weak password
+        auth_service.admin_create_account("gv.chi", "ngan", "Admin")  # weak password
     with pytest.raises(ValueError):
-        auth_service.admin_create_account("sv.x", "mat-khau-dai-123", "Sinh viên")           # student needs id
+        auth_service.admin_create_account("sv.x", "mat-khau-dai-123", "Sinh viên")  # student needs id
     with pytest.raises(ValueError):
         auth_service.admin_create_account("gv.dung", "mat-khau-dai-123", "Admin", email="an@x.vn")  # email taken
     auth_service.admin_update_account("gv.an", role="Admin", email="")
@@ -120,7 +129,7 @@ def test_admin_account_management_rules(clean_env, isolated_users_file, as_role)
     auth_service.admin_reset_password("gv.an", "mat-khau-moi-456")
     assert auth_service.authenticate("gv.an", "mat-khau-moi-456") is not None
     with pytest.raises(ValueError):
-        auth_service.admin_update_account("boss", active=False)                               # no self-lockout
+        auth_service.admin_update_account("boss", active=False)  # no self-lockout
 
 
 def test_account_management_requires_admin(clean_env, isolated_users_file, as_role):
@@ -133,13 +142,13 @@ def test_bootstrap_admin_from_env_once(clean_env, isolated_users_file):
     clean_env.setenv("EDUDSS_PUBLIC_DEMO", "1")
     clean_env.setenv("EDUDSS_BOOTSTRAP_ADMIN_USER", "admin")
     clean_env.setenv("EDUDSS_BOOTSTRAP_ADMIN_PASSWORD", "short")
-    assert auth_service.bootstrap_admin_from_env() is False                  # < 12 chars refused
+    assert auth_service.bootstrap_admin_from_env() is False  # < 12 chars refused
     clean_env.setenv("EDUDSS_BOOTSTRAP_ADMIN_PASSWORD", "a-very-long-password")
     clean_env.setenv("EDUDSS_BOOTSTRAP_ADMIN_EMAIL", "owner@gmail.com")
     assert auth_service.bootstrap_admin_from_env() is True
-    assert auth_service.bootstrap_admin_from_env() is False                  # never overwrites
+    assert auth_service.bootstrap_admin_from_env() is False  # never overwrites
     assert auth_service.authenticate("admin", "a-very-long-password")["role"] == "Admin"
-    assert auth_service.authenticate("admin", "admin123") is None            # no demo seed in public demo
+    assert auth_service.authenticate("admin", "admin123") is None  # no demo seed in public demo
     assert auth_service.resolve_google_user(_claims("owner@gmail.com"))["username"] == "admin"
 
 
@@ -147,8 +156,12 @@ def test_streamlit_secrets_writer(tmp_path):
     from ops import write_streamlit_secrets as w
 
     assert w.build({}) is None
-    env = {"EDUDSS_PUBLIC_URL": "https://edu.example.org/", "EDUDSS_GOOGLE_CLIENT_ID": "cid",
-           "EDUDSS_GOOGLE_CLIENT_SECRET": "sec\"ret", "EDUDSS_AUTH_COOKIE_SECRET": "x" * 40}
+    env = {
+        "EDUDSS_PUBLIC_URL": "https://edu.example.org/",
+        "EDUDSS_GOOGLE_CLIENT_ID": "cid",
+        "EDUDSS_GOOGLE_CLIENT_SECRET": "sec\"ret",
+        "EDUDSS_AUTH_COOKIE_SECRET": "x" * 40,
+    }
     text = w.build(env)
     import tomllib
 

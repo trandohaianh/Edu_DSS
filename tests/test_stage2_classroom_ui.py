@@ -1,4 +1,5 @@
 """Real Streamlit classroom flows backed by the actual transactional services."""
+
 from copy import deepcopy
 
 import pytest
@@ -6,13 +7,14 @@ from streamlit.testing.v1 import AppTest
 
 from dss.platform.context import Actor
 from dss.platform.store import reset_platform_engines
-from dss.services import classroom_service as classes
 from dss.services import classroom_learning_service as learning
+from dss.services import classroom_service as classes
 from dss.tabs import classroom_tab as ui
 
 
 def _render():
     from dss.tabs.classroom_tab import classroom_tab
+
     classroom_tab()
 
 
@@ -32,10 +34,22 @@ def workspace(monkeypatch, tmp_path):
     classes.assign_teacher(admin, classroom["id"], teacher.username)
     classes.enroll_student(admin, classroom["id"], student.student_id)
     questions = [
-        {"question_id": "q1", "topic_id": "sources", "text": "Question 1",
-         "options": ["A", "B"], "correct_answer_index": 0, "explanation": "Teacher-only explanation"},
-        {"question_id": "q2", "topic_id": "cases", "text": "Question 2",
-         "options": ["A", "B"], "correct_answer_index": 1, "explanation": "Teacher-only explanation"},
+        {
+            "question_id": "q1",
+            "topic_id": "sources",
+            "text": "Question 1",
+            "options": ["A", "B"],
+            "correct_answer_index": 0,
+            "explanation": "Teacher-only explanation",
+        },
+        {
+            "question_id": "q2",
+            "topic_id": "cases",
+            "text": "Question 2",
+            "options": ["A", "B"],
+            "correct_answer_index": 1,
+            "explanation": "Teacher-only explanation",
+        },
     ]
     monkeypatch.setattr(learning, "_load_resources", lambda actor, course_id: [])
     monkeypatch.setattr(ui, "current_actor", lambda: student)
@@ -44,8 +58,9 @@ def workspace(monkeypatch, tmp_path):
 
 
 def _publish(workspace, maximum=2):
-    assessment = learning.create_assessment(workspace["teacher"], workspace["class"]["id"], "Formative test",
-                                            workspace["questions"], max_attempts=maximum)
+    assessment = learning.create_assessment(
+        workspace["teacher"], workspace["class"]["id"], "Formative test", workspace["questions"], max_attempts=maximum
+    )
     return learning.publish_assessment(workspace["teacher"], assessment["id"])
 
 
@@ -77,8 +92,9 @@ def test_student_submits_real_attempt_marks_progress_reopens_and_retests(workspa
     assert results[0]["score"] == 0
     assert results[0]["assessment_id"] == assessment["id"]
     # Topic scores must be visible to the student, including measured zero.
-    assert any("Chủ đề" in frame.value.columns and frame.value["Điểm / 10"].tolist() == [0, 0]
-               for frame in app.dataframe)
+    assert any(
+        "Chủ đề" in frame.value.columns and frame.value["Điểm / 10"].tolist() == [0, 0] for frame in app.dataframe
+    )
     app.checkbox[0].check().run(timeout=30)
     assert not app.exception and not app.error
     first_plan = learning.get_my_plan(workspace["student"], workspace["class"]["id"])
@@ -123,7 +139,7 @@ def test_student_can_reopen_results_and_progress_for_closed_class(workspace):
     classes.set_class_status(workspace["admin"], workspace["class"]["id"], "closed")
     app = _app()
     assert not app.radio
-    assert any("Kết quả đã lưu" == item.value for item in app.subheader)
+    assert any(item.value == "Kết quả đã lưu" for item in app.subheader)
     assert len(app.checkbox) == 2
     app.checkbox[0].check().run(timeout=30)
     assert not app.exception and not app.error
@@ -133,15 +149,18 @@ def test_student_can_reopen_results_and_progress_for_closed_class(workspace):
 
 def test_teacher_can_save_draft_then_publish_without_creating_a_revision(workspace, monkeypatch):
     monkeypatch.setattr(ui, "current_actor", lambda: workspace["teacher"])
-    draft = learning.create_assessment(workspace["teacher"], workspace["class"]["id"], "Initial draft",
-                                       workspace["questions"])
+    draft = learning.create_assessment(
+        workspace["teacher"], workspace["class"]["id"], "Initial draft", workspace["questions"]
+    )
     app = _app()
     assert len(app.metric) == 3
     assert not any(button.label == "Tạo phiên bản nháp mới" for button in app.button)
     changed = deepcopy(workspace["questions"])
     changed[0]["text"] = "Corrected question"
     next(item for item in app.text_input if item.key == "draft_title_" + draft["id"]).set_value("Updated draft")
-    next(item for item in app.text_area if item.key == "draft_" + draft["id"] + "_q_0_text").set_value("Corrected question")
+    next(item for item in app.text_area if item.key == "draft_" + draft["id"] + "_q_0_text").set_value(
+        "Corrected question"
+    )
     _button(app, "Lưu thay đổi bản nháp").click().run(timeout=30)
     assert not app.exception and not app.error
     saved = learning.get_assessment(workspace["teacher"], draft["id"])
@@ -154,22 +173,44 @@ def test_teacher_can_save_draft_then_publish_without_creating_a_revision(workspa
 
 
 def test_student_opens_actual_approved_cms_content_and_revocation_hides_it(workspace, monkeypatch):
-    from dss.services import cms_lecture_repository as cms, vector_store
+    from dss.services import cms_lecture_repository as cms
+    from dss.services import vector_store
     from dss.services.chunking_service import DocumentChunk
+
     monkeypatch.setenv("EDUDSS_CMS_STORE", "local")
     monkeypatch.setenv("EDUDSS_RAG_STORE", "local")
-    lesson = cms.CMSLesson(lesson_id="lesson-1", course_id="LAW101", topic_id="sources",
-                           lecturer_id="teacher", title="Official source lesson", current_document_id="doc-1")
+    lesson = cms.CMSLesson(
+        lesson_id="lesson-1",
+        course_id="LAW101",
+        topic_id="sources",
+        lecturer_id="teacher",
+        title="Official source lesson",
+        current_document_id="doc-1",
+    )
     cms._upsert_lesson(lesson)
     text = "# Approved reading\nOfficial lesson content.\n<script>never_execute()</script>"
     store = vector_store.get_vector_store()
-    store.add_chunks([DocumentChunk(
-        chunk_id="doc-1#c0", document_id="doc-1", course_id="LAW101", content=text,
-        token_count=20, metadata={"title": "Official source lesson", "status": "APPROVED",
-                                  "approved_by": "teacher", "chunk_index": 0},
-        embedding=[1.0, 0.0],
-    )])
-    monkeypatch.setattr(learning, "_load_resources", lambda actor, course_id: learning.approved_plan_resources(course_id))
+    store.add_chunks(
+        [
+            DocumentChunk(
+                chunk_id="doc-1#c0",
+                document_id="doc-1",
+                course_id="LAW101",
+                content=text,
+                token_count=20,
+                metadata={
+                    "title": "Official source lesson",
+                    "status": "APPROVED",
+                    "approved_by": "teacher",
+                    "chunk_index": 0,
+                },
+                embedding=[1.0, 0.0],
+            )
+        ]
+    )
+    monkeypatch.setattr(
+        learning, "_load_resources", lambda actor, course_id: learning.approved_plan_resources(course_id)
+    )
     assessment = _publish(workspace)
     saved = learning.submit_attempt(workspace["student"], assessment["id"], [1, 0], "read-material")
     app = _app()
@@ -191,10 +232,14 @@ def test_teacher_can_compose_questions_using_plain_fields(workspace, monkeypatch
     monkeypatch.setattr(ui, "current_actor", lambda: workspace["teacher"])
     app = _app()
     prefix = "compose_" + workspace["class"]["id"]
-    next(item for item in app.text_input if item.key == "compose_title_" + workspace["class"]["id"]).set_value("Form-created assessment")
+    next(item for item in app.text_input if item.key == "compose_title_" + workspace["class"]["id"]).set_value(
+        "Form-created assessment"
+    )
     next(item for item in app.text_input if item.key == prefix + "_q_0_topic").set_value("sources")
     next(item for item in app.text_area if item.key == prefix + "_q_0_text").set_value("Approved question from form")
-    next(item for item in app.text_area if item.key == prefix + "_q_0_options").set_value(chr(10).join(["First option", "Second option"]))
+    next(item for item in app.text_area if item.key == prefix + "_q_0_options").set_value(
+        chr(10).join(["First option", "Second option"])
+    )
     _button(app, "Lưu bài đánh giá nháp").click().run(timeout=30)
     assert not app.exception and not app.error
     rows = learning.list_assessments(workspace["teacher"], workspace["class"]["id"])

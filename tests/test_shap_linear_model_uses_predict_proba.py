@@ -4,6 +4,7 @@ vd. Logistic Regression) — với bài toán phân loại, .predict() trả v�
 RẠC (mã số lớp), không phải xác suất, nên SHAP giải thích sai đối tượng: mức
 đóng góp vào MÃ SỐ NHÃN (không có ý nghĩa định lượng liên tục), không phải mức
 đóng góp vào XÁC SUẤT dự đoán. Phải dùng predict_proba khi model hỗ trợ."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -19,10 +20,12 @@ from dss.services.model_service import compute_shap_local_explanation, compute_s
 def _make_linear_pipeline():
     rng = np.random.RandomState(42)
     n = 80
-    X = pd.DataFrame({
-        "diem_giua_ky": rng.uniform(0, 10, n),
-        "diem_du_an": rng.uniform(0, 10, n),
-    })
+    X = pd.DataFrame(
+        {
+            "diem_giua_ky": rng.uniform(0, 10, n),
+            "diem_du_an": rng.uniform(0, 10, n),
+        }
+    )
     y = (X["diem_giua_ky"] + X["diem_du_an"] > 10).astype(int)
 
     class _TrackingLogisticRegression(LogisticRegression):

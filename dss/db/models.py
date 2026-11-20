@@ -14,12 +14,14 @@ Multi-tenancy (Phase 5 groundwork, added now since retrofitting organization_id
 onto an existing schema later is far riskier than including it from the start):
 every tenant-scoped table carries a non-nullable `organization_id` foreign key.
 """
+
 from __future__ import annotations
 
 from datetime import date, datetime
 from typing import Optional
 
 from sqlalchemy import (
+    JSON,
     Boolean,
     Date,
     DateTime,
@@ -27,7 +29,6 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
-    JSON,
     String,
     Text,
     UniqueConstraint,
@@ -66,8 +67,8 @@ class Organization(Base, TimestampMixin):
     # MULTI_TENANT_SAAS | DEDICATED — metadata only, never auto-provisions
     # infrastructure; see dss/services/university_onboarding.py module docstring.
 
-    users: Mapped[list["User"]] = relationship(back_populates="organization")
-    subscriptions: Mapped[list["Subscription"]] = relationship(back_populates="organization")
+    users: Mapped[list[User]] = relationship(back_populates="organization")
+    subscriptions: Mapped[list[Subscription]] = relationship(back_populates="organization")
 
 
 class Role(Base, TimestampMixin):
@@ -81,9 +82,7 @@ class Role(Base, TimestampMixin):
     name: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
-    permissions: Mapped[list["Permission"]] = relationship(
-        secondary="role_permissions", back_populates="roles"
-    )
+    permissions: Mapped[list[Permission]] = relationship(secondary="role_permissions", back_populates="roles")
 
 
 class Permission(Base, TimestampMixin):
@@ -96,7 +95,7 @@ class Permission(Base, TimestampMixin):
     name: Mapped[str] = mapped_column(String(128), unique=True, nullable=False)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
-    roles: Mapped[list["Role"]] = relationship(secondary="role_permissions", back_populates="permissions")
+    roles: Mapped[list[Role]] = relationship(secondary="role_permissions", back_populates="permissions")
 
 
 class RolePermission(Base):
@@ -105,9 +104,7 @@ class RolePermission(Base):
     __tablename__ = "role_permissions"
 
     role_id: Mapped[int] = mapped_column(ForeignKey("roles.id", ondelete="CASCADE"), primary_key=True)
-    permission_id: Mapped[int] = mapped_column(
-        ForeignKey("permissions.id", ondelete="CASCADE"), primary_key=True
-    )
+    permission_id: Mapped[int] = mapped_column(ForeignKey("permissions.id", ondelete="CASCADE"), primary_key=True)
 
 
 class User(Base, TimestampMixin):
@@ -116,9 +113,7 @@ class User(Base, TimestampMixin):
     storage, so a future cutover is a straight data copy."""
 
     __tablename__ = "users"
-    __table_args__ = (
-        UniqueConstraint("organization_id", "username", name="uq_users_org_username"),
-    )
+    __table_args__ = (UniqueConstraint("organization_id", "username", name="uq_users_org_username"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     organization_id: Mapped[int] = mapped_column(
@@ -134,8 +129,8 @@ class User(Base, TimestampMixin):
     auto_provisioned: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     last_login_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    organization: Mapped["Organization"] = relationship(back_populates="users")
-    role: Mapped["Role"] = relationship()
+    organization: Mapped[Organization] = relationship(back_populates="users")
+    role: Mapped[Role] = relationship()
 
 
 # ---------------------------------------------------------------------------
@@ -162,7 +157,7 @@ class Subscription(Base, TimestampMixin):
     start_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     end_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
 
-    organization: Mapped["Organization"] = relationship(back_populates="subscriptions")
+    organization: Mapped[Organization] = relationship(back_populates="subscriptions")
 
 
 # ---------------------------------------------------------------------------
@@ -219,9 +214,7 @@ class Course(Base, TimestampMixin):
     course_code: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
     external_id: Mapped[Optional[str]] = mapped_column(String(128), nullable=True, index=True)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
-    lecturer_id: Mapped[Optional[int]] = mapped_column(
-        ForeignKey("lecturers.id", ondelete="SET NULL"), nullable=True
-    )
+    lecturer_id: Mapped[Optional[int]] = mapped_column(ForeignKey("lecturers.id", ondelete="SET NULL"), nullable=True)
     semester: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
 
 
@@ -253,27 +246,23 @@ class AcademicRecord(Base, TimestampMixin):
     organization_id: Mapped[int] = mapped_column(
         ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    student_id: Mapped[int] = mapped_column(
-        ForeignKey("students.id", ondelete="CASCADE"), nullable=False, index=True
-    )
-    course_id: Mapped[Optional[int]] = mapped_column(
-        ForeignKey("courses.id", ondelete="SET NULL"), nullable=True
-    )
+    student_id: Mapped[int] = mapped_column(ForeignKey("students.id", ondelete="CASCADE"), nullable=False, index=True)
+    course_id: Mapped[Optional[int]] = mapped_column(ForeignKey("courses.id", ondelete="SET NULL"), nullable=True)
     record_type: Mapped[str] = mapped_column(String(64), nullable=False)  # grade|attendance|assignment|...
     value: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
     source: Mapped[str] = mapped_column(String(64), nullable=False, default="manual")  # manual|lms_sync|import
 
-    __table_args__ = (
-        Index("ix_academic_records_student_type", "student_id", "record_type"),
-    )
+    __table_args__ = (Index("ix_academic_records_student_type", "student_id", "record_type"),)
 
 
 class Assignment(Base, TimestampMixin):
     __tablename__ = "assignments"
     __table_args__ = (UniqueConstraint("organization_id", "external_id", name="uq_assignments_org_external"),)
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    organization_id: Mapped[int] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    organization_id: Mapped[int] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     external_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
     course_id: Mapped[int] = mapped_column(ForeignKey("courses.id", ondelete="CASCADE"), nullable=False)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -285,7 +274,9 @@ class Submission(Base, TimestampMixin):
     __tablename__ = "submissions"
     __table_args__ = (UniqueConstraint("organization_id", "external_id", name="uq_submissions_org_external"),)
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    organization_id: Mapped[int] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    organization_id: Mapped[int] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     external_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
     assignment_id: Mapped[int] = mapped_column(ForeignKey("assignments.id", ondelete="CASCADE"), nullable=False)
     student_id: Mapped[int] = mapped_column(ForeignKey("students.id", ondelete="CASCADE"), nullable=False)
@@ -297,9 +288,13 @@ class Grade(Base, TimestampMixin):
     __tablename__ = "grades"
     __table_args__ = (UniqueConstraint("organization_id", "external_id", name="uq_grades_org_external"),)
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    organization_id: Mapped[int] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    organization_id: Mapped[int] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     external_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
-    submission_id: Mapped[Optional[int]] = mapped_column(ForeignKey("submissions.id", ondelete="CASCADE"), nullable=True)
+    submission_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("submissions.id", ondelete="CASCADE"), nullable=True
+    )
     student_id: Mapped[int] = mapped_column(ForeignKey("students.id", ondelete="CASCADE"), nullable=False)
     course_id: Mapped[int] = mapped_column(ForeignKey("courses.id", ondelete="CASCADE"), nullable=False)
     score: Mapped[float] = mapped_column(Float, nullable=False)
@@ -309,7 +304,9 @@ class Attendance(Base, TimestampMixin):
     __tablename__ = "attendance"
     __table_args__ = (UniqueConstraint("organization_id", "external_id", name="uq_attendance_org_external"),)
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    organization_id: Mapped[int] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    organization_id: Mapped[int] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     external_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
     student_id: Mapped[int] = mapped_column(ForeignKey("students.id", ondelete="CASCADE"), nullable=False)
     course_id: Mapped[int] = mapped_column(ForeignKey("courses.id", ondelete="CASCADE"), nullable=False)
@@ -321,7 +318,9 @@ class LearningActivity(Base, TimestampMixin):
     __tablename__ = "learning_activities"
     __table_args__ = (UniqueConstraint("organization_id", "external_id", name="uq_learning_activities_org_external"),)
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    organization_id: Mapped[int] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    organization_id: Mapped[int] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     external_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
     student_id: Mapped[int] = mapped_column(ForeignKey("students.id", ondelete="CASCADE"), nullable=False)
     course_id: Mapped[int] = mapped_column(ForeignKey("courses.id", ondelete="CASCADE"), nullable=False)
@@ -341,9 +340,7 @@ class ModelVersion(Base, TimestampMixin):
     instead of the JSON pointer file."""
 
     __tablename__ = "model_versions"
-    __table_args__ = (
-        UniqueConstraint("training_id", name="uq_model_versions_training_id"),
-    )
+    __table_args__ = (UniqueConstraint("training_id", name="uq_model_versions_training_id"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     organization_id: Mapped[int] = mapped_column(
@@ -356,7 +353,9 @@ class ModelVersion(Base, TimestampMixin):
     dataset_version: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     model_name: Mapped[str] = mapped_column(String(128), nullable=False)
     feature_schema: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
-    status: Mapped[str] = mapped_column(String(32), nullable=False, default="candidate")  # candidate|production|archived|failed
+    status: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="candidate"
+    )  # candidate|production|archived|failed
     owner: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
     trained_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
     promoted_by: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
@@ -383,10 +382,10 @@ class ModelVersion(Base, TimestampMixin):
     library_versions: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     created_by: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
 
-    metrics: Mapped[list["ModelMetric"]] = relationship(back_populates="model_version")
-    dataset_provenance: Mapped[Optional["DatasetProvenance"]] = relationship()
-    feature_schema_provenance: Mapped[Optional["FeatureSchemaProvenance"]] = relationship()
-    drift_evaluations: Mapped[list["DriftEvaluation"]] = relationship(back_populates="model_version")
+    metrics: Mapped[list[ModelMetric]] = relationship(back_populates="model_version")
+    dataset_provenance: Mapped[Optional[DatasetProvenance]] = relationship()
+    feature_schema_provenance: Mapped[Optional[FeatureSchemaProvenance]] = relationship()
+    drift_evaluations: Mapped[list[DriftEvaluation]] = relationship(back_populates="model_version")
 
 
 class ModelMetric(Base, TimestampMixin):
@@ -399,7 +398,7 @@ class ModelMetric(Base, TimestampMixin):
     metric_name: Mapped[str] = mapped_column(String(64), nullable=False)
     metric_value: Mapped[float] = mapped_column(Float, nullable=False)
 
-    model_version: Mapped["ModelVersion"] = relationship(back_populates="metrics")
+    model_version: Mapped[ModelVersion] = relationship(back_populates="metrics")
 
 
 class DatasetProvenance(Base, TimestampMixin):
@@ -413,7 +412,9 @@ class DatasetProvenance(Base, TimestampMixin):
     __tablename__ = "dataset_provenance"
     __table_args__ = (
         UniqueConstraint(
-            "organization_id", "dataset_id", "dataset_fingerprint",
+            "organization_id",
+            "dataset_id",
+            "dataset_fingerprint",
             name="uq_dataset_provenance_org_dataset_fingerprint",
         ),
     )
@@ -448,7 +449,8 @@ class FeatureSchemaProvenance(Base, TimestampMixin):
     __tablename__ = "feature_schema_provenance"
     __table_args__ = (
         UniqueConstraint(
-            "organization_id", "fingerprint",
+            "organization_id",
+            "fingerprint",
             name="uq_feature_schema_provenance_org_fingerprint",
         ),
     )
@@ -495,7 +497,7 @@ class DriftEvaluation(Base, TimestampMixin):
     evaluated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
     evaluated_by: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
 
-    model_version: Mapped["ModelVersion"] = relationship(back_populates="drift_evaluations")
+    model_version: Mapped[ModelVersion] = relationship(back_populates="drift_evaluations")
 
 
 class Prediction(Base, TimestampMixin):
@@ -528,9 +530,7 @@ class Recommendation(Base, TimestampMixin):
     organization_id: Mapped[int] = mapped_column(
         ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    student_id: Mapped[int] = mapped_column(
-        ForeignKey("students.id", ondelete="CASCADE"), nullable=False, index=True
-    )
+    student_id: Mapped[int] = mapped_column(ForeignKey("students.id", ondelete="CASCADE"), nullable=False, index=True)
     recommendation_type: Mapped[str] = mapped_column(String(64), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     generated_by: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)  # rule-based|model_version_id|...
@@ -564,9 +564,7 @@ class Consultation(Base, TimestampMixin):
 # ---------------------------------------------------------------------------
 class RagDocument(Base, TimestampMixin):
     __tablename__ = "rag_documents"
-    __table_args__ = (
-        UniqueConstraint("organization_id", "document_id", name="uq_rag_documents_org_docid"),
-    )
+    __table_args__ = (UniqueConstraint("organization_id", "document_id", name="uq_rag_documents_org_docid"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     organization_id: Mapped[int] = mapped_column(
@@ -574,11 +572,11 @@ class RagDocument(Base, TimestampMixin):
     )
     document_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
-    course_id: Mapped[Optional[int]] = mapped_column(
-        ForeignKey("courses.id", ondelete="SET NULL"), nullable=True
-    )
+    course_id: Mapped[Optional[int]] = mapped_column(ForeignKey("courses.id", ondelete="SET NULL"), nullable=True)
     course_code: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
-    source_type: Mapped[str] = mapped_column(String(64), nullable=False)  # COURSE_MATERIAL|DEMO|... (see source_classification.py)
+    source_type: Mapped[str] = mapped_column(
+        String(64), nullable=False
+    )  # COURSE_MATERIAL|DEMO|... (see source_classification.py)
     namespace: Mapped[str] = mapped_column(String(64), nullable=False, default="student_learning")
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     is_current: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
@@ -598,7 +596,7 @@ class RagDocument(Base, TimestampMixin):
     effective_from: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    chunks: Mapped[list["RagChunk"]] = relationship(back_populates="document", cascade="all, delete-orphan")
+    chunks: Mapped[list[RagChunk]] = relationship(back_populates="document", cascade="all, delete-orphan")
 
 
 class RagChunk(Base, TimestampMixin):
@@ -609,9 +607,7 @@ class RagChunk(Base, TimestampMixin):
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    document_id: Mapped[int] = mapped_column(
-        ForeignKey("rag_documents.id", ondelete="CASCADE"), nullable=False
-    )
+    document_id: Mapped[int] = mapped_column(ForeignKey("rag_documents.id", ondelete="CASCADE"), nullable=False)
     chunk_id: Mapped[str] = mapped_column(String(128), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     # pgvector column — only usable against real PostgreSQL + the pgvector extension.
@@ -625,7 +621,7 @@ class RagChunk(Base, TimestampMixin):
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     embedding_model: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
 
-    document: Mapped["RagDocument"] = relationship(back_populates="chunks")
+    document: Mapped[RagDocument] = relationship(back_populates="chunks")
 
 
 # ---------------------------------------------------------------------------
@@ -646,9 +642,7 @@ class AuditLog(Base):
     organization_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("organizations.id", ondelete="SET NULL"), nullable=True
     )
-    actor_user_id: Mapped[Optional[int]] = mapped_column(
-        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
-    )
+    actor_user_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     actor_username: Mapped[str] = mapped_column(String(128), nullable=False)  # denormalized: survives user deletion
     action: Mapped[str] = mapped_column(String(128), nullable=False)  # e.g. "user.role_changed", "model.promoted"
     target_type: Mapped[str] = mapped_column(String(64), nullable=False)  # e.g. "user", "model_version"
@@ -663,14 +657,10 @@ class ActivityLog(Base):
     history (distinct from AuditLog, which is the security trail)."""
 
     __tablename__ = "activity_logs"
-    __table_args__ = (
-        Index("ix_activity_logs_org_created", "organization_id", "created_at"),
-    )
+    __table_args__ = (Index("ix_activity_logs_org_created", "organization_id", "created_at"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    organization_id: Mapped[int] = mapped_column(
-        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
-    )
+    organization_id: Mapped[int] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
     user_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     action_type: Mapped[str] = mapped_column(String(128), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
@@ -691,9 +681,7 @@ class ActivityLog(Base):
 # ---------------------------------------------------------------------------
 class CmsLesson(Base, TimestampMixin):
     __tablename__ = "cms_lessons"
-    __table_args__ = (
-        UniqueConstraint("organization_id", "lesson_id", name="uq_cms_lessons_org_lesson_id"),
-    )
+    __table_args__ = (UniqueConstraint("organization_id", "lesson_id", name="uq_cms_lessons_org_lesson_id"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     organization_id: Mapped[int] = mapped_column(
@@ -715,7 +703,7 @@ class CmsLesson(Base, TimestampMixin):
     quiz_requires_approval: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     excluded_document_ids: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
 
-    versions: Mapped[list["CmsLessonVersion"]] = relationship(back_populates="lesson", cascade="all, delete-orphan")
+    versions: Mapped[list[CmsLessonVersion]] = relationship(back_populates="lesson", cascade="all, delete-orphan")
 
 
 class CmsLessonVersion(Base):
@@ -729,7 +717,7 @@ class CmsLessonVersion(Base):
     source_file: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     uploaded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
 
-    lesson: Mapped["CmsLesson"] = relationship(back_populates="versions")
+    lesson: Mapped[CmsLesson] = relationship(back_populates="versions")
 
 
 class CmsQuiz(Base, TimestampMixin):
@@ -762,14 +750,10 @@ class CmsStudentInteraction(Base):
     has_cms_content, misconception_label, quiz_correct)."""
 
     __tablename__ = "cms_student_interactions"
-    __table_args__ = (
-        Index("ix_cms_interactions_org_created", "organization_id", "created_at"),
-    )
+    __table_args__ = (Index("ix_cms_interactions_org_created", "organization_id", "created_at"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    organization_id: Mapped[int] = mapped_column(
-        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
-    )
+    organization_id: Mapped[int] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
     student_pseudonym: Mapped[str] = mapped_column(String(128), nullable=False)
     course_id: Mapped[str] = mapped_column(String(128), nullable=False)
     lesson_id: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
@@ -796,14 +780,10 @@ class AiTokenUsage(Base):
     rewritten to `user_<local-part>` before this repository ever sees them)."""
 
     __tablename__ = "ai_token_usage"
-    __table_args__ = (
-        Index("ix_ai_token_usage_org_timestamp", "organization_id", "timestamp"),
-    )
+    __table_args__ = (Index("ix_ai_token_usage_org_timestamp", "organization_id", "timestamp"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    organization_id: Mapped[int] = mapped_column(
-        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
-    )
+    organization_id: Mapped[int] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
     usage_id: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
     timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     user_id: Mapped[str] = mapped_column(String(128), nullable=False)
@@ -857,7 +837,7 @@ class LmsMappingProfile(Base, TimestampMixin):
     validation_status: Mapped[str] = mapped_column(String(32), nullable=False, default="UNVALIDATED")
     validated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    connector_configs: Mapped[list["LmsConnectorConfig"]] = relationship(back_populates="mapping_profile")
+    connector_configs: Mapped[list[LmsConnectorConfig]] = relationship(back_populates="mapping_profile")
 
 
 class LmsConnectorConfig(Base, TimestampMixin):
@@ -899,7 +879,7 @@ class LmsConnectorConfig(Base, TimestampMixin):
     configuration_status: Mapped[str] = mapped_column(String(32), nullable=False, default="DRAFT")
     # DRAFT -> (test connection + mapping valid) -> VALID, or INVALID on failure.
 
-    mapping_profile: Mapped[Optional["LmsMappingProfile"]] = relationship(back_populates="connector_configs")
+    mapping_profile: Mapped[Optional[LmsMappingProfile]] = relationship(back_populates="connector_configs")
 
 
 # ---------------------------------------------------------------------------
@@ -908,15 +888,21 @@ class LmsConnectorConfig(Base, TimestampMixin):
 class OrganizationConfig(Base, TimestampMixin):
     __tablename__ = "organization_configs"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    organization_id: Mapped[int] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, unique=True)
+    organization_id: Mapped[int] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, unique=True
+    )
     settings: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
 
 
 class IntegrationSyncState(Base, TimestampMixin):
     __tablename__ = "integration_sync_states"
-    __table_args__ = (UniqueConstraint("organization_id", "source", "resource", name="uq_sync_state_org_source_resource"),)
+    __table_args__ = (
+        UniqueConstraint("organization_id", "source", "resource", name="uq_sync_state_org_source_resource"),
+    )
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    organization_id: Mapped[int] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    organization_id: Mapped[int] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     source: Mapped[str] = mapped_column(String(128), nullable=False)
     resource: Mapped[str] = mapped_column(String(64), nullable=False)
     cursor: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
@@ -950,7 +936,9 @@ class CmsContent(Base, TimestampMixin):
     __tablename__ = "cms_content"
     __table_args__ = (UniqueConstraint("organization_id", "external_id", name="uq_cms_content_org_external"),)
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    organization_id: Mapped[int] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    organization_id: Mapped[int] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     external_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
     course_external_id: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -966,9 +954,13 @@ class CmsContent(Base, TimestampMixin):
 
 class QuotaUsage(Base, TimestampMixin):
     __tablename__ = "quota_usage"
-    __table_args__ = (UniqueConstraint("organization_id", "quota_key", "period_key", name="uq_quota_usage_org_key_period"),)
+    __table_args__ = (
+        UniqueConstraint("organization_id", "quota_key", "period_key", name="uq_quota_usage_org_key_period"),
+    )
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    organization_id: Mapped[int] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    organization_id: Mapped[int] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     quota_key: Mapped[str] = mapped_column(String(64), nullable=False)
     period_key: Mapped[str] = mapped_column(String(32), nullable=False)
     used: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

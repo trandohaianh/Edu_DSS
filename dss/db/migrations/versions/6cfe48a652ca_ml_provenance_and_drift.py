@@ -12,8 +12,9 @@ dss/core/warehouse.py::save_model_training).
 Revision ID: 6cfe48a652ca
 Revises: a14b15c16d17
 """
-from alembic import op
+
 import sqlalchemy as sa
+from alembic import op
 
 revision = "6cfe48a652ca"
 down_revision = "a14b15c16d17"
@@ -30,7 +31,9 @@ NEW_TENANT_TABLES = ("dataset_provenance", "feature_schema_provenance", "drift_e
 def _tenant_columns(*extra):
     return [
         sa.Column("id", sa.Integer(), primary_key=True),
-        sa.Column("organization_id", sa.Integer(), sa.ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "organization_id", sa.Integer(), sa.ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+        ),
         *extra,
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
@@ -57,7 +60,9 @@ def upgrade():
             sa.Column("ingestion_at", sa.DateTime(timezone=True)),
         ),
         sa.UniqueConstraint(
-            "organization_id", "dataset_id", "dataset_fingerprint",
+            "organization_id",
+            "dataset_id",
+            "dataset_fingerprint",
             name="uq_dataset_provenance_org_dataset_fingerprint",
         ),
     )
@@ -75,7 +80,8 @@ def upgrade():
             sa.Column("preprocessing_expectations", sa.JSON()),
         ),
         sa.UniqueConstraint(
-            "organization_id", "fingerprint",
+            "organization_id",
+            "fingerprint",
             name="uq_feature_schema_provenance_org_fingerprint",
         ),
     )
@@ -84,9 +90,15 @@ def upgrade():
     op.create_table(
         "drift_evaluations",
         *_tenant_columns(
-            sa.Column("model_version_id", sa.Integer(), sa.ForeignKey("model_versions.id", ondelete="CASCADE"), nullable=False),
+            sa.Column(
+                "model_version_id", sa.Integer(), sa.ForeignKey("model_versions.id", ondelete="CASCADE"), nullable=False
+            ),
             sa.Column("evaluation_type", sa.String(32), nullable=False),
-            sa.Column("baseline_dataset_provenance_id", sa.Integer(), sa.ForeignKey("dataset_provenance.id", ondelete="SET NULL")),
+            sa.Column(
+                "baseline_dataset_provenance_id",
+                sa.Integer(),
+                sa.ForeignKey("dataset_provenance.id", ondelete="SET NULL"),
+            ),
             sa.Column("current_window_description", sa.JSON()),
             sa.Column("thresholds_used", sa.JSON(), nullable=False),
             sa.Column("overall_status", sa.String(40), nullable=False),
@@ -102,39 +114,58 @@ def upgrade():
         op.create_index(f"ix_{table}_organization_id", table, ["organization_id"])
         op.execute(sa.text(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY"))
         op.execute(sa.text(f"ALTER TABLE {table} FORCE ROW LEVEL SECURITY"))
-        op.execute(sa.text(
-            f"CREATE POLICY tenant_isolation ON {table} "
-            f"USING (organization_id = NULLIF(current_setting('app.organization_id', true), '')::integer) "
-            f"WITH CHECK (organization_id = NULLIF(current_setting('app.organization_id', true), '')::integer)"
-        ))
+        op.execute(
+            sa.text(
+                f"CREATE POLICY tenant_isolation ON {table} "
+                f"USING (organization_id = NULLIF(current_setting('app.organization_id', true), '')::integer) "
+                f"WITH CHECK (organization_id = NULLIF(current_setting('app.organization_id', true), '')::integer)"
+            )
+        )
 
     # Extend model_versions — all nullable, no backfill required, no
     # behavior change for existing rows or the non-Postgres default path.
     op.add_column("model_versions", sa.Column("algorithm", sa.String(128)))
     op.add_column("model_versions", sa.Column("artifact_checksum_sha256", sa.String(64)))
-    op.add_column("model_versions", sa.Column(
-        "dataset_provenance_id", sa.Integer(),
-        sa.ForeignKey("dataset_provenance.id", ondelete="SET NULL"),
-    ))
-    op.add_column("model_versions", sa.Column(
-        "feature_schema_provenance_id", sa.Integer(),
-        sa.ForeignKey("feature_schema_provenance.id", ondelete="SET NULL"),
-    ))
+    op.add_column(
+        "model_versions",
+        sa.Column(
+            "dataset_provenance_id",
+            sa.Integer(),
+            sa.ForeignKey("dataset_provenance.id", ondelete="SET NULL"),
+        ),
+    )
+    op.add_column(
+        "model_versions",
+        sa.Column(
+            "feature_schema_provenance_id",
+            sa.Integer(),
+            sa.ForeignKey("feature_schema_provenance.id", ondelete="SET NULL"),
+        ),
+    )
     op.add_column("model_versions", sa.Column("hyperparameters", sa.JSON()))
     op.add_column("model_versions", sa.Column("code_commit", sa.String(64)))
     op.add_column("model_versions", sa.Column("python_version", sa.String(32)))
     op.add_column("model_versions", sa.Column("library_versions", sa.JSON()))
     op.add_column("model_versions", sa.Column("created_by", sa.String(128)))
     op.create_index("ix_model_versions_dataset_provenance_id", "model_versions", ["dataset_provenance_id"])
-    op.create_index("ix_model_versions_feature_schema_provenance_id", "model_versions", ["feature_schema_provenance_id"])
+    op.create_index(
+        "ix_model_versions_feature_schema_provenance_id", "model_versions", ["feature_schema_provenance_id"]
+    )
 
 
 def downgrade():
     op.drop_index("ix_model_versions_feature_schema_provenance_id", table_name="model_versions")
     op.drop_index("ix_model_versions_dataset_provenance_id", table_name="model_versions")
     for col in (
-        "created_by", "library_versions", "python_version", "code_commit", "hyperparameters",
-        "feature_schema_provenance_id", "dataset_provenance_id", "artifact_checksum_sha256", "algorithm",
+        "created_by",
+        "library_versions",
+        "python_version",
+        "code_commit",
+        "hyperparameters",
+        "feature_schema_provenance_id",
+        "dataset_provenance_id",
+        "artifact_checksum_sha256",
+        "algorithm",
     ):
         op.drop_column("model_versions", col)
 

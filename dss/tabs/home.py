@@ -1,16 +1,17 @@
 """Trang chủ theo vai trò (Admin / Giảng viên / Sinh viên)."""
+
 from dss.config import *  # noqa: F403
 from dss.core.data_helpers import feature_label
-from dss.core.roles import ALL_TABS, HOME_TAB_LABEL, filter_tabs_for_role
-from dss.services.model_service import (
-    resolve_production_for_prediction,
-    compute_shap_local_explanation,
-    compute_lecturer_dashboard_overview,
-)
-from dss.services import llm_service
-from dss.tabs import ui_kit
 from dss.core.logging_config import get_logger
+from dss.core.roles import ALL_TABS, HOME_TAB_LABEL, filter_tabs_for_role
 from dss.core.target_utils import is_id_like
+from dss.services import llm_service
+from dss.services.model_service import (
+    compute_lecturer_dashboard_overview,
+    compute_shap_local_explanation,
+    resolve_production_for_prediction,
+)
+from dss.tabs import ui_kit
 
 _logger = get_logger(__name__)
 
@@ -95,7 +96,9 @@ def render_lecturer_home(wh, df=None):
     overview = None
     if gpa_col_name:
         try:
-            overview = compute_lecturer_dashboard_overview(df, wh, st.session_state.get("current_dataset_id"), gpa_col_name)
+            overview = compute_lecturer_dashboard_overview(
+                df, wh, st.session_state.get("current_dataset_id"), gpa_col_name
+            )
         except Exception:
             _logger.exception("Không tính được tổng quan lớp học (Trang chủ Giảng viên).")
             overview = {"status": "error", "message": "Không thể tính tổng quan lớp học."}
@@ -111,13 +114,20 @@ def render_lecturer_home(wh, df=None):
         [
             ("", "blue", "Sinh viên trong dữ liệu", f"{len(df):,}", "Toàn bộ bộ dữ liệu đang chọn"),
             (
-                "", "red" if n_high_risk else "neutral", "Sinh viên cần chú ý",
+                "",
+                "red" if n_high_risk else "neutral",
+                "Sinh viên cần chú ý",
                 n_high_risk if n_high_risk is not None else "—",
-                (f"{n_high_risk / len(df):.1%} tổng số · {ui_kit.RISK_RELATIVE_CAPTION}"
-                 if n_high_risk is not None and len(df) else "Chưa có mô hình dự đoán"),
+                (
+                    f"{n_high_risk / len(df):.1%} tổng số · {ui_kit.RISK_RELATIVE_CAPTION}"
+                    if n_high_risk is not None and len(df)
+                    else "Chưa có mô hình dự đoán"
+                ),
             ),
             (
-                "", "green", "Điểm trung bình dự đoán",
+                "",
+                "green",
+                "Điểm trung bình dự đoán",
                 f"{avg_predicted:.2f}" if avg_predicted is not None else "—",
                 "Theo mô hình đang dùng (Production)",
             ),
@@ -172,7 +182,9 @@ def render_lecturer_home(wh, df=None):
             elif _has_overview:
                 _insight_text = "Không có sinh viên nào ở nhóm rủi ro cao trong lớp này."
             else:
-                _insight_text = "Chưa có mô hình Production để phân tích rủi ro lớp học — huấn luyện mô hình để xem gợi ý tại đây."
+                _insight_text = (
+                    "Chưa có mô hình Production để phân tích rủi ro lớp học — huấn luyện mô hình để xem gợi ý tại đây."
+                )
             st.markdown(f"<p class='dss-muted' style='margin:0 0 12px;'>{_insight_text}</p>", unsafe_allow_html=True)
             if "📊 Dashboard" in filter_tabs_for_role(ALL_TABS, "Giảng viên / CVHT"):
                 if st.button("Mở Dashboard", key="lect_home_open_dashboard", type="primary", width="stretch"):
@@ -189,11 +201,15 @@ def _next_actions_for_student(student_row, negatives, df):
     (yếu tố đóng góp âm lớn nhất, tỷ lệ điểm danh), không bịa hạn chót/khoá học."""
     actions = []
     for name, _value in (negatives or [])[:2]:
-        actions.append((f"Cải thiện: {feature_label(name)}", "Yếu tố này đang kéo điểm dự báo của bạn xuống nhiều nhất."))
+        actions.append(
+            (f"Cải thiện: {feature_label(name)}", "Yếu tố này đang kéo điểm dự báo của bạn xuống nhiều nhất.")
+        )
     attendance = student_row.get("ty_le_diem_danh") if "ty_le_diem_danh" in df.columns else None
     try:
         if attendance is not None and float(attendance) < 0.8:
-            actions.append(("Tăng tỷ lệ điểm danh", f"Hiện tại {float(attendance) * 100:.0f}% — nên duy trì từ 80% trở lên."))
+            actions.append(
+                ("Tăng tỷ lệ điểm danh", f"Hiện tại {float(attendance) * 100:.0f}% — nên duy trì từ 80% trở lên.")
+            )
     except (TypeError, ValueError):
         pass
     return actions
@@ -265,6 +281,7 @@ def _render_student_home_dashboard(wh, current_student_id, df=None, llm_integrat
     if gpa_col:
         try:
             from dss.services.model_service import student_risk_profile
+
             _risk_info = student_risk_profile(wh, dataset_id, gpa_col, df, student_row)
             risk_level = _risk_info.get("risk_level")
             risk_basis = _risk_info.get("source")
@@ -272,7 +289,9 @@ def _render_student_home_dashboard(wh, current_student_id, df=None, llm_integrat
             _logger.exception("Không tính được mức rủi ro cho Trang chủ Sinh viên.")
     if shap_val is not None:
         try:
-            pairs = sorted(zip(list(shap_val[0].feature_names), list(shap_val[0].values)), key=lambda p: p[1], reverse=True)
+            pairs = sorted(
+                zip(list(shap_val[0].feature_names), list(shap_val[0].values)), key=lambda p: p[1], reverse=True
+            )
             positives = [p for p in pairs if p[1] > 0][:5]
             negatives = sorted([p for p in pairs if p[1] < 0], key=lambda p: p[1])[:5]
         except Exception:
@@ -284,8 +303,14 @@ def _render_student_home_dashboard(wh, current_student_id, df=None, llm_integrat
     _risk_kind = {"cao": "danger", "trung bình": "warning", "thấp": "success"}.get(risk_level, "neutral")
     _stats = []
     # Điểm HIỆN TẠI (không dùng cột mục tiêu của mô hình như "điểm kỳ sau").
-    _current_col = next((c for c in ("diem_ky_nay", "gpa_previous", "gpa", "score") if c in df.columns
-                         and c != gpa_col and pd.api.types.is_numeric_dtype(df[c])), None)
+    _current_col = next(
+        (
+            c
+            for c in ("diem_ky_nay", "gpa_previous", "gpa", "score")
+            if c in df.columns and c != gpa_col and pd.api.types.is_numeric_dtype(df[c])
+        ),
+        None,
+    )
     if _current_col is not None and pd.notna(student_row.get(_current_col)):
         _stats.append(("Điểm hiện tại", f"{float(student_row.get(_current_col)):.2f}"))
     if predicted_gpa is not None:
@@ -301,7 +326,11 @@ def _render_student_home_dashboard(wh, current_student_id, df=None, llm_integrat
         f"<span class='dss-avatar' aria-hidden='true'>{_sid_html[:2].upper()}</span>"
         f"<div style='min-width:0;'><div class='dss-summary-name'>{_sid_html}</div>"
         "<div class='dss-summary-meta'>Mức rủi ro: "
-        + (ui_kit.badge_html(risk_level.capitalize(), _risk_kind) if risk_level else ui_kit.status_html("unavailable", "Chưa xác định"))
+        + (
+            ui_kit.badge_html(risk_level.capitalize(), _risk_kind)
+            if risk_level
+            else ui_kit.status_html("unavailable", "Chưa xác định")
+        )
         + "</div></div></div>"
         + "".join(
             f"<div class='dss-summary-stat'><div class='dss-summary-stat-label'>{lbl}</div>"
@@ -312,8 +341,11 @@ def _render_student_home_dashboard(wh, current_student_id, df=None, llm_integrat
         unsafe_allow_html=True,
     )
     if risk_level:
-        _basis = ("Căn cứ: điểm dự báo của mô hình đang dùng." if risk_basis == "model"
-                  else "Căn cứ: điểm hiện tại (lớp chưa có mô hình dự đoán).")
+        _basis = (
+            "Căn cứ: điểm dự báo của mô hình đang dùng."
+            if risk_basis == "model"
+            else "Căn cứ: điểm hiện tại (lớp chưa có mô hình dự đoán)."
+        )
         st.caption(f"{_basis} {ui_kit.RELATIVE_RISK_DISCLAIMER}")
 
     col_left, col_center, col_right = st.columns([1, 1.2, 1], gap="medium")
@@ -325,17 +357,19 @@ def _render_student_home_dashboard(wh, current_student_id, df=None, llm_integrat
                 # Đồng hồ 1 màu (không chia vùng đỏ/vàng/xanh) — vì mức rủi ro là
                 # xếp hạng TƯƠNG ĐỐI trong lớp, không có ngưỡng tuyệt đối để tô màu.
                 _gauge_max = max(float(df[gpa_col].max()) * 1.05, predicted_gpa * 1.05, 1.0)
-                fig_gauge = go.Figure(go.Indicator(
-                    mode="gauge+number",
-                    value=predicted_gpa,
-                    number={"font": {"size": 34}, "valueformat": ".2f"},
-                    gauge={
-                        "axis": {"range": [0, _gauge_max]},
-                        "bar": {"color": _NEUTRAL_BAR},
-                        "bgcolor": "rgba(138,148,166,0.18)",
-                        "borderwidth": 0,
-                    },
-                ))
+                fig_gauge = go.Figure(
+                    go.Indicator(
+                        mode="gauge+number",
+                        value=predicted_gpa,
+                        number={"font": {"size": 34}, "valueformat": ".2f"},
+                        gauge={
+                            "axis": {"range": [0, _gauge_max]},
+                            "bar": {"color": _NEUTRAL_BAR},
+                            "bgcolor": "rgba(138,148,166,0.18)",
+                            "borderwidth": 0,
+                        },
+                    )
+                )
                 fig_gauge.update_layout(height=190, margin=dict(t=16, b=0, l=24, r=24))
                 st.plotly_chart(fig_gauge, width="stretch", key="student_dash_gauge", config={"displayModeBar": False})
                 ui_kit.render_badge(f"Rủi ro: {risk_level or '—'}", _risk_kind)
@@ -375,23 +409,37 @@ def _render_student_home_dashboard(wh, current_student_id, df=None, llm_integrat
                     ("Đang giúp điểm của bạn", positives, _POSITIVE_BAR, "+{:.2f}"),
                     ("Đang kéo điểm của bạn xuống", negatives, _NEGATIVE_BAR, "{:.2f}"),
                 ):
-                    st.markdown(f"<div class='dss-muted' style='font-weight:600;margin-top:8px;'>{_title}</div>", unsafe_allow_html=True)
+                    st.markdown(
+                        f"<div class='dss-muted' style='font-weight:600;margin-top:8px;'>{_title}</div>",
+                        unsafe_allow_html=True,
+                    )
                     if not _items:
                         st.caption("Không có yếu tố nổi bật.")
                         continue
                     _names = [feature_label(n) for n, _ in _items]
                     _vals = [v for _, v in _items]
-                    _fig = go.Figure(go.Bar(
-                        x=_vals, y=_names, orientation="h", marker_color=_color,
-                        text=[_fmt.format(v) for v in _vals], textposition="auto",
-                        hovertemplate="%{y}: %{x:.3f}<extra></extra>",
-                    ))
+                    _fig = go.Figure(
+                        go.Bar(
+                            x=_vals,
+                            y=_names,
+                            orientation="h",
+                            marker_color=_color,
+                            text=[_fmt.format(v) for v in _vals],
+                            textposition="auto",
+                            hovertemplate="%{y}: %{x:.3f}<extra></extra>",
+                        )
+                    )
                     _fig.update_layout(
-                        height=30 * len(_names) + 36, margin=dict(t=4, b=4, l=4, r=8),
-                        showlegend=False, xaxis_title=None, yaxis_title=None,
+                        height=30 * len(_names) + 36,
+                        margin=dict(t=4, b=4, l=4, r=8),
+                        showlegend=False,
+                        xaxis_title=None,
+                        yaxis_title=None,
                         yaxis=dict(autorange="reversed", automargin=True),
                     )
-                    st.plotly_chart(_fig, width="stretch", key=f"student_dash_factors_{_color}", config={"displayModeBar": False})
+                    st.plotly_chart(
+                        _fig, width="stretch", key=f"student_dash_factors_{_color}", config={"displayModeBar": False}
+                    )
             else:
                 ui_kit.empty_state(
                     "Chưa có phân tích yếu tố ảnh hưởng.",
@@ -459,12 +507,14 @@ def _render_student_home_dashboard(wh, current_student_id, df=None, llm_integrat
                 else:
                     _weakest = negatives[0][0] if negatives else None
                     from dss.services.privacy_service import build_quick_question_prompt
+
                     _context = build_quick_question_prompt(risk_level, predicted_gpa, _weakest, _quick_q)
                     _kwargs = {"model_name": _auto["model_name"]}
                     if _auto["provider_key"] in ("gemini", "groq", "openai"):
                         _kwargs["api_key"] = _auto["api_key"]
                     elif _auto["provider_key"] == "ollama":
                         from dss.core.models import ollama_base_url
+
                         _kwargs["base_url"] = ollama_base_url()
                     elif _auto["provider_key"] == "huggingface":
                         _kwargs["hf_token"] = _auto["api_key"]
@@ -472,6 +522,7 @@ def _render_student_home_dashboard(wh, current_student_id, df=None, llm_integrat
                         try:
                             from dss.services.llm_gateway import LLMGateway
                             from dss.services.privacy_service import privacy_service
+
                             _gw = LLMGateway(llm_integration)
                             _stream = _gw.stream_generate(
                                 prompt=_context,

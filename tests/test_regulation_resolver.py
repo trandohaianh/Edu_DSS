@@ -4,6 +4,7 @@ NOT_IMPLEMENTED — không có mô hình University→Program→Cohort→Regulat
 Version, không có `resolve_regulation()`. Test dưới đây đúng theo yêu cầu
 Phần 9: đúng trường, đúng ngành, đúng khóa, đúng thời gian, expired version,
 future version, missing version, cross-tenant."""
+
 from __future__ import annotations
 
 from dss.services.regulation_resolver import RegulationVersion, resolve_regulation
@@ -36,7 +37,11 @@ def test_resolves_correct_org_program_cohort():
         _reg(regulation_id="wrong_cohort", cohort="k2023"),
     ]
     result = resolve_regulation(
-        [target] + noise, organization_id="uni_a", program_id="cntt", cohort="k2022", at_date="2023-01-01",
+        [target] + noise,
+        organization_id="uni_a",
+        program_id="cntt",
+        cohort="k2022",
+        at_date="2023-01-01",
     )
     assert result.status == "ok"
     assert result.regulation.regulation_id == "target"
@@ -79,7 +84,11 @@ def test_cross_tenant_regulation_never_leaks():
     tuyệt đối) TUYỆT ĐỐI không được trả về khi resolve cho uni_a."""
     other_tenant_reg = _reg(regulation_id="uni_b_reg", organization_id="uni_b")
     result = resolve_regulation(
-        [other_tenant_reg], organization_id="uni_a", program_id="cntt", cohort="k2022", at_date="2023-01-01",
+        [other_tenant_reg],
+        organization_id="uni_a",
+        program_id="cntt",
+        cohort="k2022",
+        at_date="2023-01-01",
     )
     assert result.status == "NOT_FOUND"
     assert result.regulation is None
@@ -105,7 +114,9 @@ def test_retired_regulation_not_applied():
 def test_multiple_matching_versions_picks_highest_version():
     v1 = _reg(regulation_id="v1", version=1, effective_from="2020-01-01")
     v2 = _reg(regulation_id="v2", version=2, effective_from="2020-01-01")
-    result = resolve_regulation([v1, v2], organization_id="uni_a", program_id="cntt", cohort="k2022", at_date="2023-01-01")
+    result = resolve_regulation(
+        [v1, v2], organization_id="uni_a", program_id="cntt", cohort="k2022", at_date="2023-01-01"
+    )
     assert result.status == "ok"
     assert result.regulation.regulation_id == "v2"
 

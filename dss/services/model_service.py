@@ -16,6 +16,7 @@ phạm phân lớp (core phụ thuộc ngược vào UI layer) đã bị phát h
 đánh giá kiến trúc. Giờ `auto_bootstrap.py` import từ đây (`services/`), đúng
 hướng phụ thuộc: UI -> services -> core.
 """
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -23,6 +24,7 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 import streamlit as st
+
 from dss.core.target_utils import is_id_like
 
 
@@ -111,9 +113,7 @@ def run_training(df, config, classification_trainer, regression_trainer, wh):
     scaler_type = config["scaler_type"]
     split_strategy = config.get("split_strategy", "random")
     time_col = config.get("time_col", None)
-    data_source_type = config.get(
-        "data_source_type", getattr(df, "attrs", {}).get("data_source_type", "synthetic")
-    )
+    data_source_type = config.get("data_source_type", getattr(df, "attrs", {}).get("data_source_type", "synthetic"))
     dataset_id = st.session_state.get("current_dataset_id", "unknown")
 
     # Lưu ý: KHÔNG tự chia train/test ở đây. Trước đây hàm này tự chia một lần độc lập với
@@ -123,30 +123,26 @@ def run_training(df, config, classification_trainer, regression_trainer, wh):
     # "Thực tế vs Dự đoán"/Confusion Matrix ở BƯỚC 6 so sánh sai lệch dữ liệu. Nay dùng đúng
     # tập test (và tập train thực sự đã fit) do chính trainer trả về.
     if problem_type == "Phân loại (Classification)":
-        balance_method_to_use = (
-            balance_method_val
-            if problem_type == "Phân loại (Classification)"
-            else "none"
-        )
-        results, pipelines, labels, trained_feats, X_test, y_test, X_train_used = classification_trainer.train_and_evaluate(
-            df,
-            selected_features,
-            target_col,
-            models_to_run,
-            training_strategy=config.get(
-                "training_strategy", "So sánh nhiều mô hình (Compare)"
-            ),
-            balance_method=balance_method_to_use,
-            fs_method=fs_method,
-            k_features=k_features,
-            test_size=test_size_val,
-            cv_folds=cv_folds_val,
-            save_model=False,
-            split_strategy=split_strategy,
-            time_col=time_col,
-            data_source_type=data_source_type,
-            _warehouse=wh,
-            _dataset_id=dataset_id,
+        balance_method_to_use = balance_method_val if problem_type == "Phân loại (Classification)" else "none"
+        results, pipelines, labels, trained_feats, X_test, y_test, X_train_used = (
+            classification_trainer.train_and_evaluate(
+                df,
+                selected_features,
+                target_col,
+                models_to_run,
+                training_strategy=config.get("training_strategy", "So sánh nhiều mô hình (Compare)"),
+                balance_method=balance_method_to_use,
+                fs_method=fs_method,
+                k_features=k_features,
+                test_size=test_size_val,
+                cv_folds=cv_folds_val,
+                save_model=False,
+                split_strategy=split_strategy,
+                time_col=time_col,
+                data_source_type=data_source_type,
+                _warehouse=wh,
+                _dataset_id=dataset_id,
+            )
         )
         st.session_state.hub_results = results
         st.session_state.hub_pipelines = pipelines
@@ -154,26 +150,26 @@ def run_training(df, config, classification_trainer, regression_trainer, wh):
         st.session_state.hub_feats = trained_feats
         st.session_state.hub_type = "clf"
     else:
-        results, pipelines, eval_frames, trained_feats, X_test, y_test, X_train_used = regression_trainer.train_and_evaluate(
-            df,
-            selected_features,
-            target_col,
-            models_to_run,
-            training_strategy=config.get(
-                "training_strategy", "So sánh nhiều mô hình (Compare)"
-            ),
-            fs_method=fs_method,
-            k_features=k_features,
-            test_size=test_size_val,
-            cv_folds=cv_folds_val,
-            save_model=False,
-            outlier_method=outlier_method,
-            scaler_type=scaler_type,
-            split_strategy=split_strategy,
-            time_col=time_col,
-            data_source_type=data_source_type,
-            _warehouse=wh,
-            _dataset_id=dataset_id,
+        results, pipelines, eval_frames, trained_feats, X_test, y_test, X_train_used = (
+            regression_trainer.train_and_evaluate(
+                df,
+                selected_features,
+                target_col,
+                models_to_run,
+                training_strategy=config.get("training_strategy", "So sánh nhiều mô hình (Compare)"),
+                fs_method=fs_method,
+                k_features=k_features,
+                test_size=test_size_val,
+                cv_folds=cv_folds_val,
+                save_model=False,
+                outlier_method=outlier_method,
+                scaler_type=scaler_type,
+                split_strategy=split_strategy,
+                time_col=time_col,
+                data_source_type=data_source_type,
+                _warehouse=wh,
+                _dataset_id=dataset_id,
+            )
         )
         st.session_state.hub_results = results
         st.session_state.hub_pipelines = pipelines
@@ -231,6 +227,7 @@ def save_session_candidates(wh, selected_features):
             saved += 1
         except Exception as e:
             from dss.core.logging_config import get_logger
+
             get_logger(__name__).warning("Không lưu được candidate '%s': %s", name, e)
     st.session_state._hub_autosaved_run_id = run_id
     st.session_state.hub_saved_candidate_count = saved
@@ -275,9 +272,10 @@ def run_preview_benchmark(df, selected_features, target_col, problem_type):
       (thay vì pd.get_dummies toàn bộ dataset trước CV).
     """
     from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
-    from sklearn.preprocessing import LabelEncoder
-    from sklearn.pipeline import Pipeline
     from sklearn.model_selection import cross_val_score
+    from sklearn.pipeline import Pipeline
+    from sklearn.preprocessing import LabelEncoder
+
     from dss.config import _make_safe_cv_strategy
     from dss.core.data_helpers import create_shared_preprocessor
 
@@ -310,17 +308,23 @@ def run_preview_benchmark(df, selected_features, target_col, problem_type):
         "mean": float(scores.mean()),
         "std": float(scores.std()),
         "evaluation_type": "exploratory_only",
-        "description": "Exploratory preview benchmark only - not for production claims"
+        "description": "Exploratory preview benchmark only - not for production claims",
     }
 
 
 _SHAP_TREE_MODEL_NAMES = {
-    'RandomForestClassifier', 'RandomForestRegressor',
-    'GradientBoostingClassifier', 'GradientBoostingRegressor',
-    'XGBClassifier', 'XGBRegressor',
-    'LGBMClassifier', 'LGBMRegressor',
-    'DecisionTreeClassifier', 'DecisionTreeRegressor',
-    'ExtraTreesClassifier', 'ExtraTreesRegressor',
+    'RandomForestClassifier',
+    'RandomForestRegressor',
+    'GradientBoostingClassifier',
+    'GradientBoostingRegressor',
+    'XGBClassifier',
+    'XGBRegressor',
+    'LGBMClassifier',
+    'LGBMRegressor',
+    'DecisionTreeClassifier',
+    'DecisionTreeRegressor',
+    'ExtraTreesClassifier',
+    'ExtraTreesRegressor',
 }
 
 
@@ -352,7 +356,8 @@ def _shap_input_transformer(pipeline):
     from sklearn.pipeline import Pipeline as _SkPipeline
 
     steps = [
-        (name, step) for name, step in pipeline.steps[:-1]
+        (name, step)
+        for name, step in pipeline.steps[:-1]
         if step is not None and step != "passthrough" and not hasattr(step, "fit_resample")
     ]
     if len(steps) == 1:
@@ -428,12 +433,12 @@ def compute_shap_local_explanation(pipeline, input_df, background_data, feature_
 
         return shap_val, None
     except Exception as e:
-        return None, f"Không thể tính SHAP cho mô hình này: {str(e)}"
+        return None, f"Không thể tính SHAP cho mô hình này: {e!s}"
 
 
 def compute_shap_summary(pipeline, background_data, feature_names, problem_type="classification", class_idx=None):
     """Tính SHAP values toàn cục (summary/beeswarm).
-    
+
     HỖ TRỢ ĐA LỚP (MULTI-CLASS SUPPORT):
     - Không mặc định luôn lấy class 1.
     - Cho phép chọn class cụ thể qua `class_idx`.
@@ -479,6 +484,7 @@ def compute_shap_summary(pipeline, background_data, feature_names, problem_type=
                 # Tổng hợp trung bình độ lớn tuyệt đối ảnh hưởng của từng feature
                 try:
                     import copy
+
                     shap_val = copy.deepcopy(shap_values[:, :, 0])
                     shap_val.values = np.abs(shap_values.values).mean(axis=-1)
                     if hasattr(shap_values, 'base_values') and shap_values.base_values is not None:
@@ -495,7 +501,7 @@ def compute_shap_summary(pipeline, background_data, feature_names, problem_type=
 
         return shap_val, None
     except Exception as e:
-        return None, f"Không thể tính SHAP cho mô hình này: {str(e)}"
+        return None, f"Không thể tính SHAP cho mô hình này: {e!s}"
 
 
 def model_lifecycle_badge_text(model: dict) -> str:
@@ -630,10 +636,7 @@ def describe_prediction_model(resolved) -> str:
             "**chưa được Admin duyệt lên Production** (chỉ Giảng viên thấy; Sinh viên/Dashboard "
             "vẫn chờ bản Production)."
         )
-    return (
-        f"Mô hình đang dùng (Production — Model Registry): **{resolved['model_name']}** "
-        f"(v{resolved['version']})."
-    )
+    return f"Mô hình đang dùng (Production — Model Registry): **{resolved['model_name']}** (v{resolved['version']})."
 
 
 def compute_lecturer_dashboard_overview(df, wh, dataset_id, target_col, gpa_reference_col=None):
@@ -818,15 +821,12 @@ def predict_for_student(wh, dataset_id, target_col, student_row):
     # Không có bản Production hồi quy dùng được -> dùng điểm HIỆN TẠI làm căn cứ
     # tạm (KHÔNG BAO GIỜ dùng target_col thật, kể cả khi nó có mặt trong dữ liệu).
     from dss.core.target_utils import get_leaky_target_columns
+
     forbidden = {str(c).lower() for c in get_leaky_target_columns(target_col)}
     forbidden.add(str(target_col).lower())
     observed_col = None
     for cand in ("diem_ky_nay", "gpa_previous", "prior_gpa"):
-        if (
-            cand in student_row.index
-            and cand.lower() not in forbidden
-            and pd.notna(student_row.get(cand))
-        ):
+        if cand in student_row.index and cand.lower() not in forbidden and pd.notna(student_row.get(cand)):
             observed_col = cand
             break
     if observed_col is None:
@@ -893,10 +893,14 @@ def get_production_feature_importance(pipeline, feature_cols, top_n=8):
         if preprocessor is not None:
             names = _resolve_shap_feature_names(preprocessor, feature_cols, len(importances))
         else:
-            names = list(feature_cols) if len(feature_cols) == len(importances) else [f"Feature {i}" for i in range(len(importances))]
-        _df = pd.DataFrame(
-            {"Feature": names, "Importance (%)": (np.asarray(importances) * 100).round(2)}
-        ).sort_values("Importance (%)", ascending=False)
+            names = (
+                list(feature_cols)
+                if len(feature_cols) == len(importances)
+                else [f"Feature {i}" for i in range(len(importances))]
+            )
+        _df = pd.DataFrame({"Feature": names, "Importance (%)": (np.asarray(importances) * 100).round(2)}).sort_values(
+            "Importance (%)", ascending=False
+        )
         return _df.head(top_n)
     except Exception:
         return pd.DataFrame(columns=["Feature", "Importance (%)"])
@@ -965,7 +969,9 @@ def build_metrics_dataframe(results, hub_type):
             if np.isnan(f1_macro) and isinstance(macro_avg, dict):
                 f1_macro = safe_metric_value(macro_avg.get("f1-score"))
 
-            precision_val = safe_metric_value(m.get("Precision (Macro)", m.get("Precision (Weighted)", m.get("Precision"))))
+            precision_val = safe_metric_value(
+                m.get("Precision (Macro)", m.get("Precision (Weighted)", m.get("Precision")))
+            )
             recall_val = safe_metric_value(m.get("Recall (Macro)", m.get("Recall (Weighted)", m.get("Recall"))))
 
             # Fallback: lấy từ classification_report
@@ -1102,11 +1108,7 @@ def update_hub_benchmark_and_build_comparison(results, hub_type, target_col):
     previous = None
     if isinstance(history, list):
         for item in reversed(history):
-            if (
-                isinstance(item, dict)
-                and item.get("target_col") == target_col
-                and item.get("hub_type") == hub_type
-            ):
+            if isinstance(item, dict) and item.get("target_col") == target_col and item.get("hub_type") == hub_type:
                 previous = item
                 break
     else:
@@ -1183,9 +1185,7 @@ def assoc_strength(a: pd.Series, b: pd.Series) -> float:
         ss_total = ((tmp["num"] - overall_mean) ** 2).sum()
         if ss_total == 0:
             return 0.0
-        ss_between = tmp.groupby("cat")["num"].apply(
-            lambda g: len(g) * (g.mean() - overall_mean) ** 2
-        ).sum()
+        ss_between = tmp.groupby("cat")["num"].apply(lambda g: len(g) * (g.mean() - overall_mean) ** 2).sum()
         return float(min(1.0, max(0.0, ss_between / ss_total)) ** 0.5)
     # cả 2 đều categorical -> Cramér's V (chi-square)
     tmp = pd.DataFrame({"a": a, "b": b}).dropna()
@@ -1193,6 +1193,7 @@ def assoc_strength(a: pd.Series, b: pd.Series) -> float:
         return 0.0
     try:
         from scipy.stats import chi2_contingency
+
         ct = pd.crosstab(tmp["a"], tmp["b"])
         chi2 = chi2_contingency(ct)[0]
         n = ct.to_numpy().sum()
@@ -1203,14 +1204,12 @@ def assoc_strength(a: pd.Series, b: pd.Series) -> float:
         return 0.0
 
 
-def find_leaky_feature_cols(
-    df: pd.DataFrame, target_col: str, id_cols: list, threshold: float = 0.95
-) -> list:
+def find_leaky_feature_cols(df: pd.DataFrame, target_col: str, id_cols: list, threshold: float = 0.95) -> list:
     """Tìm các cột gắn kết gần như tuyệt đối với Target hoặc là alias/derived target (rò rỉ dữ liệu),
     nhưng KHÔNG loại bỏ các feature dự báo hợp lệ như `diem_ky_nay`."""
     if target_col not in df.columns:
         return []
-    from dss.core.target_utils import get_leaky_target_columns, LEGITIMATE_PREDICTORS
+    from dss.core.target_utils import LEGITIMATE_PREDICTORS, get_leaky_target_columns
 
     leaky_cols = set()
 
@@ -1230,10 +1229,7 @@ def find_leaky_feature_cols(
                 # Không bao giờ lọc các biến dự báo hợp lệ (như diem_ky_nay)
                 continue
             col_series = df[col]
-            if (
-                not pd.api.types.is_numeric_dtype(col_series)
-                and col_series.nunique(dropna=True) > 50
-            ):
+            if not pd.api.types.is_numeric_dtype(col_series) and col_series.nunique(dropna=True) > 50:
                 continue  # cột text tự do — bỏ qua
             if assoc_strength(target_series, col_series) >= threshold:
                 leaky_cols.add(col)
@@ -1251,9 +1247,7 @@ def training_target_change_handler(key_prefix: str, all_cols: list) -> None:
     st.session_state.target_corr_select = val
     st.session_state.target_imp_select = val
     av = [c for c in all_cols if c != val]
-    id_cols = [
-        c for c in all_cols if is_id_like(c) or "name" in str(c).lower()
-    ]
+    id_cols = [c for c in all_cols if is_id_like(c) or "name" in str(c).lower()]
     leaky_cols = []
     _cur_df = st.session_state.get("current_df")
     if isinstance(_cur_df, pd.DataFrame) and val in _cur_df.columns:
@@ -1262,12 +1256,8 @@ def training_target_change_handler(key_prefix: str, all_cols: list) -> None:
         from dss.core.target_utils import get_leaky_target_columns
 
         leaky_cols = list(get_leaky_target_columns(val))
-    exclude_cols = set(
-        id_cols + ["grade", "pass_fail", "status", "result"] + leaky_cols
-    )
-    st.session_state[f"{key_prefix}_features_pick"] = [
-        c for c in av if c not in exclude_cols
-    ]
+    exclude_cols = set(id_cols + ["grade", "pass_fail", "status", "result"] + leaky_cols)
+    st.session_state[f"{key_prefix}_features_pick"] = [c for c in av if c not in exclude_cols]
 
 
 def training_target_widget_callback() -> None:

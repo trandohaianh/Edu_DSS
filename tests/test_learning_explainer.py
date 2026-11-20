@@ -13,6 +13,7 @@ Dùng model embedding THẬT (qua MultiAIProvider, giống test_rag_service.py) 
 không mock — vì hành vi cần kiểm chứng (lọc theo course/lesson) phụ thuộc vào
 kết quả truy xuất thật của vector store cục bộ.
 """
+
 from __future__ import annotations
 
 import uuid
@@ -28,6 +29,7 @@ from dss.services import learning_explainer
 def llm_integration():
     dss_config._ensure_local_llm_libs()
     from dss.core.models import MultiAIProvider
+
     provider = MultiAIProvider()
     provider.get_embedding("khởi động model")
     return provider
@@ -43,10 +45,18 @@ def unique_course():
 
 def _ingest(llm_integration, course_id, lesson_id, topic_id, content: str, title: str, section: str = "slide 1"):
     return cms_repository.ingest_lecture_material(
-        file_bytes=content.encode("utf-8"), file_name=f"{lesson_id}.txt", title=title,
-        course_id=course_id, lesson_id=lesson_id, topic_id=topic_id, lecturer_id="GV_TEST",
-        llm_integration=llm_integration, learning_outcome="Test outcome", difficulty="Standard",
-        content_type="slide", page_or_section=section,
+        file_bytes=content.encode("utf-8"),
+        file_name=f"{lesson_id}.txt",
+        title=title,
+        course_id=course_id,
+        lesson_id=lesson_id,
+        topic_id=topic_id,
+        lecturer_id="GV_TEST",
+        llm_integration=llm_integration,
+        learning_outcome="Test outcome",
+        difficulty="Standard",
+        content_type="slide",
+        page_or_section=section,
     )
 
 
@@ -55,10 +65,17 @@ def _ingest(llm_integration, course_id, lesson_id, topic_id, content: str, title
 # ---------------------------------------------------------------------------
 def test_case1_retrieval_matches_correct_lesson(llm_integration, unique_course):
     lesson_id = f"lesson_{uuid.uuid4().hex[:8]}"
-    _ingest(llm_integration, unique_course, lesson_id, "clustering",
-            "K-Means là thuật toán phân cụm không giám sát, gán điểm vào centroid gần nhất.",
-            "Bài K-Means")
-    chunks = cms_repository.retrieve_lesson_content(llm_integration, "K-Means là gì", course_id=unique_course, lesson_id=lesson_id, top_k=3)
+    _ingest(
+        llm_integration,
+        unique_course,
+        lesson_id,
+        "clustering",
+        "K-Means là thuật toán phân cụm không giám sát, gán điểm vào centroid gần nhất.",
+        "Bài K-Means",
+    )
+    chunks = cms_repository.retrieve_lesson_content(
+        llm_integration, "K-Means là gì", course_id=unique_course, lesson_id=lesson_id, top_k=3
+    )
     assert len(chunks) >= 1
     assert all(c["metadata"]["lesson_id"] == lesson_id for c in chunks)
 
@@ -73,8 +90,12 @@ def test_case2_cross_course_isolation(llm_integration, unique_course):
     _ingest(llm_integration, unique_course, lesson_a, "clustering", "Nội dung môn A về K-Means.", "Bài A")
     _ingest(llm_integration, other_course, lesson_b, "clustering", "Nội dung môn B về K-Means.", "Bài B")
 
-    chunks_a = cms_repository.retrieve_lesson_content(llm_integration, "K-Means", course_id=unique_course, lesson_id=lesson_a, top_k=5)
-    chunks_b = cms_repository.retrieve_lesson_content(llm_integration, "K-Means", course_id=other_course, lesson_id=lesson_b, top_k=5)
+    chunks_a = cms_repository.retrieve_lesson_content(
+        llm_integration, "K-Means", course_id=unique_course, lesson_id=lesson_a, top_k=5
+    )
+    chunks_b = cms_repository.retrieve_lesson_content(
+        llm_integration, "K-Means", course_id=other_course, lesson_id=lesson_b, top_k=5
+    )
 
     assert all(c["course_id"] == unique_course for c in chunks_a)
     assert all(c["course_id"] == other_course for c in chunks_b)
@@ -106,7 +127,12 @@ def test_case4_no_cms_content_returns_honest_message_not_fabrication(llm_integra
     cms_repository.create_or_get_lesson(unique_course, lesson_id, "unknown_topic", "GV_TEST", "Bài trống")
     # Lesson được đăng ký nhưng CHƯA từng ingest tài liệu nào (current_document_id=None).
     result = learning_explainer.generate_explanation(
-        llm_integration, "Nội dung không tồn tại nào đó", unique_course, lesson_id, "unknown_topic", "Standard",
+        llm_integration,
+        "Nội dung không tồn tại nào đó",
+        unique_course,
+        lesson_id,
+        "unknown_topic",
+        "Standard",
     )
     assert result.has_cms_content is False
     assert "chưa có trong tài liệu môn học hiện tại" in result.answer
@@ -117,7 +143,9 @@ def test_case4_ai_disabled_lesson_does_not_answer(llm_integration, unique_course
     lesson_id = f"lesson_disabled_{uuid.uuid4().hex[:8]}"
     _ingest(llm_integration, unique_course, lesson_id, "topic_x", "Nội dung bất kỳ.", "Bài bị tắt AI")
     cms_repository.set_ai_enabled(lesson_id, False)
-    result = learning_explainer.generate_explanation(llm_integration, "Giải thích giúp em", unique_course, lesson_id, "topic_x", "Standard")
+    result = learning_explainer.generate_explanation(
+        llm_integration, "Giải thích giúp em", unique_course, lesson_id, "topic_x", "Standard"
+    )
     assert result.has_cms_content is False
     assert "chưa được Giảng viên bật" in result.answer
 
@@ -127,11 +155,27 @@ def test_case4_ai_disabled_lesson_does_not_answer(llm_integration, unique_course
 # ---------------------------------------------------------------------------
 def test_case5_new_version_supersedes_old_version_in_retrieval(llm_integration, unique_course):
     lesson_id = f"lesson_ver_{uuid.uuid4().hex[:8]}"
-    _ingest(llm_integration, unique_course, lesson_id, "clustering", "K-Means bản đầu tiên, chưa có K-Means++.", "Bài K-Means v1")
-    lesson_v2 = _ingest(llm_integration, unique_course, lesson_id, "clustering", "K-Means bản cập nhật, có K-Means++ để khởi tạo centroid tốt hơn.", "Bài K-Means v2")
+    _ingest(
+        llm_integration,
+        unique_course,
+        lesson_id,
+        "clustering",
+        "K-Means bản đầu tiên, chưa có K-Means++.",
+        "Bài K-Means v1",
+    )
+    lesson_v2 = _ingest(
+        llm_integration,
+        unique_course,
+        lesson_id,
+        "clustering",
+        "K-Means bản cập nhật, có K-Means++ để khởi tạo centroid tốt hơn.",
+        "Bài K-Means v2",
+    )
 
     assert len(lesson_v2.versions) == 2
-    chunks = cms_repository.retrieve_lesson_content(llm_integration, "K-Means", course_id=unique_course, lesson_id=lesson_id, top_k=5)
+    chunks = cms_repository.retrieve_lesson_content(
+        llm_integration, "K-Means", course_id=unique_course, lesson_id=lesson_id, top_k=5
+    )
     assert len(chunks) >= 1
     assert all(c["document_id"] == lesson_v2.current_document_id for c in chunks)
     assert all("v1" not in c["title"] for c in chunks)
@@ -142,8 +186,17 @@ def test_case5_new_version_supersedes_old_version_in_retrieval(llm_integration, 
 # ---------------------------------------------------------------------------
 def test_case6_quiz_generated_grounded_in_retrieved_cms_chunks(llm_integration, unique_course):
     lesson_id = f"lesson_quiz_{uuid.uuid4().hex[:8]}"
-    _ingest(llm_integration, unique_course, lesson_id, "clustering", "K-Means dùng khoảng cách Euclid để gán cụm.", "Bài Quiz Test")
-    chunks = cms_repository.retrieve_lesson_content(llm_integration, "K-Means", course_id=unique_course, lesson_id=lesson_id, top_k=5)
+    _ingest(
+        llm_integration,
+        unique_course,
+        lesson_id,
+        "clustering",
+        "K-Means dùng khoảng cách Euclid để gán cụm.",
+        "Bài Quiz Test",
+    )
+    chunks = cms_repository.retrieve_lesson_content(
+        llm_integration, "K-Means", course_id=unique_course, lesson_id=lesson_id, top_k=5
+    )
     blueprint = learning_explainer.generate_lesson_quiz_from_chunks(lesson_id, chunks, num_questions=1)
     assert blueprint is not None
     assert len(blueprint.questions) >= 1
@@ -167,7 +220,9 @@ def test_case7_no_misconception_when_answer_is_correct():
 
 
 def test_case7_unknown_topic_returns_none_not_error():
-    assert learning_explainer.detect_misconception("Chủ đề không tồn tại trong danh mục", "bất kỳ câu trả lời nào") is None
+    assert (
+        learning_explainer.detect_misconception("Chủ đề không tồn tại trong danh mục", "bất kỳ câu trả lời nào") is None
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -175,8 +230,18 @@ def test_case7_unknown_topic_returns_none_not_error():
 # ---------------------------------------------------------------------------
 def test_friendly_citation_never_exposes_internal_ids(llm_integration, unique_course):
     lesson_id = f"lesson_cite_{uuid.uuid4().hex[:8]}"
-    _ingest(llm_integration, unique_course, lesson_id, "clustering", "Nội dung minh hoạ trích dẫn.", "Bài Trích Dẫn", section="slide 12-15")
-    chunks = cms_repository.retrieve_lesson_content(llm_integration, "minh hoạ", course_id=unique_course, lesson_id=lesson_id, top_k=3)
+    _ingest(
+        llm_integration,
+        unique_course,
+        lesson_id,
+        "clustering",
+        "Nội dung minh hoạ trích dẫn.",
+        "Bài Trích Dẫn",
+        section="slide 12-15",
+    )
+    chunks = cms_repository.retrieve_lesson_content(
+        llm_integration, "minh hoạ", course_id=unique_course, lesson_id=lesson_id, top_k=3
+    )
     citation = learning_explainer._format_friendly_citation(chunks[0])
     assert "chunk_" not in citation.label
     assert "vector" not in citation.label.lower()
@@ -186,8 +251,12 @@ def test_friendly_citation_never_exposes_internal_ids(llm_integration, unique_co
 
 def test_lecturer_analytics_aggregates_without_raw_chat_text():
     course_id = f"ANALYTICS_TEST_{uuid.uuid4().hex[:8]}"
-    learning_explainer.log_interaction("Student_1", course_id, "lesson_x", "topic_x", "Câu hỏi riêng tư 1", "Foundation", True)
-    learning_explainer.log_interaction("Student_2", course_id, "lesson_x", "topic_x", "Câu hỏi riêng tư 1", "Standard", True)
+    learning_explainer.log_interaction(
+        "Student_1", course_id, "lesson_x", "topic_x", "Câu hỏi riêng tư 1", "Foundation", True
+    )
+    learning_explainer.log_interaction(
+        "Student_2", course_id, "lesson_x", "topic_x", "Câu hỏi riêng tư 1", "Standard", True
+    )
     analytics = learning_explainer.get_lecturer_analytics(course_id)
     assert analytics["total_questions"] == 2
     assert analytics["top_topics"][0][0] == "lesson_x"

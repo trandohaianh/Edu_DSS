@@ -10,6 +10,7 @@ Labels are low-cardinality and never carry personal data: provider/model come fr
 catalogue (anything else becomes "other"), roles are the three product roles, pages are the
 navigation keys. Every hook is best-effort: telemetry must never break a user action.
 """
+
 from __future__ import annotations
 
 import os
@@ -54,14 +55,22 @@ def provider_label(provider: str | None) -> str:
 if _AVAILABLE:
     LOGINS = Counter("edudss_logins_total", "Login attempts by method and result", ["method", "result"])
     PAGE_VIEWS = Counter("edudss_page_views_total", "Page renders by navigation key and role", ["page", "role"])
-    AI_REQUESTS = Counter("edudss_ai_requests_total", "AI requests by provider and outcome",
-                          ["provider", "request_type", "outcome"])
-    AI_TOKENS = Counter("edudss_ai_tokens_total", "AI tokens by provider/model, kind and how they were counted",
-                        ["provider", "model", "kind", "source"])
+    AI_REQUESTS = Counter(
+        "edudss_ai_requests_total", "AI requests by provider and outcome", ["provider", "request_type", "outcome"]
+    )
+    AI_TOKENS = Counter(
+        "edudss_ai_tokens_total",
+        "AI tokens by provider/model, kind and how they were counted",
+        ["provider", "model", "kind", "source"],
+    )
     AI_COST = Counter("edudss_ai_cost_usd_total", "Estimated AI spend in USD", ["provider", "model"])
     OPERATIONS = Counter("edudss_operations_total", "Observed service operations", ["operation", "outcome"])
-    OPERATION_SECONDS = Histogram("edudss_operation_seconds", "Observed service operation duration", ["operation"],
-                                  buckets=(0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30, 60, 120))
+    OPERATION_SECONDS = Histogram(
+        "edudss_operation_seconds",
+        "Observed service operation duration",
+        ["operation"],
+        buckets=(0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30, 60, 120),
+    )
 
 
 def _safe_op(operation: str) -> str:
@@ -97,14 +106,25 @@ def record_page_view(page: str, role: str | None) -> None:
         pass
 
 
-def record_ai_usage(*, provider: str, model: str, request_type: str, input_tokens: int, output_tokens: int,
-                    thinking_tokens: int = 0, cost_usd: float, cache_hit: bool, source: str) -> None:
+def record_ai_usage(
+    *,
+    provider: str,
+    model: str,
+    request_type: str,
+    input_tokens: int,
+    output_tokens: int,
+    thinking_tokens: int = 0,
+    cost_usd: float,
+    cache_hit: bool,
+    source: str,
+) -> None:
     if not _AVAILABLE:
         return
     try:
         p, m = provider_label(provider), _model_label(model)
-        AI_REQUESTS.labels(provider=p, request_type=_safe_op(request_type),
-                           outcome="cache_hit" if cache_hit else "success").inc()
+        AI_REQUESTS.labels(
+            provider=p, request_type=_safe_op(request_type), outcome="cache_hit" if cache_hit else "success"
+        ).inc()
         if not cache_hit:
             src = source if source in {"provider", "estimated"} else "estimated"
             AI_TOKENS.labels(provider=p, model=m, kind="input", source=src).inc(max(0, int(input_tokens)))
@@ -120,8 +140,9 @@ def record_ai_failure(provider: str, request_type: str, outcome: str) -> None:
     if not _AVAILABLE:
         return
     try:
-        AI_REQUESTS.labels(provider=provider_label(provider), request_type=_safe_op(request_type),
-                           outcome=_safe_op(outcome)).inc()
+        AI_REQUESTS.labels(
+            provider=provider_label(provider), request_type=_safe_op(request_type), outcome=_safe_op(outcome)
+        ).inc()
     except Exception:
         pass
 

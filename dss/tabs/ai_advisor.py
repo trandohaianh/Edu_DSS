@@ -1,6 +1,6 @@
 """AI advisor tab — LLM study plans."""
+
 from __future__ import annotations
-import dss.config as dss_config
 
 from datetime import datetime
 from io import BytesIO
@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
+import dss.config as dss_config
 from dss.config import (
     GEMINI_AVAILABLE,
     GROQ_AVAILABLE,
@@ -19,40 +20,47 @@ from dss.config import (
 from dss.core.data_helpers import (
     TOPIC_SCORE_COLUMNS,
     feature_label,
-    is_production_environment as _is_production_environment,
     is_weakness,
     topic_color,
 )
+from dss.core.data_helpers import (
+    is_production_environment as _is_production_environment,
+)
 from dss.core.logging_config import get_logger
 from dss.core.models import AI_MODEL_CATALOG, _check_ollama_running, ollama_base_url
-
-
-# Phase 2 refactor: logic thuần (không UI) chuyển sang services/report_service.py
-# — giữ alias tên cũ để không phải sửa các lời gọi bên dưới trong cùng phase.
-from dss.services.report_service import build_demo_study_plan as _build_demo_study_plan
-from dss.services import rag_service
-from dss.services.rag_namespaces import NAMESPACE_STUDENT_LEARNING
-from dss.services import llm_service
-from dss.services import admin_ai_config
-from dss.services.model_service import (
-    compute_lecturer_dashboard_overview,
-    compute_progress_note,
-    predict_for_student,
+from dss.services import (
+    admin_ai_config,
+    ai_router,
+    citation_service,
+    context_budget,
+    llm_service,
+    privacy_service,
+    prompt_security,
+    rag_service,
+    token_tracker,
 )
+from dss.services import diagnosis_engine as diagnosis_engine_module
 from dss.services.auth_service import require_role
-from dss.tabs import ui_kit
+from dss.services.diagnosis_engine import DiagnosisEngine
+from dss.services.learning_plan import StudentLearningPlan, learning_plan_generator
+from dss.services.learning_profile import StudentLearningProfile
 
 # Lớp bảo vệ tập trung (đã có sẵn dịch vụ ở dss/services/, trước đây chưa được
 # nối vào luồng tư vấn thật — chỉ ai_advisor.py gọi thẳng MultiAIProvider):
 # Gateway (quota/retry/token-cost), khử PII, chống prompt injection, xác minh
 # trích dẫn. Xem docs/DEAD_CODE_AUDIT.md và báo cáo refactor Phase 6 để biết lý do.
 from dss.services.llm_gateway import LLMGateway as _LLMGateway
-from dss.services import privacy_service, citation_service, prompt_security, token_tracker, context_budget
-from dss.services import ai_router
-from dss.services.learning_profile import StudentLearningProfile
-from dss.services import diagnosis_engine as diagnosis_engine_module
-from dss.services.diagnosis_engine import DiagnosisEngine
-from dss.services.learning_plan import learning_plan_generator, StudentLearningPlan
+from dss.services.model_service import (
+    compute_lecturer_dashboard_overview,
+    compute_progress_note,
+    predict_for_student,
+)
+from dss.services.rag_namespaces import NAMESPACE_STUDENT_LEARNING
+
+# Phase 2 refactor: logic thuần (không UI) chuyển sang services/report_service.py
+# — giữ alias tên cũ để không phải sửa các lời gọi bên dưới trong cùng phase.
+from dss.services.report_service import build_demo_study_plan as _build_demo_study_plan
+from dss.tabs import ui_kit
 
 _logger = get_logger(__name__)
 
@@ -109,7 +117,7 @@ def _render_weekly_reminder_checklist(week_plan, current_student_id):
     st.markdown("#### Nhắc nhở học tập theo tuần")
     st.caption("Tự đánh dấu khi hoàn thành — giúp bạn không bỏ sót việc cần làm mỗi tuần.")
     sid = current_student_id or "guest"
-    today_week_idx = (int(datetime.now().strftime("%U")) % max(len(week_plan), 1))
+    today_week_idx = int(datetime.now().strftime("%U")) % max(len(week_plan), 1)
     for idx, wp in enumerate(week_plan):
         done_key = f"reminder_done_{sid}_{wp['week']}"
         is_current = idx == today_week_idx
@@ -137,7 +145,9 @@ def _list_ready_cloud_providers(llm_integration, available_map):
     giờ trả về hay hiển thị giá trị key thật, chỉ trả về provider_key/label."""
     candidates = []
     for _prov_key, _prov_label in [
-        ("gemini", "Google Gemini"), ("groq", "Groq (Siêu tốc)"), ("openai", "OpenAI (ChatGPT)"),
+        ("gemini", "Google Gemini"),
+        ("groq", "Groq (Siêu tốc)"),
+        ("openai", "OpenAI (ChatGPT)"),
     ]:
         if available_map.get(_prov_label, False) and llm_integration.get_api_key_from_secrets(_prov_key):
             candidates.append((_prov_key, _prov_label))
@@ -157,7 +167,9 @@ def _render_admin_provider_config(llm_integration, all_labels, available_map):
 
     llm_type = st.radio("Chọn nền tảng AI:", all_labels, horizontal=True, key="llm_type")
     if not available_map.get(llm_type, False):
-        st.warning(f"Provider **{llm_type}** hiện chưa sẵn sàng trên máy này. Bạn có thể chuyển sang provider có trạng thái **Sẵn sàng** hoặc dùng Demo mode.")
+        st.warning(
+            f"Provider **{llm_type}** hiện chưa sẵn sàng trên máy này. Bạn có thể chuyển sang provider có trạng thái **Sẵn sàng** hoặc dùng Demo mode."
+        )
 
     provider_map = {
         "Hugging Face (Local/Cloud)": "huggingface",
@@ -179,34 +191,50 @@ def _render_admin_provider_config(llm_integration, all_labels, available_map):
 
     with col_param1:
         if selected_provider == "huggingface":
-            model_name_input = st.selectbox("Mô hình Hugging Face:", AI_MODEL_CATALOG["huggingface"], key="hf_model_sel")
-            api_key_input = st.text_input("Hugging Face Token (Tùy chọn/Cho model Private):", type="password", key="hf_token_input")
+            model_name_input = st.selectbox(
+                "Mô hình Hugging Face:", AI_MODEL_CATALOG["huggingface"], key="hf_model_sel"
+            )
+            api_key_input = st.text_input(
+                "Hugging Face Token (Tùy chọn/Cho model Private):", type="password", key="hf_token_input"
+            )
             hf_token_input = api_key_input
         elif selected_provider == "gemini":
             gem_options = AI_MODEL_CATALOG["gemini"] + ["Tùy chỉnh (Nhập model khác)..."]
             gem_sel = st.selectbox(
-                "Mô hình Gemini:", gem_options, key="gemini_model_sel",
+                "Mô hình Gemini:",
+                gem_options,
+                key="gemini_model_sel",
                 help="Nếu model đã chọn bị hãng khai tử/đổi tên, hệ thống tự thử các model khác trong danh sách này khi gọi API.",
             )
             if gem_sel == "Tùy chỉnh (Nhập model khác)...":
-                model_name_input = st.text_input("Nhập tên model Gemini:", value="gemini-2.0-flash", key="gemini_custom_input")
+                model_name_input = st.text_input(
+                    "Nhập tên model Gemini:", value="gemini-2.0-flash", key="gemini_custom_input"
+                )
             else:
                 model_name_input = gem_sel
-            api_key_input = st.text_input("Gemini API Key (để trống nếu đã đặt trong secrets/env):", type="password", key="gemini_key_input")
+            api_key_input = st.text_input(
+                "Gemini API Key (để trống nếu đã đặt trong secrets/env):", type="password", key="gemini_key_input"
+            )
         elif selected_provider == "groq":
             groq_options = AI_MODEL_CATALOG["groq"] + ["Tùy chỉnh (Nhập model khác)..."]
             groq_sel = st.selectbox(
-                "Mô hình Groq:", groq_options, key="groq_model_sel",
+                "Mô hình Groq:",
+                groq_options,
+                key="groq_model_sel",
                 help="Nếu model đã chọn bị hãng khai tử/đổi tên, hệ thống tự thử các model khác trong danh sách này khi gọi API.",
             )
             if groq_sel == "Tùy chỉnh (Nhập model khác)...":
-                model_name_input = st.text_input("Nhập tên model Groq:", value="llama-3.3-70b-versatile", key="groq_custom_input")
+                model_name_input = st.text_input(
+                    "Nhập tên model Groq:", value="llama-3.3-70b-versatile", key="groq_custom_input"
+                )
             else:
                 model_name_input = groq_sel
             api_key_input = st.text_input("Groq API Key:", type="password", key="groq_key_input")
         elif selected_provider == "ollama":
             model_name_input = st.text_input(
-                "Tên mô hình Ollama (VD: qwen2.5:7b, llama3.2):", value=AI_MODEL_CATALOG["ollama"][0], key="ollama_model_input",
+                "Tên mô hình Ollama (VD: qwen2.5:7b, llama3.2):",
+                value=AI_MODEL_CATALOG["ollama"][0],
+                key="ollama_model_input",
             )
             api_key_input = st.text_input("Ollama Base URL:", value=ollama_base_url(), key="ollama_url_input")
             if _check_ollama_running(api_key_input or ollama_base_url()):
@@ -216,14 +244,20 @@ def _render_admin_provider_config(llm_integration, all_labels, available_map):
         elif selected_provider == "openai":
             openai_options = AI_MODEL_CATALOG["openai"] + ["Tùy chỉnh (Nhập model khác)..."]
             openai_sel = st.selectbox(
-                "Mô hình OpenAI:", openai_options, key="openai_model_sel",
+                "Mô hình OpenAI:",
+                openai_options,
+                key="openai_model_sel",
                 help="Nếu model đã chọn bị hãng khai tử/đổi tên, hệ thống tự thử các model khác trong danh sách này khi gọi API.",
             )
             if openai_sel == "Tùy chỉnh (Nhập model khác)...":
-                model_name_input = st.text_input("Nhập tên model OpenAI:", value="gpt-4o-mini", key="openai_custom_input")
+                model_name_input = st.text_input(
+                    "Nhập tên model OpenAI:", value="gpt-4o-mini", key="openai_custom_input"
+                )
             else:
                 model_name_input = openai_sel
-            api_key_input = st.text_input("OpenAI API Key (để trống nếu đã đặt trong secrets/env):", type="password", key="openai_key_input")
+            api_key_input = st.text_input(
+                "OpenAI API Key (để trống nếu đã đặt trong secrets/env):", type="password", key="openai_key_input"
+            )
 
     with col_param2:
         if use_embedding:
@@ -235,10 +269,16 @@ def _render_admin_provider_config(llm_integration, all_labels, available_map):
             use_warehouse_data = st.checkbox("Sử dụng lịch sử từ Kho dữ liệu", value=True, key="use_wh_data")
         else:
             use_warehouse_data = False
-            st.info("💡 Bật tính năng 'Sử dụng tài liệu học tập (RAG)' để AI đưa ra lời khuyên chính xác dựa trên tài liệu.")
+            st.info(
+                "💡 Bật tính năng 'Sử dụng tài liệu học tập (RAG)' để AI đưa ra lời khuyên chính xác dựa trên tài liệu."
+            )
 
     _current_default = admin_ai_config.get_default_provider()
-    _is_current_default = bool(_current_default) and _current_default["provider_key"] == selected_provider and _current_default["model_name"] == model_name_input
+    _is_current_default = (
+        bool(_current_default)
+        and _current_default["provider_key"] == selected_provider
+        and _current_default["model_name"] == model_name_input
+    )
     col_def1, col_def2 = st.columns([1, 1])
     with col_def1:
         if _is_current_default:
@@ -273,15 +313,27 @@ def _render_teacher_provider_picker(llm_integration, available_map):
     (`admin_ai_config`) nếu provider đó vẫn sẵn sàng."""
     st.markdown("#### Chọn nguồn AI")
     ready = _list_ready_cloud_providers(llm_integration, available_map)
-    label_map = {"huggingface": "Hugging Face (Local/Cloud)", "gemini": "Google Gemini", "groq": "Groq (Siêu tốc)", "ollama": "Ollama (Local)", "openai": "OpenAI (ChatGPT)"}
+    label_map = {
+        "huggingface": "Hugging Face (Local/Cloud)",
+        "gemini": "Google Gemini",
+        "groq": "Groq (Siêu tốc)",
+        "ollama": "Ollama (Local)",
+        "openai": "OpenAI (ChatGPT)",
+    }
 
     if not ready:
-        st.warning("Hiện chưa có provider AI nào sẵn sàng (Admin chưa cấu hình API key/secrets). Hệ thống sẽ dùng **Demo mode**.")
+        st.warning(
+            "Hiện chưa có provider AI nào sẵn sàng (Admin chưa cấu hình API key/secrets). Hệ thống sẽ dùng **Demo mode**."
+        )
         return {
-            "llm_type": "none", "selected_provider": "none", "model_name_input": "",
-            "api_key_input": "", "hf_token_input": "",
+            "llm_type": "none",
+            "selected_provider": "none",
+            "model_name_input": "",
+            "api_key_input": "",
+            "hf_token_input": "",
             "embedding_model_name": "sentence-transformers/all-MiniLM-L6-v2",
-            "use_embedding": True, "use_warehouse_data": True,
+            "use_embedding": True,
+            "use_warehouse_data": True,
         }
 
     default_cfg = admin_ai_config.get_default_provider()
@@ -293,14 +345,20 @@ def _render_teacher_provider_picker(llm_integration, available_map):
                 break
 
     labels = [lbl for _, lbl in ready]
-    picked_label = st.selectbox("Nền tảng AI (đã cấu hình sẵn bởi Admin):", labels, index=default_idx, key="teacher_provider_pick")
+    picked_label = st.selectbox(
+        "Nền tảng AI (đã cấu hình sẵn bởi Admin):", labels, index=default_idx, key="teacher_provider_pick"
+    )
     picked_key = dict((lbl, key) for key, lbl in ready)[picked_label]
 
     model_options = AI_MODEL_CATALOG[picked_key]
     model_default_idx = 0
     if default_cfg and default_cfg["provider_key"] == picked_key and default_cfg["model_name"] in model_options:
         model_default_idx = model_options.index(default_cfg["model_name"])
-    model_name_input = st.selectbox("Model:", model_options, index=model_default_idx, key="teacher_model_pick") if picked_key != "ollama" else model_options[0]
+    model_name_input = (
+        st.selectbox("Model:", model_options, index=model_default_idx, key="teacher_model_pick")
+        if picked_key != "ollama"
+        else model_options[0]
+    )
 
     use_embedding = st.checkbox("Sử dụng tài liệu học tập (RAG)", value=True, key="use_embedding")
     if use_embedding:
@@ -331,7 +389,9 @@ def _render_teacher_provider_picker(llm_integration, available_map):
 
 
 @require_role("Admin")
-def _run_connection_test(llm_integration, selected_provider, model_name_input, resolved_api_key, api_key_input, llm_type):
+def _run_connection_test(
+    llm_integration, selected_provider, model_name_input, resolved_api_key, api_key_input, llm_type
+):
     """Kiểm tra kết nối provider — CHỈ Admin (chặn ở tầng hàm), vì hành động này
     cần dùng API key thật để gọi thử, và chỉ Admin mới được thấy/nhập key."""
     with st.spinner("Đang kiểm tra kết nối..."):
@@ -342,7 +402,9 @@ def _run_connection_test(llm_integration, selected_provider, model_name_input, r
             kwargs = {"hf_token": api_key_input}
         else:
             kwargs = {"base_url": api_key_input}
-        stream = llm_integration.call_ai_provider(test_prompt, provider=selected_provider, model_name=model_name_input, **kwargs)
+        stream = llm_integration.call_ai_provider(
+            test_prompt, provider=selected_provider, model_name=model_name_input, **kwargs
+        )
         test_res = "".join(stream)
         err_prefix = ("Lỗi", "Provider không khả dụng")
         if test_res.strip() and not test_res.strip().startswith(err_prefix):
@@ -352,7 +414,15 @@ def _run_connection_test(llm_integration, selected_provider, model_name_input, r
 
 
 @require_role("Giảng viên / CVHT", "Admin")
-def _run_compare_ai(llm_integration, specs, weaknesses_llm, predicted_gpa_llm, student_profile, runtime_rag_documents, role="Giảng viên / CVHT"):
+def _run_compare_ai(
+    llm_integration,
+    specs,
+    weaknesses_llm,
+    predicted_gpa_llm,
+    student_profile,
+    runtime_rag_documents,
+    role="Giảng viên / CVHT",
+):
     """Chạy So sánh AI đồng thời nhiều provider — CHỈ Giảng viên/Admin (chặn ở
     tầng hàm), Sinh viên không có khái niệm "so sánh provider".
 
@@ -360,9 +430,12 @@ def _run_compare_ai(llm_integration, specs, weaknesses_llm, predicted_gpa_llm, s
     `llm_service.compare_providers` -> `generate_personalized_advice` để RAG
     trích dẫn qua `retrieve_unified_context` lọc namespace đúng theo vai trò
     thật (trước đây "So sánh AI" đi qua đường RAG cũ, không lọc quản trị)."""
-    with st.spinner(f"Đang gọi đồng thời {len(specs)} provider (tối đa {dss_config.MAX_CONCURRENT_REQUESTS} luồng cùng lúc)..."):
+    with st.spinner(
+        f"Đang gọi đồng thời {len(specs)} provider (tối đa {dss_config.MAX_CONCURRENT_REQUESTS} luồng cùng lúc)..."
+    ):
         compare_results = llm_service.compare_providers(
-            llm_integration, specs,
+            llm_integration,
+            specs,
             student_weaknesses=weaknesses_llm,
             predicted_gpa=predicted_gpa_llm,
             student_profile=student_profile,
@@ -384,8 +457,10 @@ def _run_compare_ai(llm_integration, specs, weaknesses_llm, predicted_gpa_llm, s
 def ai_advisor_tab(df, llm_integration, role=None, current_student_id=None, wh=None):
     """AI advisor tab using LLM."""
     from dss.services import engine_gateway
+
     if engine_gateway.enabled():
         from dss.tabs.engine_advisor import engine_advisor_tab
+
         return engine_advisor_tab(llm_integration=llm_integration)
 
     ui_kit.render_synthetic_data_banner(df)  # E-1: cảnh báo rõ khi đang xem dữ liệu mô phỏng
@@ -416,20 +491,23 @@ def ai_advisor_tab(df, llm_integration, role=None, current_student_id=None, wh=N
     # call_ai_provider()/load_embedding_model() đã tự gọi _ensure_local_llm_libs().
 
     # Structured plans/history do not depend on provider readiness or a GPA column.
-    from dss.tabs.learning_plan_workspace import render_learning_plan_workspace, course_id_from_record
+    from dss.tabs.learning_plan_workspace import course_id_from_record, render_learning_plan_workspace
+
     render_learning_plan_workspace(df)
     if df is None or df.empty:
         return
     if role == "Sinh viên":
         # History remains readable without a usable prediction dataset.
         from dss.services.auth_service import current_user
+
         identity = current_user() or {}
         id_column = next((c for c in ("student_id", "id", "Student ID", "ID") if c in df.columns), None)
         own_id = identity.get("student_id")
         if not id_column or not own_id or not (df[id_column].astype(str) == str(own_id)).any():
             return
         prediction_columns = [
-            c for c in df.select_dtypes(include=[np.number]).columns
+            c
+            for c in df.select_dtypes(include=[np.number]).columns
             if "id" not in str(c).lower() and "pca" not in str(c).lower() and "cluster" not in str(c).lower()
         ]
         if not prediction_columns:
@@ -456,9 +534,7 @@ def ai_advisor_tab(df, llm_integration, role=None, current_student_id=None, wh=N
         # viên đây toàn thuật ngữ khó hiểu (Hugging Face/Gemini/Groq/Ollama...)
         # không giúp ích gì cho việc dùng tính năng, nên ẩn hẳn.
         if not enabled_labels:
-            st.warning(
-                "Hiện chưa có provider AI khả dụng. Bạn vẫn có thể dùng **Demo mode** (không cần API) bên dưới."
-            )
+            st.warning("Hiện chưa có provider AI khả dụng. Bạn vẫn có thể dùng **Demo mode** (không cần API) bên dưới.")
 
         with st.expander("Trạng thái hệ thống AI/RAG", expanded=False):
             # SINGLE SOURCE OF TRUTH (UI/RAG consistency pass): trước đây bảng này tự
@@ -508,20 +584,13 @@ def ai_advisor_tab(df, llm_integration, role=None, current_student_id=None, wh=N
 
     # Tìm cột ID sinh viên
     student_id_col = None
-    for col in [
-        'student_id',
-        'id',
-        'student_name',
-        'name',
-        'Student ID',
-            'ID']:
+    for col in ['student_id', 'id', 'student_name', 'name', 'Student ID', 'ID']:
         if col in df.columns:
             student_id_col = col
             break
 
     if student_id_col is None:
-        st.warning(
-            "⚠️ Không tìm thấy cột ID sinh viên. Hệ thống sẽ sử dụng hàng đầu tiên.")
+        st.warning("⚠️ Không tìm thấy cột ID sinh viên. Hệ thống sẽ sử dụng hàng đầu tiên.")
         student_id_llm = "Student_1"
     elif role == "Sinh viên":
         # Sinh viên không được chọn tư vấn cho bạn học khác — luôn cố định
@@ -530,9 +599,7 @@ def ai_advisor_tab(df, llm_integration, role=None, current_student_id=None, wh=N
         st.info(f"👤 Đang tư vấn cho: **{student_id_llm}**")
     else:
         student_id_llm = st.selectbox(
-            "Chọn Sinh viên để tư vấn:",
-            df[student_id_col].unique(),
-            key="llm_student_select"
+            "Chọn Sinh viên để tư vấn:", df[student_id_col].unique(), key="llm_student_select"
         )
 
     if not student_id_llm:
@@ -544,16 +611,18 @@ def ai_advisor_tab(df, llm_integration, role=None, current_student_id=None, wh=N
     # thẻ rủi ro/yếu tố chính). Logic tính toán giữ nguyên 100% so với bản gốc.
 
     # *** FIX LỖI LOGIC: Lấy đúng dữ liệu sinh viên ***
-    try: # Lấy dòng dữ liệu của sinh viên đã chọn
+    try:  # Lấy dòng dữ liệu của sinh viên đã chọn
         if student_id_col:
-            student_data_llm_row = df[df[student_id_col]
-                                      == student_id_llm].iloc[0]
+            student_data_llm_row = df[df[student_id_col] == student_id_llm].iloc[0]
         else:
             student_data_llm_row = df.iloc[0]
         # Filter student_data_llm_row to only include relevant numeric and
         # categorical features for the prompt
-        relevant_cols = [col for col in df.columns if 'id' not in col.lower(
-        ) and 'pca' not in col.lower() and 'cluster' not in col.lower()]
+        relevant_cols = [
+            col
+            for col in df.columns
+            if 'id' not in col.lower() and 'pca' not in col.lower() and 'cluster' not in col.lower()
+        ]
     except (IndexError, KeyError):
         st.error("Không tìm thấy dữ liệu cho sinh viên đã chọn.")
         return
@@ -570,7 +639,8 @@ def ai_advisor_tab(df, llm_integration, role=None, current_student_id=None, wh=N
             break
     if gpa_col_llm is None:
         _numeric_gpa_candidates = [
-            c for c in df.select_dtypes(include=[np.number]).columns
+            c
+            for c in df.select_dtypes(include=[np.number]).columns
             if 'id' not in c.lower() and 'pca' not in c.lower() and 'cluster' not in c.lower()
         ]
         if not _numeric_gpa_candidates:
@@ -591,8 +661,10 @@ def ai_advisor_tab(df, llm_integration, role=None, current_student_id=None, wh=N
     predicted_gpa_llm = _prediction_info["value"]
     predicted_gpa_source = _prediction_info["source"]
     if predicted_gpa_llm is None:
-        st.info("Chưa có điểm hiện tại hay mô hình dự báo cho sinh viên này, nên chưa thể đánh giá mức rủi ro "
-                "hay tư vấn dựa trên điểm. Hãy nhập điểm (hoặc huấn luyện mô hình dự báo) rồi quay lại.")
+        st.info(
+            "Chưa có điểm hiện tại hay mô hình dự báo cho sinh viên này, nên chưa thể đánh giá mức rủi ro "
+            "hay tư vấn dựa trên điểm. Hãy nhập điểm (hoặc huấn luyện mô hình dự báo) rồi quay lại."
+        )
         return
     predicted_gpa_model_name = _prediction_info.get("model_name")
     predicted_gpa_model_version = _prediction_info.get("version")
@@ -604,11 +676,16 @@ def ai_advisor_tab(df, llm_integration, role=None, current_student_id=None, wh=N
     # === HỒ SƠ HỌC TẬP VÀ CHẨN ĐOÁN ĐA CHIỀU (Section 5, 6, 7) ===
     # Loại bỏ việc chỉ dựa vào student_score < 0.9 * class_average làm căn cứ cá nhân hoá duy nhất.
     numeric_features = df.select_dtypes(include=[np.number]).columns.tolist()
-    actionable_numeric_features = [col for col in numeric_features if 'id' not in col.lower(
-    ) and 'pca' not in col.lower() and 'cluster' not in col.lower() and col != gpa_col_llm]
+    actionable_numeric_features = [
+        col
+        for col in numeric_features
+        if 'id' not in col.lower() and 'pca' not in col.lower() and 'cluster' not in col.lower() and col != gpa_col_llm
+    ]
     avg_scores_llm = df[actionable_numeric_features].mean()
 
-    lms_raw_dict = student_data_llm_row.to_dict() if hasattr(student_data_llm_row, "to_dict") else dict(student_data_llm_row)
+    lms_raw_dict = (
+        student_data_llm_row.to_dict() if hasattr(student_data_llm_row, "to_dict") else dict(student_data_llm_row)
+    )
     learning_prof = StudentLearningProfile.build_from_lms_records(
         student_id=str(student_id_llm),
         course_id=course_id_from_record(lms_raw_dict),
@@ -647,9 +724,7 @@ def ai_advisor_tab(df, llm_integration, role=None, current_student_id=None, wh=N
         avg_val = float(avg_scores_llm[col])
         gap = col_val - avg_val
         if is_weakness(col, col_val, avg_val):
-            weaknesses_llm.append(
-                f"**{feature_label(col)}** (SV: **{col_val:.2f}**, TB lớp: **{avg_val:.2f}**)"
-            )
+            weaknesses_llm.append(f"**{feature_label(col)}** (SV: **{col_val:.2f}**, TB lớp: **{avg_val:.2f}**)")
             _weakness_gaps.append(gap)
 
     # Sắp xếp điểm yếu theo mức độ nghiêm trọng (lệch âm nhiều nhất trước)
@@ -670,12 +745,18 @@ def ai_advisor_tab(df, llm_integration, role=None, current_student_id=None, wh=N
         _weak_topic_labels = [lbl for lbl, s in zip(_topic_labels, _topic_scores) if s < 5.0]
         _topic_class_avg = [float(df[c].mean()) for c in _topic_cols_present]
         _topic_gap = [s - a for s, a in zip(_topic_scores, _topic_class_avg)]
-        _topic_status = ["Cần theo dõi" if s < 5.0 else ("Tốt hơn TB lớp" if g > 0 else "Ngang TB lớp" if abs(g) < 0.05 else "Dưới TB lớp") for s, g in zip(_topic_scores, _topic_gap)]
+        _topic_status = [
+            "Cần theo dõi"
+            if s < 5.0
+            else ("Tốt hơn TB lớp" if g > 0 else "Ngang TB lớp" if abs(g) < 0.05 else "Dưới TB lớp")
+            for s, g in zip(_topic_scores, _topic_gap)
+        ]
 
     # Tạo hồ sơ sinh viên phục vụ prompt cá nhân hóa sâu hơn
     # Dùng CHUNG định nghĩa rủi ro tương đối với Trang chủ Sinh viên
     # (model_service.classify_relative_risk) để 2 trang không bao giờ lệch nhau.
     from dss.services.model_service import classify_relative_risk
+
     risk_level = classify_relative_risk(predicted_gpa_llm, df[gpa_col_llm]) or "trung bình"
 
     # K-4: so sánh CÙNG THANG điểm — compute_progress_note tự ưu tiên diem_ky_nay
@@ -713,7 +794,8 @@ def ai_advisor_tab(df, llm_integration, role=None, current_student_id=None, wh=N
                 st.markdown("---")
                 st.markdown("**📊 Điểm theo từng chủ đề**")
                 fig_topic = px.bar(
-                    x=_topic_labels, y=_topic_scores,
+                    x=_topic_labels,
+                    y=_topic_scores,
                     labels={"x": "Chủ đề", "y": "Điểm (thang 10)"},
                     text=[f"{s:.1f}" for s in _topic_scores],
                     custom_data=[_topic_class_avg, _topic_gap, _topic_status],
@@ -783,7 +865,9 @@ def ai_advisor_tab(df, llm_integration, role=None, current_student_id=None, wh=N
         key="llm_personal_goal",
     )
     if personal_goal.strip():
-        student_profile["progress_note"] = f"{student_profile['progress_note']}; mục tiêu cá nhân: {personal_goal.strip()}"
+        student_profile["progress_note"] = (
+            f"{student_profile['progress_note']}; mục tiêu cá nhân: {personal_goal.strip()}"
+        )
 
     if role == "Sinh viên":
         # Sinh viên không cần biết "provider AI"/"API key" là gì — hệ thống tự
@@ -803,7 +887,13 @@ def ai_advisor_tab(df, llm_integration, role=None, current_student_id=None, wh=N
         # — dữ liệu huấn luyện/đánh giá mô hình (admin_operations) không bao giờ lộ ra đây.
         use_warehouse_data = False
 
-        _label_by_key = {"huggingface": "Hugging Face (Local/Cloud)", "gemini": "Google Gemini", "groq": "Groq (Siêu tốc)", "ollama": "Ollama (Local)", "openai": "OpenAI (ChatGPT)"}
+        _label_by_key = {
+            "huggingface": "Hugging Face (Local/Cloud)",
+            "gemini": "Google Gemini",
+            "groq": "Groq (Siêu tốc)",
+            "ollama": "Ollama (Local)",
+            "openai": "OpenAI (ChatGPT)",
+        }
         _default_cfg = admin_ai_config.get_default_provider()
         _ready_now = dict(_list_ready_cloud_providers(llm_integration, available_map))
         if _default_cfg and _default_cfg["provider_key"] in _ready_now:
@@ -953,7 +1043,9 @@ def ai_advisor_tab(df, llm_integration, role=None, current_student_id=None, wh=N
             _chat_box = st.container(height=560)
             with _chat_box:
                 if not _chat_history:
-                    st.caption("Chưa có tin nhắn nào — hãy bấm 1 câu hỏi gợi ý bên trái hoặc nhập câu hỏi của bạn bên dưới.")
+                    st.caption(
+                        "Chưa có tin nhắn nào — hãy bấm 1 câu hỏi gợi ý bên trái hoặc nhập câu hỏi của bạn bên dưới."
+                    )
                 for _msg in _chat_history:
                     with st.chat_message(_msg["role"]):
                         if _msg.get("hallucinated"):
@@ -994,7 +1086,9 @@ def ai_advisor_tab(df, llm_integration, role=None, current_student_id=None, wh=N
             _question = st.session_state.get(_chat_pending_q_key) or _pending_question or _typed_question
 
             if _question:
-                _is_replaying_pending = _question == st.session_state.get(_chat_pending_q_key) and st.session_state.get(_chat_demo_confirmed_key)
+                _is_replaying_pending = _question == st.session_state.get(_chat_pending_q_key) and st.session_state.get(
+                    _chat_demo_confirmed_key
+                )
                 if not _is_replaying_pending:
                     _chat_history.append({"role": "user", "content": _question})
 
@@ -1053,18 +1147,27 @@ def ai_advisor_tab(df, llm_integration, role=None, current_student_id=None, wh=N
                     if _route_decision.intent == ai_router.INTENT_DIRECT_DATA_LOOKUP
                     else None
                 )
-                _router_short_circuit_reply = _gpa_reply or _regulation_reply or _rule_check_reply or _direct_lookup_reply
+                _router_short_circuit_reply = (
+                    _gpa_reply or _regulation_reply or _rule_check_reply or _direct_lookup_reply
+                )
                 if _router_short_circuit_reply is not None:
                     st.session_state.pop(_chat_pending_q_key, None)
-                    _chat_history.append({
-                        "role": "assistant", "content": _router_short_circuit_reply, "sources": [],
-                        "hallucinated": False, "route": _route_decision.intent,
-                    })
+                    _chat_history.append(
+                        {
+                            "role": "assistant",
+                            "content": _router_short_circuit_reply,
+                            "sources": [],
+                            "hallucinated": False,
+                            "route": _route_decision.intent,
+                        }
+                    )
                     st.rerun()
 
-                _rag_query = llm_integration._build_rag_query_from_weaknesses(
-                    weaknesses_llm, student_profile=student_profile
-                ) + " " + _question
+                _rag_query = (
+                    llm_integration._build_rag_query_from_weaknesses(weaknesses_llm, student_profile=student_profile)
+                    + " "
+                    + _question
+                )
                 _chat_docs = _find_docs_rag_safe(query_text=_rag_query, top_k=4)
                 # E-4: ghi rõ loại nguồn (tài liệu mẫu nội bộ chưa kiểm duyệt vs.
                 # đã kiểm duyệt/tải lên) thay vì chỉ hiện tên tài liệu trần trụi.
@@ -1081,16 +1184,20 @@ def ai_advisor_tab(df, llm_integration, role=None, current_student_id=None, wh=N
                 # chặn TRƯỚC, không phải phát hiện SAU.
                 if _route_decision.intent == ai_router.INTENT_RAG_QA and not _chat_docs:
                     st.session_state.pop(_chat_pending_q_key, None)
-                    _chat_history.append({
-                        "role": "assistant",
-                        "content": (
-                            "Em chưa tìm thấy tài liệu đã được duyệt phù hợp với câu hỏi này. "
-                            "Để tránh đưa ra thông tin không có căn cứ, hệ thống KHÔNG để AI tự "
-                            "suy đoán trong trường hợp này.\n\nVui lòng thử diễn đạt lại câu hỏi cụ "
-                            "thể hơn, hoặc liên hệ giảng viên/Phòng Đào tạo."
-                        ),
-                        "sources": [], "hallucinated": False, "route": _route_decision.intent,
-                    })
+                    _chat_history.append(
+                        {
+                            "role": "assistant",
+                            "content": (
+                                "Em chưa tìm thấy tài liệu đã được duyệt phù hợp với câu hỏi này. "
+                                "Để tránh đưa ra thông tin không có căn cứ, hệ thống KHÔNG để AI tự "
+                                "suy đoán trong trường hợp này.\n\nVui lòng thử diễn đạt lại câu hỏi cụ "
+                                "thể hơn, hoặc liên hệ giảng viên/Phòng Đào tạo."
+                            ),
+                            "sources": [],
+                            "hallucinated": False,
+                            "route": _route_decision.intent,
+                        }
+                    )
                     st.rerun()
 
                 # Tự động chọn provider RIÊNG cho chat (KHÔNG dùng thẳng `selected_provider`
@@ -1128,7 +1235,10 @@ def ai_advisor_tab(df, llm_integration, role=None, current_student_id=None, wh=N
                     # — bối cảnh chỉ chứa định danh giả danh + mức rủi ro/GPA nhóm + điểm yếu,
                     # không có tên/email/SĐT/mã số sinh viên thật.
                     _anon_context, _privacy_audit = privacy_service.build_anonymized_student_context(
-                        student_id_llm, predicted_gpa_llm, weaknesses_llm, student_profile,
+                        student_id_llm,
+                        predicted_gpa_llm,
+                        weaknesses_llm,
+                        student_profile,
                     )
                     _chat_context_extra = []
                     if _class_ctx_line:
@@ -1171,7 +1281,9 @@ def ai_advisor_tab(df, llm_integration, role=None, current_student_id=None, wh=N
                             )
                             _answer = "".join(_stream)
                     except Exception:
-                        _logger.exception("Lỗi khi lấy phản hồi chat AI qua Gateway (provider=%s)", _chat_auto["provider_key"])
+                        _logger.exception(
+                            "Lỗi khi lấy phản hồi chat AI qua Gateway (provider=%s)", _chat_auto["provider_key"]
+                        )
                         _answer = "⚠️ Không thể lấy phản hồi từ AI lúc này. Vui lòng thử lại sau."
 
                     # Xác minh trích dẫn: cảnh báo nếu AI nêu nguồn không khớp tài liệu đã nạp.
@@ -1202,10 +1314,14 @@ def ai_advisor_tab(df, llm_integration, role=None, current_student_id=None, wh=N
                 # khớp tài liệu đã nạp — KHÔNG coi đây là 1 lượt tư vấn "sạch"
                 # (is_grounded=False), dù vẫn hiển thị cho người dùng kèm cảnh báo
                 # ở trên (không xóa câu trả lời, chỉ không đánh dấu là đáng tin).
-                _chat_history.append({
-                    "role": "assistant", "content": _answer, "sources": _chat_sources,
-                    "hallucinated": _chat_has_hallucination,
-                })
+                _chat_history.append(
+                    {
+                        "role": "assistant",
+                        "content": _answer,
+                        "sources": _chat_sources,
+                        "hallucinated": _chat_has_hallucination,
+                    }
+                )
                 st.rerun()
 
             if st.session_state[_chat_key] and st.button("🗑️ Xoá cuộc trò chuyện", key="ai_chat_clear"):
@@ -1228,14 +1344,23 @@ def ai_advisor_tab(df, llm_integration, role=None, current_student_id=None, wh=N
                         f"📄 {_src}</div>",
                         unsafe_allow_html=True,
                     )
-            elif st.session_state.get("_last_rag_retrieval_status") in ("NO_RELEVANT_EVIDENCE", "PERMISSION_DENIED", "ERROR"):
+            elif st.session_state.get("_last_rag_retrieval_status") in (
+                "NO_RELEVANT_EVIDENCE",
+                "PERMISSION_DENIED",
+                "ERROR",
+            ):
                 # NHÓM F: khi kho tri thức KHÔNG có tài liệu đã duyệt phù hợp,
                 # nói rõ "chưa có" thay vì im lặng hoặc để LLM tự bịa nội dung.
                 st.warning(
-                    "📭 " + (st.session_state.get("_last_rag_retrieval_message")
-                             or "Chưa có tài liệu chính thức được duyệt cho câu hỏi này.")
+                    "📭 "
+                    + (
+                        st.session_state.get("_last_rag_retrieval_message")
+                        or "Chưa có tài liệu chính thức được duyệt cho câu hỏi này."
+                    )
                 )
-                st.caption("Phần phân tích dựa trên dữ liệu (dự đoán, chẩn đoán) ở cột bên trái vẫn không bị ảnh hưởng.")
+                st.caption(
+                    "Phần phân tích dựa trên dữ liệu (dự đoán, chẩn đoán) ở cột bên trái vẫn không bị ảnh hưởng."
+                )
             else:
                 ui_kit.empty_state(
                     "Chưa có bằng chứng nào",
@@ -1250,13 +1375,19 @@ def ai_advisor_tab(df, llm_integration, role=None, current_student_id=None, wh=N
     if is_staff:
         with st.expander("Công cụ kỹ thuật (RAG · So sánh AI · Kiểm tra kết nối)", expanded=False):
             if is_admin:
-                _can_test = (
-                    selected_provider in ("huggingface", "ollama")
-                    or (selected_provider in ("gemini", "groq", "openai") and bool(resolved_api_key))
+                _can_test = selected_provider in ("huggingface", "ollama") or (
+                    selected_provider in ("gemini", "groq", "openai") and bool(resolved_api_key)
                 )
                 if _can_test and available_map.get(llm_type, False):
                     if st.button(f"🧪 Kiểm tra {llm_type} API Key", key="btn_test_llm_conn"):
-                        _run_connection_test(llm_integration, selected_provider, model_name_input, resolved_api_key, api_key_input, llm_type)
+                        _run_connection_test(
+                            llm_integration,
+                            selected_provider,
+                            model_name_input,
+                            resolved_api_key,
+                            api_key_input,
+                            llm_type,
+                        )
 
             # --- Chế độ "So sánh AI" (Compare AI) — Phase 10 refactor ---
             # Kiến trúc multi-LLM đã sẵn (dss/services/llm_service.py, ThreadPoolExecutor
@@ -1292,13 +1423,23 @@ def ai_advisor_tab(df, llm_integration, role=None, current_student_id=None, wh=N
                             _kwargs["api_key"] = llm_integration.get_api_key_from_secrets(_key)
                         elif _key == "ollama":
                             _kwargs["base_url"] = ollama_base_url()
-                        _specs.append({
-                            "provider_key": _key,
-                            "provider_label": _lbl,
-                            "model_name": AI_MODEL_CATALOG[_key][0],
-                            "call_kwargs": _kwargs,
-                        })
-                    _run_compare_ai(llm_integration, _specs, weaknesses_llm, predicted_gpa_llm, student_profile, runtime_rag_documents, role=role or "Giảng viên / CVHT")
+                        _specs.append(
+                            {
+                                "provider_key": _key,
+                                "provider_label": _lbl,
+                                "model_name": AI_MODEL_CATALOG[_key][0],
+                                "call_kwargs": _kwargs,
+                            }
+                        )
+                    _run_compare_ai(
+                        llm_integration,
+                        _specs,
+                        weaknesses_llm,
+                        predicted_gpa_llm,
+                        student_profile,
+                        runtime_rag_documents,
+                        role=role or "Giảng viên / CVHT",
+                    )
 
             st.markdown("---")
             # Nút "Xem trước tài liệu RAG" (thuật ngữ kỹ thuật) và nút Demo riêng chỉ
@@ -1401,7 +1542,9 @@ def ai_advisor_tab(df, llm_integration, role=None, current_student_id=None, wh=N
         )
         _col_demo_yes, _col_demo_no = st.columns(2)
         with _col_demo_yes:
-            _go_demo = st.button("Tiếp tục với chế độ mô phỏng", key="confirm_demo_mode", type="primary", width="stretch")
+            _go_demo = st.button(
+                "Tiếp tục với chế độ mô phỏng", key="confirm_demo_mode", type="primary", width="stretch"
+            )
         with _col_demo_no:
             _cancel_demo = st.button("Quay lại", key="cancel_demo_mode", width="stretch")
         if _cancel_demo:
@@ -1575,49 +1718,55 @@ def ai_advisor_tab(df, llm_integration, role=None, current_student_id=None, wh=N
                         # đây là hằng số chính sách cố định (0.85 cho MỌI sinh viên), không
                         # phải giá trị đo lường/hiệu chuẩn từ dữ liệu — hiển thị như tỷ lệ %
                         # sẽ khiến người dùng hiểu nhầm là một chỉ số được tính riêng cho họ.
-                        st.caption(
-                            f"Đánh giá lại vào: {_structured_plan.next_review_at[:10]}"
-                        )
+                        st.caption(f"Đánh giá lại vào: {_structured_plan.next_review_at[:10]}")
 
                 # --- LƯU & XUẤT KẾ HOẠCH ---
                 st.markdown("---")
                 col_save_plan, col_export_excel, col_export_pdf = st.columns(3)
-                
+
                 with col_save_plan:
                     if hasattr(llm_integration, 'data_warehouse') and llm_integration.data_warehouse:
                         # Auto-save: kế hoạch vừa tạo xong được lưu ngay, không cần bấm nút.
                         try:
-                            plan_df = pd.DataFrame([{
-                                'student_id': student_id_llm,
-                                'created_at': datetime.now().isoformat(),
-                                'plan_content': plan,
-                                'predicted_gpa': predicted_gpa_llm,
-                                'ai_provider': selected_provider,
-                                'ai_model': model_name_input
-                            }])
+                            plan_df = pd.DataFrame(
+                                [
+                                    {
+                                        'student_id': student_id_llm,
+                                        'created_at': datetime.now().isoformat(),
+                                        'plan_content': plan,
+                                        'predicted_gpa': predicted_gpa_llm,
+                                        'ai_provider': selected_provider,
+                                        'ai_model': model_name_input,
+                                    }
+                                ]
+                            )
 
                             dataset_id, meta = llm_integration.data_warehouse.save_dataset(
                                 plan_df,
                                 dataset_name=f"study_plan_{student_id_llm}_{datetime.now().strftime('%Y%m%d%H%M')}",
                                 description=f"Kế hoạch AI từ {llm_type}",
-                                data_type="advisor"
+                                data_type="advisor",
                             )
                             st.success(f"✅ Đã tự động lưu kế hoạch vào kho! ID: `{dataset_id}`")
                         except Exception as e:
                             ui_kit.report_error("❌ Lỗi khi tự động lưu", e)
-                    
+
                 with col_export_excel:
                     buffer_plan = BytesIO()
                     with pd.ExcelWriter(buffer_plan, engine='xlsxwriter') as writer:
-                        plan_df_export = pd.DataFrame([{
-                            'Student ID': student_id_llm,
-                            'Predicted GPA': predicted_gpa_llm,
-                            'Created At': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                            'AI Provider': f"{selected_provider} ({model_name_input})",
-                            'Study Plan': plan
-                        }])
+                        plan_df_export = pd.DataFrame(
+                            [
+                                {
+                                    'Student ID': student_id_llm,
+                                    'Predicted GPA': predicted_gpa_llm,
+                                    'Created At': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                                    'AI Provider': f"{selected_provider} ({model_name_input})",
+                                    'Study Plan': plan,
+                                }
+                            ]
+                        )
                         plan_df_export.to_excel(writer, index=False, sheet_name='Study Plan')
-                    
+
                     st.download_button(
                         label="📥 Xuất Excel (.xlsx)",
                         data=buffer_plan.getvalue(),
@@ -1630,12 +1779,15 @@ def ai_advisor_tab(df, llm_integration, role=None, current_student_id=None, wh=N
                 with col_export_pdf:
                     try:
                         from dss.services.pdf_certificate_service import generate_career_passport_pdf
+
                         _pdf_plan_bytes = generate_career_passport_pdf(
                             student_id=str(student_id_llm),
                             target_role="Lộ trình can thiệp học tập AI",
                             career_fit_score=float(predicted_gpa_llm * 10) if predicted_gpa_llm else 80.0,
                             career_readiness_score=75.0,
-                            gap_size="Trung bình" if risk_level == "trung bình" else ("Nhỏ" if risk_level == "thấp" else "Lớn"),
+                            gap_size="Trung bình"
+                            if risk_level == "trung bình"
+                            else ("Nhỏ" if risk_level == "thấp" else "Lớn"),
                             four_week_plan=week_plan_ai if 'week_plan_ai' in locals() else None,
                         )
                         st.download_button(
@@ -1703,11 +1855,12 @@ def ai_configuration_tab(llm_integration):
         ui_kit.subsection_header(
             "Trạng thái provider",
             subtitle="\"Cấu hình\" chỉ đọc biến môi trường/secrets (không gửi request). \"Kiểm tra kết nối\" gửi 1 request "
-                     "tối thiểu tới từng provider — bấm thủ công để không tốn hạn mức mỗi lần tải trang.",
+            "tối thiểu tới từng provider — bấm thủ công để không tốn hạn mức mỗi lần tải trang.",
         )
     with col_btn:
         if st.button("Kiểm tra kết nối tất cả provider", key="ai_config_test_all", type="primary", width="stretch"):
             from dss.services import llm_gateway as _llm_gateway
+
             with st.spinner("Đang gọi thử từng provider..."):
                 for _pkey, _ in _providers:
                     st.session_state[f"_admin_ai_health_{_pkey}"] = _llm_gateway.check_provider_health(_pkey).to_dict()
@@ -1723,7 +1876,11 @@ def ai_configuration_tab(llm_integration):
                     _config_html = ui_kit.badge_html("Không dùng khoá API", "neutral")
                 else:
                     _configured = bool(llm_integration.get_api_key_from_secrets(_pkey))
-                    _config_html = ui_kit.status_html("ready", "Đã có khoá") if _configured else ui_kit.status_html("not_configured")
+                    _config_html = (
+                        ui_kit.status_html("ready", "Đã có khoá")
+                        if _configured
+                        else ui_kit.status_html("not_configured")
+                    )
 
                 _health = st.session_state.get(f"_admin_ai_health_{_pkey}")
                 _tested_at = st.session_state.get(f"_admin_ai_health_{_pkey}_at")
@@ -1735,7 +1892,9 @@ def ai_configuration_tab(llm_integration):
                     _is_ready = _health["category"] == "READY"
                     _conn_html = ui_kit.badge_html(
                         "Kết nối được" if _is_ready else "Không khả dụng",
-                        "success" if _is_ready else ("warning" if _health["category"] == "BILLING_REQUIRED" else "danger"),
+                        "success"
+                        if _is_ready
+                        else ("warning" if _health["category"] == "BILLING_REQUIRED" else "danger"),
                     )
                 st.markdown(
                     f"<div class='dss-kv'><span class='dss-kv-key'>Cấu hình</span><span class='dss-kv-value'>{_config_html}</span></div>"
@@ -1769,7 +1928,9 @@ def ai_configuration_tab(llm_integration):
             with st.container(key="danger_ai_config_clear"):
                 if st.button("Xoá mặc định", key="ai_config_clear_default"):
                     admin_ai_config.clear_default_provider()
-                    st.session_state.show_success_message = "Đã xoá provider mặc định — hệ thống quay lại tự dò provider."
+                    st.session_state.show_success_message = (
+                        "Đã xoá provider mặc định — hệ thống quay lại tự dò provider."
+                    )
                     st.rerun()
         else:
             st.caption("Chưa đặt mặc định — hệ thống tự dò theo thứ tự Ollama → Gemini → Groq → OpenAI.")

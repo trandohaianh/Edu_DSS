@@ -1,4 +1,5 @@
 """Server-only bridge from authenticated EduDSS classes to the queued AI engine."""
+
 from __future__ import annotations
 
 import base64
@@ -7,10 +8,10 @@ import hmac
 import json
 import logging
 import os
-from pathlib import Path
 import tempfile
 import threading
 import time
+from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlencode, urlparse
 from urllib.request import Request, urlopen
@@ -43,8 +44,14 @@ def enabled():
 def _configuration():
     value = os.environ.get("EDUDSS_ENGINE_URL", "").strip().rstrip("/")
     parsed = urlparse(value)
-    if (parsed.scheme not in {"http", "https"} or not parsed.hostname or parsed.username
-            or parsed.password or parsed.query or parsed.fragment):
+    if (
+        parsed.scheme not in {"http", "https"}
+        or not parsed.hostname
+        or parsed.username
+        or parsed.password
+        or parsed.query
+        or parsed.fragment
+    ):
         raise EngineGatewayError("Địa chỉ dịch vụ học tập chưa được cấu hình hợp lệ.")
     key = os.environ.get("EDUDSS_ENGINE_SIGNING_KEY", "")
     if len(key.encode("utf-8")) < 32:
@@ -54,11 +61,13 @@ def _configuration():
 
 def _actor():
     from dss.platform.context import current_actor
+
     return current_actor()
 
 
 def _classes(actor):
     from dss.services.classroom_service import list_my_classes
+
     return list_my_classes(actor)
 
 
@@ -66,8 +75,12 @@ def _authorize(course_id, roles=None):
     actor = _actor()
     if actor.role not in _ROLE:
         raise PermissionError("Vai trò hiện tại không được truy cập dịch vụ học tập.")
-    if (not isinstance(course_id, str) or not course_id.strip()
-            or len(course_id) > 128 or course_id != course_id.strip()):
+    if (
+        not isinstance(course_id, str)
+        or not course_id.strip()
+        or len(course_id) > 128
+        or course_id != course_id.strip()
+    ):
         raise ValueError("Cần mã học phần hợp lệ.")
     if roles and _ROLE[actor.role] not in roles:
         raise PermissionError("Thao tác này không dành cho vai trò hiện tại.")
@@ -75,6 +88,7 @@ def _authorize(course_id, roles=None):
         raise PermissionError("Tài khoản chưa có mã sinh viên được xác thực.")
     from dss.platform.models import School
     from dss.platform.store import platform_session
+
     with platform_session(actor.school_id, actor=actor) as session:
         if session.get(School, actor.school_id) is None:
             raise PermissionError("Trường chưa được đăng ký trong hệ thống.")
@@ -87,6 +101,7 @@ def _authorize_write(course_id, roles=None):
     actor = _authorize(course_id, roles)
     from dss.platform.store import platform_session
     from dss.services.classroom_service import require_school_writes
+
     with platform_session(actor.school_id, actor=actor) as session:
         require_school_writes(session, actor)
     if not any(row["course_id"] == course_id and row["status"] == "active" for row in _classes(actor)):
@@ -101,6 +116,7 @@ def available_courses():
     courses = {row["course_id"] for row in _classes(actor)}
     if actor.role == "Admin":
         from dss.services.cms_lecture_repository import list_lessons
+
         courses.update(lesson.course_id for lesson in list_lessons())
     return sorted(courses)
 
@@ -113,11 +129,19 @@ def _token(actor, *, bridge=False):
     """Interoperable HS256, never sent to a browser or persisted in a cache map."""
     _, key = _configuration()
     now = int(time.time())
-    principal = ("legacy-bridge:" + hashlib.sha256(actor.username.encode()).hexdigest()[:40]
-                 if bridge else actor.username)
-    payload = dict(iss="edudss-engine", aud="edudss-api", sub=principal,
-                   school=actor.school_id, role="admin" if bridge else _ROLE[actor.role],
-                   student_id=None if bridge else (actor.student_id or None), iat=now, exp=now + 120)
+    principal = (
+        "legacy-bridge:" + hashlib.sha256(actor.username.encode()).hexdigest()[:40] if bridge else actor.username
+    )
+    payload = dict(
+        iss="edudss-engine",
+        aud="edudss-api",
+        sub=principal,
+        school=actor.school_id,
+        role="admin" if bridge else _ROLE[actor.role],
+        student_id=None if bridge else (actor.student_id or None),
+        iat=now,
+        exp=now + 120,
+    )
     header = _b64(json.dumps({"alg": "HS256", "typ": "JWT"}, separators=(",", ":")).encode())
     body = _b64(json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode())
     message = (header + "." + body).encode("ascii")
@@ -152,18 +176,23 @@ def _raw(actor, course_id, method, suffix, payload=None, *, bridge=False, params
     url = base + "/v1/courses/" + quote(course_id, safe="") + suffix
     if params:
         url += "?" + urlencode(params)
-    status, result = _transport(method, url, {
-        "Authorization": "Bearer " + _token(actor, bridge=bridge),
-        "Content-Type": "application/json", "Accept": "application/json",
-    }, payload)
+    status, result = _transport(
+        method,
+        url,
+        {
+            "Authorization": "Bearer " + _token(actor, bridge=bridge),
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        },
+        payload,
+    )
     if status in {401, 403}:
         raise PermissionError("Dịch vụ học tập chưa xác nhận quyền truy cập của tài khoản.")
     if status == 404:
         raise EngineNotReady("Học phần chưa có mô hình hoặc học liệu đã chuẩn bị.")
     if status in {429, 503}:
         job_id = result.get("job_id")
-        if (not isinstance(job_id, str) or len(job_id) != 32
-                or any(char not in "0123456789abcdef" for char in job_id)):
+        if not isinstance(job_id, str) or len(job_id) != 32 or any(char not in "0123456789abcdef" for char in job_id):
             job_id = None
         state = result.get("state")
         if not isinstance(state, str) or len(state) > 40:
@@ -173,7 +202,10 @@ def _raw(actor, course_id, method, suffix, payload=None, *, bridge=False, params
             submission_status = None
         raise EngineUnavailable(
             "Hàng đợi đang bận hoặc dịch vụ chưa sẵn sàng. Vui lòng thử lại sau.",
-            job_id=job_id, state=state, submission_status=submission_status)
+            job_id=job_id,
+            state=state,
+            submission_status=submission_status,
+        )
     if not 200 <= status < 300 or not isinstance(result, dict):
         raise EngineGatewayError("Chưa hoàn tất thao tác dịch vụ học tập; quản trị viên cần kiểm tra cấu hình.")
     return result
@@ -200,8 +232,13 @@ def _member_key(actor, course_id):
 
 def _forget_member(school_id, course_id, principal_id=None, student_id=None):
     with _member_lock:
-        for key in [k for k in _member_synced if k[0] == school_id and k[4] == course_id
-                    and ((principal_id and k[1] == principal_id) or (student_id and k[3] == student_id))]:
+        for key in [
+            k
+            for k in _member_synced
+            if k[0] == school_id
+            and k[4] == course_id
+            and ((principal_id and k[1] == principal_id) or (student_id and k[3] == student_id))
+        ]:
             _member_synced.pop(key, None)
 
 
@@ -214,9 +251,19 @@ def _call(course_id, method, suffix, payload=None, *, roles=None, params=None):
         if not fresh:
             # Only an identity already checked against this school's official class
             # assignments is mirrored. The elevated JWT stays inside this server.
-            _raw(actor, course_id, "POST", "/members", dict(
-                principal_id=actor.username, role=_ROLE[actor.role],
-                student_id=actor.student_id or None, active=True), bridge=True)
+            _raw(
+                actor,
+                course_id,
+                "POST",
+                "/members",
+                dict(
+                    principal_id=actor.username,
+                    role=_ROLE[actor.role],
+                    student_id=actor.student_id or None,
+                    active=True,
+                ),
+                bridge=True,
+            )
             if _authorize(course_id, roles) != actor:
                 raise PermissionError("Phiên xác thực đã thay đổi; vui lòng thực hiện lại.")
             with _member_lock:
@@ -237,9 +284,16 @@ def deactivate_member(admin_actor, course_id, principal_id, role, student_id=Non
     if role == "student" and not student_id:
         return False
     try:
-        _raw(admin_actor, course_id, "POST", "/members", dict(
-            principal_id=principal_id, role=role, student_id=student_id if role == "student" else None,
-            active=False), bridge=True)
+        _raw(
+            admin_actor,
+            course_id,
+            "POST",
+            "/members",
+            dict(
+                principal_id=principal_id, role=role, student_id=student_id if role == "student" else None, active=False
+            ),
+            bridge=True,
+        )
         return True
     except (EngineGatewayError, PermissionError, ValueError):
         _log.warning("Không gỡ được thành viên khỏi engine (course=%s); sẽ bị chặn ở lần đồng bộ sau.", course_id)
@@ -264,13 +318,15 @@ def get_class_risk(course_id, offset=0, limit=50):
     if type(offset) is not int or offset < 0 or type(limit) is not int or not 1 <= limit <= 100:
         raise ValueError("Phân trang cần giới hạn 1..100 và vị trí không âm.")
     actor = _authorize(course_id, {"admin", "instructor"})
-    result = _call(course_id, "GET", "/class-risk", roles={"admin", "instructor"},
-                   params={"offset": offset, "limit": limit})
+    result = _call(
+        course_id, "GET", "/class-risk", roles={"admin", "instructor"}, params={"offset": offset, "limit": limit}
+    )
     checked = _authorize(course_id, {"admin", "instructor"})
     if checked != actor:
         raise PermissionError("Phiên xác thực đã thay đổi.")
     if actor.role != "Admin":
         from dss.services.classroom_service import list_class_roster
+
         allowed = set()
         for classroom in _classes(actor):
             if classroom["course_id"] == course_id:
@@ -292,8 +348,7 @@ def request_advice(course_id, request_id, k=5):
     if not isinstance(request_id, str) or not 1 <= len(request_id) <= 128:
         raise ValueError("Cần mã yêu cầu hợp lệ để tránh gửi trùng.")
     _authorize_write(course_id, {"student"})
-    return _call(course_id, "POST", "/advice",
-                 {"request_id": request_id, "k": k}, roles={"student"})
+    return _call(course_id, "POST", "/advice", {"request_id": request_id, "k": k}, roles={"student"})
 
 
 def get_job(course_id, job_id):
@@ -304,8 +359,8 @@ def get_job(course_id, job_id):
 
 def _mapping_path(actor, course_id, lesson_id):
     from dss.core.data_root import get_data_root
-    key = hashlib.sha256(json.dumps([actor.school_id, course_id, lesson_id],
-                                    ensure_ascii=False).encode()).hexdigest()
+
+    key = hashlib.sha256(json.dumps([actor.school_id, course_id, lesson_id], ensure_ascii=False).encode()).hexdigest()
     return Path(get_data_root()) / "engine_bridge" / (key + ".json")
 
 
@@ -325,8 +380,9 @@ def _save_mapping(actor, course_id, lesson_id, value):
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = None
     try:
-        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=path.parent,
-                prefix=".bridge-", suffix=".tmp", delete=False) as stream:
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=path.parent, prefix=".bridge-", suffix=".tmp", delete=False
+        ) as stream:
             temporary = Path(stream.name)
             json.dump(value, stream, ensure_ascii=False)
             stream.flush()
@@ -343,36 +399,47 @@ def authorize_staff_course(course_id):
 
 def _approved(lesson, course_id):
     from dss.services.learning_plan_resources import approved_plan_resources
-    return bool(lesson.ai_enabled and lesson.official_source and any(
-        row.get("lesson_id") == lesson.lesson_id
-        and row.get("document_id") == lesson.current_document_id
-        for row in approved_plan_resources(course_id)
-    ))
+
+    return bool(
+        lesson.ai_enabled
+        and lesson.official_source
+        and any(
+            row.get("lesson_id") == lesson.lesson_id and row.get("document_id") == lesson.current_document_id
+            for row in approved_plan_resources(course_id)
+        )
+    )
 
 
 def _paragraphs(chunks, course_id, document_id):
     parts = []
     for chunk in chunks:
         value = chunk.to_dict() if hasattr(chunk, "to_dict") else chunk
-        if (not isinstance(value, dict) or value.get("course_id") != course_id
-                or value.get("document_id") != document_id):
+        if (
+            not isinstance(value, dict)
+            or value.get("course_id") != course_id
+            or value.get("document_id") != document_id
+        ):
             raise PermissionError("Nội dung bài giảng không khớp học phần và phiên bản.")
         text = value.get("content", "")
         if not isinstance(text, str):
             raise ValueError("Nội dung bài giảng chưa hợp lệ.")
         for start in range(0, len(text), 2000):
-            paragraph = text[start:start + 2000].strip()
+            paragraph = text[start : start + 2000].strip()
             if paragraph:
                 parts.append({"paragraph_id": f"p{len(parts):04d}", "text": paragraph})
     if not parts or len(parts) > 100:
-        raise EngineGatewayError("Bài giảng cần từ 1 đến 100 đoạn; hãy chia tài liệu lớn trước khi chuẩn bị giải thích.")
+        raise EngineGatewayError(
+            "Bài giảng cần từ 1 đến 100 đoạn; hãy chia tài liệu lớn trước khi chuẩn bị giải thích."
+        )
     return parts
 
 
 def _lesson_source(course_id, lesson_id, *, require_approved=True, chunks=None):
     actor = _authorize(course_id)
-    from dss.services import cms_lecture_repository as cms, vector_store
+    from dss.services import cms_lecture_repository as cms
+    from dss.services import vector_store
     from dss.services.rag_namespaces import NAMESPACE_STUDENT_LEARNING
+
     lesson = cms.get_lesson(lesson_id)
     if not lesson or lesson.course_id != course_id or not lesson.current_document_id:
         raise PermissionError("Bài giảng hiện tại không thuộc học phần được phép.")
@@ -383,58 +450,91 @@ def _lesson_source(course_id, lesson_id, *, require_approved=True, chunks=None):
         chunks = store.get_document_chunks(lesson.current_document_id, course_id=course_id)
     paragraphs = _paragraphs(chunks, course_id, lesson.current_document_id)
     body = {"title": lesson.title, "paragraphs": paragraphs}
-    body_hash = hashlib.sha256(json.dumps(body, ensure_ascii=False, sort_keys=True,
-                                         separators=(",", ":")).encode()).hexdigest()
+    body_hash = hashlib.sha256(
+        json.dumps(body, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
     return actor, lesson, paragraphs, body_hash
 
 
 def _lecture_id(actor, course_id, lesson_id):
-    return "cms-" + hashlib.sha256(json.dumps(
-        [actor.school_id, course_id, lesson_id], ensure_ascii=False).encode()).hexdigest()
+    return (
+        "cms-"
+        + hashlib.sha256(json.dumps([actor.school_id, course_id, lesson_id], ensure_ascii=False).encode()).hexdigest()
+    )
 
 
 def sync_lesson(course_id, lesson_id, *, chunks=None, retry_failed=False):
     """Explicit staff preparation; approval always uses the uploaded version CAS."""
     actor = authorize_staff_course(course_id)
-    _, lesson, paragraphs, body_hash = _lesson_source(
-        course_id, lesson_id, require_approved=False, chunks=chunks)
+    _, lesson, paragraphs, body_hash = _lesson_source(course_id, lesson_id, require_approved=False, chunks=chunks)
     if not lesson.ai_enabled:
         previous = _read_mapping(actor, course_id, lesson_id)
         if previous:
-            _call(course_id, "PUT", "/lectures/" + previous["lecture_id"] + "/approval",
-                  {"approved": False, "version": previous["version"]},
-                  roles={"admin", "instructor"})
+            _call(
+                course_id,
+                "PUT",
+                "/lectures/" + previous["lecture_id"] + "/approval",
+                {"approved": False, "version": previous["version"]},
+                roles={"admin", "instructor"},
+            )
         return {"state": "DISABLED", "approved": False, "jobs": []}
     lecture_id = _lecture_id(actor, course_id, lesson_id)
-    uploaded = _call(course_id, "POST", "/lectures",
-                    {"lecture_id": lecture_id, "title": lesson.title, "paragraphs": paragraphs},
-                    roles={"admin", "instructor"})
+    uploaded = _call(
+        course_id,
+        "POST",
+        "/lectures",
+        {"lecture_id": lecture_id, "title": lesson.title, "paragraphs": paragraphs},
+        roles={"admin", "instructor"},
+    )
     version = uploaded.get("version")
     if not isinstance(version, str) or not version:
         raise EngineGatewayError("Dịch vụ chưa trả về phiên bản bài giảng hợp lệ.")
     # Re-read after network work so a replaced lesson cannot approve an old body.
     from dss.services import cms_lecture_repository as cms
+
     current = cms.get_lesson(lesson_id)
-    if (not current or current.course_id != course_id
-            or current.current_document_id != lesson.current_document_id
-            or current.title != lesson.title):
-        _call(course_id, "PUT", "/lectures/" + lecture_id + "/approval",
-              {"approved": False, "version": version}, roles={"admin", "instructor"})
+    if (
+        not current
+        or current.course_id != course_id
+        or current.current_document_id != lesson.current_document_id
+        or current.title != lesson.title
+    ):
+        _call(
+            course_id,
+            "PUT",
+            "/lectures/" + lecture_id + "/approval",
+            {"approved": False, "version": version},
+            roles={"admin", "instructor"},
+        )
         raise EngineGatewayError("Bài giảng vừa thay phiên bản. Vui lòng đồng bộ lại.")
     approved = _approved(current, course_id)
-    _call(course_id, "PUT", "/lectures/" + lecture_id + "/approval",
-          {"approved": approved, "version": version}, roles={"admin", "instructor"})
+    _call(
+        course_id,
+        "PUT",
+        "/lectures/" + lecture_id + "/approval",
+        {"approved": approved, "version": version},
+        roles={"admin", "instructor"},
+    )
     if retry_failed:
-        uploaded = _call(course_id, "POST", "/lectures/" + lecture_id + "/retry",
-                         roles={"admin", "instructor"})
+        uploaded = _call(course_id, "POST", "/lectures/" + lecture_id + "/retry", roles={"admin", "instructor"})
         if uploaded.get("version") != version:
             raise EngineGatewayError("Phiên bản bài giảng đã đổi; hãy đồng bộ lại.")
-    value = dict(lecture_id=lecture_id, version=version,
-                 document_id=lesson.current_document_id, body_hash=body_hash,
-                 approved=approved, paragraphs=paragraphs, title=lesson.title)
+    value = dict(
+        lecture_id=lecture_id,
+        version=version,
+        document_id=lesson.current_document_id,
+        body_hash=body_hash,
+        approved=approved,
+        paragraphs=paragraphs,
+        title=lesson.title,
+    )
     _save_mapping(actor, course_id, lesson_id, value)
-    return {"state": "PREPARED" if approved else "AWAITING_APPROVAL",
-            "approved": approved, "version": version, "jobs": uploaded.get("jobs", [])}
+    return {
+        "state": "PREPARED" if approved else "AWAITING_APPROVAL",
+        "approved": approved,
+        "version": version,
+        "jobs": uploaded.get("jobs", []),
+    }
 
 
 def auto_sync_upload(course_id, lesson_id, chunks):
@@ -445,32 +545,45 @@ def auto_sync_upload(course_id, lesson_id, chunks):
         return sync_lesson(course_id, lesson_id, chunks=chunks)
     except Exception:
         from dss.core.logging_config import get_logger
+
         get_logger(__name__).warning(
-            "CMS material was saved; queued explanation preparation needs an authorized staff retry.")
+            "CMS material was saved; queued explanation preparation needs an authorized staff retry."
+        )
         return {"state": "SYNC_PENDING"}
 
 
 def list_cached_paragraphs(course_id, lesson_id):
     actor, lesson, paragraphs, body_hash = _lesson_source(course_id, lesson_id)
     value = _read_mapping(actor, course_id, lesson_id)
-    if (not value or value.get("document_id") != lesson.current_document_id
-            or value.get("body_hash") != body_hash or not value.get("approved")):
+    if (
+        not value
+        or value.get("document_id") != lesson.current_document_id
+        or value.get("body_hash") != body_hash
+        or not value.get("approved")
+    ):
         return []
-    return [{"paragraph_id": part["paragraph_id"], "preview": part["text"][:100]}
-            for part in paragraphs]
+    return [{"paragraph_id": part["paragraph_id"], "preview": part["text"][:100]} for part in paragraphs]
 
 
 def get_cached_explanation(course_id, lesson_id, paragraph_id=None):
     """Student reads only: no upload, approval, retry, enqueue or inline LLM call."""
     actor, lesson, paragraphs, body_hash = _lesson_source(course_id, lesson_id)
     value = _read_mapping(actor, course_id, lesson_id)
-    pending = dict(state="PENDING", title=lesson.title,
-                   text="Giải thích đang được chuẩn bị hoặc cần giảng viên đồng bộ sau khi duyệt.")
-    if (not value or value.get("document_id") != lesson.current_document_id
-            or value.get("body_hash") != body_hash or not value.get("approved")):
+    pending = dict(
+        state="PENDING",
+        title=lesson.title,
+        text="Giải thích đang được chuẩn bị hoặc cần giảng viên đồng bộ sau khi duyệt.",
+    )
+    if (
+        not value
+        or value.get("document_id") != lesson.current_document_id
+        or value.get("body_hash") != body_hash
+        or not value.get("approved")
+    ):
         return pending
-    selected = next((part for part in paragraphs
-                     if part["paragraph_id"] == (paragraph_id or paragraphs[0]["paragraph_id"])), None)
+    selected = next(
+        (part for part in paragraphs if part["paragraph_id"] == (paragraph_id or paragraphs[0]["paragraph_id"])), None
+    )
     if selected is None:
         raise PermissionError("Đoạn bài giảng không thuộc phiên bản hiện tại.")
     suffix = "/lectures/" + value["lecture_id"] + "/paragraphs/" + selected["paragraph_id"]
@@ -480,11 +593,17 @@ def get_cached_explanation(course_id, lesson_id, paragraph_id=None):
         return pending
     # Revalidate legacy approval/version after fetching, including revocation races.
     checked_actor, checked_lesson, _, checked_hash = _lesson_source(course_id, lesson_id)
-    if checked_actor != actor or checked_hash != body_hash or checked_lesson.current_document_id != lesson.current_document_id:
+    if (
+        checked_actor != actor
+        or checked_hash != body_hash
+        or checked_lesson.current_document_id != lesson.current_document_id
+    ):
         raise PermissionError("Bài giảng hoặc quyền truy cập đã thay đổi.")
-    if (response.get("version") != value["version"]
-            or response.get("paragraph_id") != selected["paragraph_id"]
-            or response.get("original_text") != selected["text"]):
+    if (
+        response.get("version") != value["version"]
+        or response.get("paragraph_id") != selected["paragraph_id"]
+        or response.get("original_text") != selected["text"]
+    ):
         return pending
     cached = response.get("explanation")
     if response.get("state") != "READY" or not isinstance(cached, dict) or not isinstance(cached.get("text"), str):
@@ -492,6 +611,12 @@ def get_cached_explanation(course_id, lesson_id, paragraph_id=None):
     expected_hash = hashlib.sha256(selected["text"].encode()).hexdigest()
     if cached.get("text_hash") != expected_hash or cached.get("version") != value["version"]:
         return pending
-    return dict(state="READY", title=lesson.title, text=cached["text"],
-                original_text=selected["text"], paragraph_id=selected["paragraph_id"],
-                demo=bool(cached.get("demo")), version=value["version"])
+    return dict(
+        state="READY",
+        title=lesson.title,
+        text=cached["text"],
+        original_text=selected["text"],
+        paragraph_id=selected["paragraph_id"],
+        demo=bool(cached.get("demo")),
+        version=value["version"],
+    )

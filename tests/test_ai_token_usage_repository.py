@@ -2,6 +2,7 @@
 Postgres wiring (Phase 1C, priority item 10 — AI token usage). Skipped (not
 faked) without a configured database.
 """
+
 from __future__ import annotations
 
 import uuid
@@ -31,12 +32,22 @@ def org_id():
 def test_record_and_load_all_records(org_id):
     from dss.db.repositories import ai_token_usage_repository as repo
 
-    repo.record_usage(org_id, {
-        "usage_id": f"use_{uuid.uuid4().hex[:12]}", "timestamp": "2026-09-18T10:00:00+00:00",
-        "user_id": "sv001", "role": "Sinh viên", "request_type": "advisor_plan",
-        "provider": "gemini", "model": "gemini-2.0-flash",
-        "input_tokens": 100, "output_tokens": 50, "total_tokens": 150, "estimated_cost": 0.0001,
-    })
+    repo.record_usage(
+        org_id,
+        {
+            "usage_id": f"use_{uuid.uuid4().hex[:12]}",
+            "timestamp": "2026-09-18T10:00:00+00:00",
+            "user_id": "sv001",
+            "role": "Sinh viên",
+            "request_type": "advisor_plan",
+            "provider": "gemini",
+            "model": "gemini-2.0-flash",
+            "input_tokens": 100,
+            "output_tokens": 50,
+            "total_tokens": 150,
+            "estimated_cost": 0.0001,
+        },
+    )
     records = repo.load_all_records(org_id)
     assert len(records) == 1
     assert records[0]["user_id"] == "sv001"
@@ -45,8 +56,8 @@ def test_record_and_load_all_records(org_id):
 
 def test_cross_tenant_isolation(org_id):
     from dss.db.models import Organization
-    from dss.db.session import session_scope
     from dss.db.repositories import ai_token_usage_repository as repo
+    from dss.db.session import session_scope
 
     with session_scope() as session:
         other = Organization(org_code=f"TOKUSAGE_OTHER_{uuid.uuid4().hex[:8]}", name="Other Org")
@@ -54,12 +65,22 @@ def test_cross_tenant_isolation(org_id):
         session.flush()
         other_org_id = other.id
 
-    repo.record_usage(org_id, {
-        "usage_id": f"use_{uuid.uuid4().hex[:12]}", "timestamp": "2026-09-18T10:00:00+00:00",
-        "user_id": "sv001", "role": "Sinh viên", "request_type": "advisor_plan",
-        "provider": "gemini", "model": "gemini-2.0-flash",
-        "input_tokens": 100, "output_tokens": 50, "total_tokens": 150, "estimated_cost": 0.0001,
-    })
+    repo.record_usage(
+        org_id,
+        {
+            "usage_id": f"use_{uuid.uuid4().hex[:12]}",
+            "timestamp": "2026-09-18T10:00:00+00:00",
+            "user_id": "sv001",
+            "role": "Sinh viên",
+            "request_type": "advisor_plan",
+            "provider": "gemini",
+            "model": "gemini-2.0-flash",
+            "input_tokens": 100,
+            "output_tokens": 50,
+            "total_tokens": 150,
+            "estimated_cost": 0.0001,
+        },
+    )
     assert len(repo.load_all_records(org_id)) == 1
     assert len(repo.load_all_records(other_org_id)) == 0
 
@@ -82,12 +103,18 @@ def test_token_tracker_record_usage_writes_to_postgres_when_enabled(org_id, monk
     from dss.services import token_tracker
 
     record = token_tracker.record_usage(
-        user_id="sv007", role="Sinh viên", request_type="advisor_plan",
-        provider="gemini", model="gemini-2.0-flash", input_tokens=10, output_tokens=5,
+        user_id="sv007",
+        role="Sinh viên",
+        request_type="advisor_plan",
+        provider="gemini",
+        model="gemini-2.0-flash",
+        input_tokens=10,
+        output_tokens=5,
     )
     assert record.total_tokens == 15
 
     from dss.db.repositories import ai_token_usage_repository as repo
+
     stored = repo.load_all_records(org_id)
     assert len(stored) == 1
     assert stored[0]["usage_id"] == record.usage_id
@@ -101,8 +128,13 @@ def test_token_tracker_does_not_dual_write_to_local_json(org_id, monkeypatch, tm
     from dss.services import token_tracker
 
     token_tracker.record_usage(
-        user_id="sv008", role="Sinh viên", request_type="advisor_plan",
-        provider="gemini", model="gemini-2.0-flash", input_tokens=10, output_tokens=5,
+        user_id="sv008",
+        role="Sinh viên",
+        request_type="advisor_plan",
+        provider="gemini",
+        model="gemini-2.0-flash",
+        input_tokens=10,
+        output_tokens=5,
     )
     usage_file = tmp_path / "ai_token_usage.json"
     assert not usage_file.exists()
@@ -113,11 +145,17 @@ def test_token_tracker_local_mode_unaffected_by_default(monkeypatch, tmp_path):
     monkeypatch.setenv("EDUDSS_DATA_ROOT", str(tmp_path))
 
     from dss.services import token_tracker
+
     token_tracker.clear_usage_records_for_tests()
 
     token_tracker.record_usage(
-        user_id="sv009", role="Sinh viên", request_type="advisor_plan",
-        provider="gemini", model="gemini-2.0-flash", input_tokens=10, output_tokens=5,
+        user_id="sv009",
+        role="Sinh viên",
+        request_type="advisor_plan",
+        provider="gemini",
+        model="gemini-2.0-flash",
+        input_tokens=10,
+        output_tokens=5,
     )
     daily = token_tracker.get_user_daily_token_usage("sv009")
     assert daily == 15
@@ -134,8 +172,13 @@ def test_token_tracker_aggregations_work_against_postgres(org_id, monkeypatch, t
     from dss.services import token_tracker
 
     token_tracker.record_usage(
-        user_id="sv010", role="Sinh viên", request_type="advisor_plan",
-        provider="gemini", model="gemini-2.0-flash", input_tokens=100, output_tokens=50,
+        user_id="sv010",
+        role="Sinh viên",
+        request_type="advisor_plan",
+        provider="gemini",
+        model="gemini-2.0-flash",
+        input_tokens=100,
+        output_tokens=50,
     )
     assert token_tracker.get_user_daily_token_usage("sv010") == 150
 

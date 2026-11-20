@@ -18,6 +18,7 @@ authorization/tenant/course_id/citation/RAG evidence đầy đủ (cần dữ li
 thật từ các tầng chưa tồn tại trong phiên này, xem docs/ai/AI_ROUTING_MATRIX.md).
 Không tự nhận đã "hoàn thành toàn bộ Validator" — chỉ phần đã build thật.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -57,15 +58,21 @@ def _result(status: str, checks: List[CheckResult], reason: str) -> ValidationRe
 
 
 def validate_gpa_value(
-    value: float, *, scale_min: float = 0.0, scale_max: float = 10.0,
+    value: float,
+    *,
+    scale_min: float = 0.0,
+    scale_max: float = 10.0,
 ) -> ValidationResult:
     """Kiểm chứng 1 giá trị GPA nằm trong thang điểm hợp lệ TRƯỚC KHI hiển
     thị cho người dùng — chặn số liệu vô lý (vd. GPA âm, GPA > thang điểm
     do lỗi tính toán/parse) lọt ra ngoài như một kết quả đáng tin."""
-    checks = [CheckResult(
-        name="gpa_within_scale", passed=(scale_min <= value <= scale_max),
-        detail=f"value={value}, scale=[{scale_min}, {scale_max}]",
-    )]
+    checks = [
+        CheckResult(
+            name="gpa_within_scale",
+            passed=(scale_min <= value <= scale_max),
+            detail=f"value={value}, scale=[{scale_min}, {scale_max}]",
+        )
+    ]
     if not checks[0].passed:
         return _result(STATUS_FAIL, checks, f"GPA {value} nằm ngoài thang điểm hợp lệ [{scale_min}, {scale_max}].")
     return _result(STATUS_PASS, checks, "GPA hợp lệ.")
@@ -76,10 +83,13 @@ def validate_rule_engine_result(rule_result: Any) -> ValidationResult:
     tự nhất quán — status hợp lệ, và DENY/WARNING phải kèm lý do + evidence
     (không được là kết luận trống không có căn cứ)."""
     status = getattr(rule_result, "status", None)
-    checks = [CheckResult(
-        name="rule_status_is_valid_enum", passed=(status in _VALID_RULE_ENGINE_STATUSES),
-        detail=f"status={status!r}",
-    )]
+    checks = [
+        CheckResult(
+            name="rule_status_is_valid_enum",
+            passed=(status in _VALID_RULE_ENGINE_STATUSES),
+            detail=f"status={status!r}",
+        )
+    ]
     if not checks[0].passed:
         return _result(STATUS_FAIL, checks, f"Rule Engine trả về status không hợp lệ: {status!r}.")
 
@@ -99,25 +109,38 @@ def validate_regulation_resolution(resolution: Any) -> ValidationResult:
     regulation=None, sẽ khiến tầng gọi hiển thị dữ liệu rỗng như thành
     công)."""
     status = getattr(resolution, "status", None)
-    checks = [CheckResult(
-        name="regulation_status_is_valid_enum", passed=(status in _VALID_REGULATION_STATUSES),
-        detail=f"status={status!r}",
-    )]
+    checks = [
+        CheckResult(
+            name="regulation_status_is_valid_enum",
+            passed=(status in _VALID_REGULATION_STATUSES),
+            detail=f"status={status!r}",
+        )
+    ]
     if not checks[0].passed:
         return _result(STATUS_FAIL, checks, f"Regulation Resolver trả về status không hợp lệ: {status!r}.")
 
     regulation = getattr(resolution, "regulation", None)
     ok_has_regulation = (status != "ok") or (regulation is not None)
-    checks.append(CheckResult(name="ok_status_has_regulation_object", passed=ok_has_regulation,
-                              detail=f"status={status!r}, regulation={regulation!r}"))
+    checks.append(
+        CheckResult(
+            name="ok_status_has_regulation_object",
+            passed=ok_has_regulation,
+            detail=f"status={status!r}, regulation={regulation!r}",
+        )
+    )
     if not ok_has_regulation:
-        return _result(STATUS_FAIL, checks, "status='ok' nhưng không có đối tượng quy chế kèm theo — dữ liệu không nhất quán.")
+        return _result(
+            STATUS_FAIL, checks, "status='ok' nhưng không có đối tượng quy chế kèm theo — dữ liệu không nhất quán."
+        )
 
     return _result(STATUS_PASS, checks, "Kết quả Regulation Resolver nhất quán.")
 
 
 def validate_llm_numeric_claim(
-    llm_claimed_value: Optional[float], authoritative_value: float, *, tolerance: float = 0.01,
+    llm_claimed_value: Optional[float],
+    authoritative_value: float,
+    *,
+    tolerance: float = 0.01,
 ) -> ValidationResult:
     """HÀM CANH GÁC QUAN TRỌNG (Phần 1h/13): "LLM output must never override
     Calculator result". Nếu LLM tự "nói" ra 1 con số (vd. trong văn bản giải
@@ -127,19 +150,23 @@ def validate_llm_numeric_claim(
     TUYỆT ĐỐI không hiển thị con số sai của LLM như một kết quả đáng tin."""
     if llm_claimed_value is None:
         return _result(
-            STATUS_PASS, [CheckResult(name="llm_made_no_numeric_claim", passed=True, detail="llm_claimed_value=None")],
+            STATUS_PASS,
+            [CheckResult(name="llm_made_no_numeric_claim", passed=True, detail="llm_claimed_value=None")],
             "LLM không tự nêu số liệu nào — không có gì để đối chiếu.",
         )
 
     diff = abs(llm_claimed_value - authoritative_value)
-    checks = [CheckResult(
-        name="llm_claim_matches_authoritative_value_within_tolerance",
-        passed=(diff <= tolerance),
-        detail=f"llm_claimed={llm_claimed_value}, authoritative={authoritative_value}, diff={diff}, tolerance={tolerance}",
-    )]
+    checks = [
+        CheckResult(
+            name="llm_claim_matches_authoritative_value_within_tolerance",
+            passed=(diff <= tolerance),
+            detail=f"llm_claimed={llm_claimed_value}, authoritative={authoritative_value}, diff={diff}, tolerance={tolerance}",
+        )
+    ]
     if not checks[0].passed:
         return _result(
-            STATUS_FAIL, checks,
+            STATUS_FAIL,
+            checks,
             f"LLM nêu số liệu {llm_claimed_value} KHÁC với kết quả xác định từ Calculator/Rule Engine "
             f"({authoritative_value}, chênh lệch {diff} > dung sai {tolerance}) — CHẶN, không hiển thị số của LLM.",
         )

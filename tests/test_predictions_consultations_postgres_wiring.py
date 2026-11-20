@@ -2,6 +2,7 @@
 PostgreSQL wiring (Phase 1B, migration order items 6 and 8). Skipped (not
 faked) without a configured database.
 """
+
 from __future__ import annotations
 
 import uuid
@@ -31,6 +32,7 @@ def org_id():
 @pytest.fixture()
 def warehouse(tmp_path):
     from dss.core.warehouse import DataWarehouse
+
     return DataWarehouse(base_path=str(tmp_path / "data_warehouse"))
 
 
@@ -38,15 +40,18 @@ def test_save_prediction_writes_to_postgres_when_enabled(warehouse, org_id, monk
     monkeypatch.setenv("EDUDSS_PREDICTIONS_STORE", "postgres")
     monkeypatch.setenv("EDUDSS_ORGANIZATION_ID", str(org_id))
 
-    prediction_id = warehouse.save_prediction({
-        "training_id": "tid_test_001",
-        "inputs": {"student_id": "SV777"},
-        "value": 8.5,
-        "metadata": {"model_name": "RandomForest", "confidence": 0.91},
-    })
+    prediction_id = warehouse.save_prediction(
+        {
+            "training_id": "tid_test_001",
+            "inputs": {"student_id": "SV777"},
+            "value": 8.5,
+            "metadata": {"model_name": "RandomForest", "confidence": 0.91},
+        }
+    )
     assert prediction_id  # local id still returned for the activity-log caption
 
     from dss.db.repositories import prediction_repository
+
     rows = prediction_repository.list_predictions(org_id)
     assert len(rows) == 1
     assert rows[0]["prediction_value"] == "8.5"
@@ -61,6 +66,7 @@ def test_save_prediction_does_not_dual_write_to_local_json_when_postgres_enabled
 
     import json
     import os
+
     path = os.path.join(warehouse.history_path, "prediction_history.json")
     if os.path.exists(path):
         with open(path, encoding="utf-8") as f:
@@ -76,6 +82,7 @@ def test_save_prediction_local_mode_unaffected_by_default(warehouse, monkeypatch
 
     import json
     import os
+
     path = os.path.join(warehouse.history_path, "prediction_history.json")
     with open(path, encoding="utf-8") as f:
         local_records = json.load(f)
@@ -87,12 +94,18 @@ def test_save_consultation_writes_to_postgres_when_enabled(warehouse, org_id, mo
     monkeypatch.setenv("EDUDSS_CONSULTATIONS_STORE", "postgres")
     monkeypatch.setenv("EDUDSS_ORGANIZATION_ID", str(org_id))
 
-    warehouse.save_ai_consultation({
-        "student_id": "SV888", "provider": "gemini", "model_name": "gemini-1.5-flash",
-        "rag_query": "How to improve GPA?", "generated_plan": "Study more.",
-    })
+    warehouse.save_ai_consultation(
+        {
+            "student_id": "SV888",
+            "provider": "gemini",
+            "model_name": "gemini-1.5-flash",
+            "rag_query": "How to improve GPA?",
+            "generated_plan": "Study more.",
+        }
+    )
 
     from dss.db.repositories import consultation_repository
+
     rows = consultation_repository.list_consultations(org_id)
     assert len(rows) == 1
     assert rows[0]["provider"] == "gemini"
@@ -100,13 +113,18 @@ def test_save_consultation_writes_to_postgres_when_enabled(warehouse, org_id, mo
 
 def test_save_consultation_local_mode_unaffected_by_default(warehouse, monkeypatch):
     monkeypatch.delenv("EDUDSS_CONSULTATIONS_STORE", raising=False)
-    consultation_id = warehouse.save_ai_consultation({
-        "student_id": "SV999", "provider": "groq", "generated_plan": "Practice daily.",
-    })
+    consultation_id = warehouse.save_ai_consultation(
+        {
+            "student_id": "SV999",
+            "provider": "groq",
+            "generated_plan": "Practice daily.",
+        }
+    )
     assert consultation_id
 
     import json
     import os
+
     path = os.path.join(warehouse.history_path, "advisor_history.json")
     with open(path, encoding="utf-8") as f:
         local_records = json.load(f)
@@ -125,10 +143,14 @@ def test_import_prediction_history_is_idempotent(warehouse, org_id, monkeypatch)
     enabled (the realistic incremental-cutover scenario) — import it, then
     import again, and confirm no duplicates."""
     monkeypatch.delenv("EDUDSS_PREDICTIONS_STORE", raising=False)
-    warehouse.save_prediction({
-        "training_id": "tid_import_1", "inputs": {"student_id": "SV_IMPORT"},
-        "value": 7.0, "metadata": {"confidence": 0.8},
-    })
+    warehouse.save_prediction(
+        {
+            "training_id": "tid_import_1",
+            "inputs": {"student_id": "SV_IMPORT"},
+            "value": 7.0,
+            "metadata": {"confidence": 0.8},
+        }
+    )
     warehouse.save_prediction({"training_id": "tid_import_2", "value": 6.5, "metadata": {}})
 
     from dss.db.repositories import prediction_repository
@@ -165,6 +187,7 @@ def test_import_prediction_history_assigns_correct_tenant(warehouse, org_id, mon
     warehouse.save_prediction({"training_id": "tid_tenant_import", "value": 5.0, "metadata": {}})
 
     from dss.db.repositories import prediction_repository
+
     prediction_repository.import_from_local_history(org_id, warehouse=warehouse)
 
     assert len(prediction_repository.list_predictions(org_id)) == 1
@@ -202,5 +225,6 @@ def test_predictions_are_tenant_isolated(warehouse, org_id, monkeypatch):
     warehouse.save_prediction({"training_id": "tid_tenant", "value": 9.0, "metadata": {}})
 
     from dss.db.repositories import prediction_repository
+
     assert len(prediction_repository.list_predictions(org_id)) == 1
     assert len(prediction_repository.list_predictions(other_org_id)) == 0

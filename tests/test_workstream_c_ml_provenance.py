@@ -7,6 +7,7 @@ PostgreSQL URLs are provided, `DATABASE_URL` set to the tenant's own
 every assertion here is a genuine RLS/tenant-isolation check, not a
 trust-the-owner-connection check.
 """
+
 from __future__ import annotations
 
 import os
@@ -48,13 +49,16 @@ def tenant(monkeypatch):
     code = "c_" + uuid.uuid4().hex[:10]
     with owner.begin() as conn:
         org = conn.execute(
-            text("INSERT INTO organizations (org_code,name,is_active,created_at,updated_at) VALUES (:c,:n,true,now(),now()) RETURNING id"),
+            text(
+                "INSERT INTO organizations (org_code,name,is_active,created_at,updated_at) VALUES (:c,:n,true,now(),now()) RETURNING id"
+            ),
             {"c": code, "n": code},
         ).scalar_one()
     monkeypatch.setenv("DATABASE_URL", APP_URL)
     monkeypatch.setenv("EDUDSS_ORGANIZATION_ID", str(org))
     monkeypatch.setenv("EDUDSS_ML_PROVENANCE_STORE", "postgres")
     from dss.db.session import reset_engine_for_tests
+
     reset_engine_for_tests()
     yield org
     reset_engine_for_tests()
@@ -64,19 +68,24 @@ def tenant(monkeypatch):
 @pytest.fixture
 def warehouse(tmp_path):
     from dss.core.warehouse import DataWarehouse
+
     return DataWarehouse(base_path=str(tmp_path / "data_warehouse"))
 
 
 def _sample_training_frame(n=100, seed=0):
     rng = np.random.RandomState(seed)
-    return pd.DataFrame({
-        "gpa": rng.uniform(1.5, 4.0, n),
-        "attendance": rng.uniform(0.4, 1.0, n),
-        "major": rng.choice(["CS", "Math"], n),
-    })
+    return pd.DataFrame(
+        {
+            "gpa": rng.uniform(1.5, 4.0, n),
+            "attendance": rng.uniform(0.4, 1.0, n),
+            "major": rng.choice(["CS", "Math"], n),
+        }
+    )
 
 
-def _train_and_save(warehouse, dataset_id="ds_gpa_v1", target_col="at_risk", model_name="RandomForest", tag="v1", X_train=None):
+def _train_and_save(
+    warehouse, dataset_id="ds_gpa_v1", target_col="at_risk", model_name="RandomForest", tag="v1", X_train=None
+):
     return warehouse.save_model_training(
         dataset_id=dataset_id,
         model_pipeline=_FakePipeline(tag, n_estimators=50, max_depth=5),
@@ -99,6 +108,7 @@ def test_01_training_provenance_recorded_with_checksum_and_linkage(tenant, wareh
     training_id, meta = _train_and_save(warehouse)
 
     from dss.services import model_registry
+
     provenance = model_registry.get_provenance(training_id, organization_id=tenant)
     assert provenance is not None, "provenance should be recorded when EDUDSS_ML_PROVENANCE_STORE=postgres"
 
@@ -136,6 +146,7 @@ def test_02_dataset_and_feature_schema_fingerprints_deduplicate_across_trainings
     training_id_b, _ = _train_and_save(warehouse, model_name="ModelB", tag="b", X_train=same_frame)
 
     from dss.services import model_registry
+
     prov_a = model_registry.get_provenance(training_id_a, organization_id=tenant)
     prov_b = model_registry.get_provenance(training_id_b, organization_id=tenant)
 
@@ -149,6 +160,7 @@ def test_03_different_dataset_content_produces_different_provenance(tenant, ware
     training_id_b, _ = _train_and_save(warehouse, X_train=_sample_training_frame(seed=2))
 
     from dss.services import model_registry
+
     prov_a = model_registry.get_provenance(training_id_a, organization_id=tenant)
     prov_b = model_registry.get_provenance(training_id_b, organization_id=tenant)
     assert prov_a["dataset_provenance"]["dataset_fingerprint"] != prov_b["dataset_provenance"]["dataset_fingerprint"]
@@ -162,6 +174,7 @@ def test_04_provenance_disabled_by_default_is_a_pure_no_op(tenant, warehouse, mo
     training_id, _ = _train_and_save(warehouse, dataset_id="ds_disabled")
 
     from dss.services import model_registry
+
     assert model_registry.get_provenance(training_id, organization_id=tenant) is None
 
 
@@ -173,11 +186,18 @@ def test_05_drift_evaluation_persisted_and_queryable(tenant, warehouse):
     y_true = np.random.RandomState(3).randint(0, 2, 100)
 
     from dss.services import model_registry
+
     result = model_registry.evaluate_drift(
-        training_id, baseline, current,
-        y_true_baseline=y_true, y_pred_baseline=y_true,
-        y_true_current=y_true, y_pred_current=1 - y_true,
-        task_type="classification", organization_id=tenant, evaluated_by="test_admin",
+        training_id,
+        baseline,
+        current,
+        y_true_baseline=y_true,
+        y_pred_baseline=y_true,
+        y_true_current=y_true,
+        y_pred_current=1 - y_true,
+        task_type="classification",
+        organization_id=tenant,
+        evaluated_by="test_admin",
     )
     assert result["data_drift"]["overall_status"] == "DRIFT_DETECTED"
     assert result["performance_drift"]["overall_status"] == "DRIFT_DETECTED"
@@ -196,6 +216,7 @@ def test_06_missing_ground_truth_recorded_as_not_evaluable_never_fabricated(tena
     current = baseline.copy()
 
     from dss.services import model_registry
+
     result = model_registry.evaluate_drift(training_id, baseline, current, organization_id=tenant)
     assert result["performance_drift"]["overall_status"] == "PERFORMANCE_DRIFT_NOT_EVALUABLE"
 
@@ -211,18 +232,22 @@ def test_07_non_superuser_cross_tenant_provenance_and_drift_isolated(tenant, war
     training_id_a, _ = _train_and_save(warehouse, dataset_id="ds_isolation_a")
     baseline = _sample_training_frame(seed=5)
     from dss.services import model_registry
+
     model_registry.evaluate_drift(training_id_a, baseline, baseline.copy(), organization_id=org_a)
 
     owner = create_engine(OWNER_URL)
     with owner.begin() as conn:
         org_b = conn.execute(
-            text("INSERT INTO organizations (org_code,name,is_active,created_at,updated_at) VALUES (:c,:n,true,now(),now()) RETURNING id"),
+            text(
+                "INSERT INTO organizations (org_code,name,is_active,created_at,updated_at) VALUES (:c,:n,true,now(),now()) RETURNING id"
+            ),
             {"c": "c_org_b_" + uuid.uuid4().hex[:8], "n": "org_b"},
         ).scalar_one()
     owner.dispose()
 
     monkeypatch.setenv("EDUDSS_ORGANIZATION_ID", str(org_b))
     from dss.db.session import reset_engine_for_tests
+
     reset_engine_for_tests()
 
     # Org B, using the SAME non-superuser app role, must not be able to read
@@ -243,6 +268,7 @@ def test_07_non_superuser_cross_tenant_provenance_and_drift_isolated(tenant, war
 def test_08_algorithm_and_library_versions_introspected(tenant, warehouse):
     training_id, _ = _train_and_save(warehouse, dataset_id="ds_introspect")
     from dss.services import model_registry
+
     provenance = model_registry.get_provenance(training_id, organization_id=tenant)
     library_versions = provenance["model_version"]["library_versions"]
     assert "numpy" in library_versions

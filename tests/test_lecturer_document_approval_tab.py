@@ -8,6 +8,7 @@ Giảng viên từ đợt NHÓM F). Kiểm tra:
    được phép duyệt (lọc UI) — và dù bộ lọc UI có bị bỏ qua, backend
    (approve_document/reject_document) vẫn tự từ chối hành động không hợp lệ
    (fail-closed, không phụ thuộc UI)."""
+
 from __future__ import annotations
 
 import inspect
@@ -33,12 +34,22 @@ def _isolated_vector_store(tmp_path, monkeypatch):
     return tmp_path
 
 
-def _upload_pending_doc(*, doc_type="bai_giang", uploaded_by="gv_a", course_id="CS101",
-                         namespace=NAMESPACE_STUDENT_LEARNING, title="Bài giảng 1"):
+def _upload_pending_doc(
+    *,
+    doc_type="bai_giang",
+    uploaded_by="gv_a",
+    course_id="CS101",
+    namespace=NAMESPACE_STUDENT_LEARNING,
+    title="Bài giảng 1",
+):
     ingested = ingest_document(
-        file_bytes="Nội dung bài giảng mẫu.".encode("utf-8"),
-        file_name=f"{title}.txt", title=title, course_id=course_id,
-        uploaded_by=uploaded_by, doc_type=doc_type, permission_scope=namespace,
+        file_bytes="Nội dung bài giảng mẫu.".encode(),
+        file_name=f"{title}.txt",
+        title=title,
+        course_id=course_id,
+        uploaded_by=uploaded_by,
+        doc_type=doc_type,
+        permission_scope=namespace,
     )
     for c in ingested.chunks:
         c.embedding = [0.1, 0.2, 0.3]
@@ -58,43 +69,60 @@ def test_tab_access_grants_narrow_approval_tab_to_lecturer_not_full_kb_admin_pag
 def test_list_pending_documents_for_approver_excludes_course_lecturer_does_not_teach():
     _upload_pending_doc(uploaded_by="gv_a", course_id="CS999")
     result = approval.list_pending_documents_for_approver(
-        NAMESPACE_STUDENT_LEARNING, actor_username="gv_b", actor_role="Giảng viên / CVHT",
+        NAMESPACE_STUDENT_LEARNING,
+        actor_username="gv_b",
+        actor_role="Giảng viên / CVHT",
     )
     assert result == []
 
 
 def test_list_pending_documents_for_approver_excludes_self_uploaded():
     cms_lecture_repository.create_or_get_lesson(
-        course_id="CS201", lesson_id="CS201_L1_selfup", topic_id="intro",
-        lecturer_id="gv_a", title="Giới thiệu",
+        course_id="CS201",
+        lesson_id="CS201_L1_selfup",
+        topic_id="intro",
+        lecturer_id="gv_a",
+        title="Giới thiệu",
     )
     _upload_pending_doc(uploaded_by="gv_a", course_id="CS201")
     result = approval.list_pending_documents_for_approver(
-        NAMESPACE_STUDENT_LEARNING, actor_username="gv_a", actor_role="Giảng viên / CVHT",
+        NAMESPACE_STUDENT_LEARNING,
+        actor_username="gv_a",
+        actor_role="Giảng viên / CVHT",
     )
     assert result == [], "Giảng viên không được thấy chính tài liệu mình tải lên trong hàng đợi duyệt của mình."
 
 
 def test_list_pending_documents_for_approver_excludes_quy_che_doc_type():
     cms_lecture_repository.create_or_get_lesson(
-        course_id="CS301", lesson_id="CS301_L1_quyche", topic_id="intro",
-        lecturer_id="gv_b", title="Giới thiệu",
+        course_id="CS301",
+        lesson_id="CS301_L1_quyche",
+        topic_id="intro",
+        lecturer_id="gv_b",
+        title="Giới thiệu",
     )
     _upload_pending_doc(uploaded_by="admin_x", course_id="CS301", doc_type="quy_che")
     result = approval.list_pending_documents_for_approver(
-        NAMESPACE_STUDENT_LEARNING, actor_username="gv_b", actor_role="Giảng viên / CVHT",
+        NAMESPACE_STUDENT_LEARNING,
+        actor_username="gv_b",
+        actor_role="Giảng viên / CVHT",
     )
     assert result == [], "Giảng viên không có thẩm quyền duyệt loại tài liệu 'quy_che'."
 
 
 def test_list_pending_documents_for_approver_includes_own_course_material():
     cms_lecture_repository.create_or_get_lesson(
-        course_id="CS401", lesson_id="CS401_L1_owncourse", topic_id="intro",
-        lecturer_id="gv_b", title="Giới thiệu",
+        course_id="CS401",
+        lesson_id="CS401_L1_owncourse",
+        topic_id="intro",
+        lecturer_id="gv_b",
+        title="Giới thiệu",
     )
     doc_id = _upload_pending_doc(uploaded_by="gv_a", course_id="CS401", doc_type="bai_giang")
     result = approval.list_pending_documents_for_approver(
-        NAMESPACE_STUDENT_LEARNING, actor_username="gv_b", actor_role="Giảng viên / CVHT",
+        NAMESPACE_STUDENT_LEARNING,
+        actor_username="gv_b",
+        actor_role="Giảng viên / CVHT",
     )
     assert [d["document_id"] for d in result] == [doc_id]
 
@@ -105,8 +133,10 @@ def test_backend_still_rejects_even_if_ui_filter_were_bypassed():
     mật THẬT, không phải riêng bộ lọc UI."""
     doc_id = _upload_pending_doc(uploaded_by="gv_a", course_id="CS999")
     ok, msg = approval.approve_document(
-        document_id=doc_id, namespace=NAMESPACE_STUDENT_LEARNING,
-        actor_username="gv_b", actor_role="Giảng viên / CVHT",
+        document_id=doc_id,
+        namespace=NAMESPACE_STUDENT_LEARNING,
+        actor_username="gv_b",
+        actor_role="Giảng viên / CVHT",
     )
     assert ok is False
 

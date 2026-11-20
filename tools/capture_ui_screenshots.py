@@ -10,6 +10,7 @@ CÔ LẬP trong thư mục tạm riêng (không đụng data_warehouse/ thật),
 
 Chạy: PYTHONIOENCODING=utf-8 python tools/capture_ui_screenshots.py
 """
+
 from __future__ import annotations
 
 import os
@@ -22,9 +23,9 @@ import time
 from pathlib import Path
 
 sys.path.insert(0, ".")
-from dss.core.data_root import DATA_ROOT_ENV_VAR  # noqa: E402
-
 from playwright.sync_api import sync_playwright
+
+from dss.core.data_root import DATA_ROOT_ENV_VAR  # noqa: E402
 
 _APP_DIR = Path(__file__).resolve().parent.parent
 _PYTHON = str(_APP_DIR.parent / ".venv" / "Scripts" / "python.exe")
@@ -89,10 +90,11 @@ def main():
     port = _free_port()
     print(f"Khoi dong Streamlit tren cong tam {port} (EDUDSS_DATA_ROOT co lap: {test_data_root})")
     proc = subprocess.Popen(
-        [_PYTHON, "-m", "streamlit", "run", "run_dss.py",
-         "--server.port", str(port), "--server.headless", "true"],
-        cwd=str(_APP_DIR), env=env,
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        [_PYTHON, "-m", "streamlit", "run", "run_dss.py", "--server.port", str(port), "--server.headless", "true"],
+        cwd=str(_APP_DIR),
+        env=env,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
     )
     try:
         _wait_listening(port)

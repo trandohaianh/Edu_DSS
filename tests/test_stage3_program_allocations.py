@@ -1,11 +1,13 @@
 """Programme roles, budget races and aggregate reporting boundaries."""
-from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timedelta, timezone
+
 import json
+from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC, datetime, timedelta, timezone
+
 import pytest
 
-from dss.platform.context import Actor
 from dss.platform import store
+from dss.platform.context import Actor
 from dss.platform.models import SchoolSummarySnapshot
 from dss.services import classroom_service as classes
 from dss.services import program_allocation_service as programs
@@ -59,6 +61,7 @@ def test_budget_reservations_serialize_and_ai_budget_is_enforced(program):
             return True
         except ValueError:
             return False
+
     with ThreadPoolExecutor(max_workers=2) as executor:
         assert sorted(executor.map(allocate, ["1", "2"])) == [False, True]
     allocations = programs.list_allocations(MANAGER, program["id"])
@@ -94,7 +97,7 @@ def test_snapshot_suppression_freshness_and_allowlist(program):
     with store.platform_session("1", program_id=program["id"], write=True, actor=SCHOOL) as session:
         row = session.get(SchoolSummarySnapshot, newer["id"])
         for published in session.query(SchoolSummarySnapshot).filter_by(program_id=program["id"], school_id="1"):
-            published.as_of = datetime.now(timezone.utc) - timedelta(days=2)
+            published.as_of = datetime.now(UTC) - timedelta(days=2)
         row.metrics = {"active_classes": 1, "enrolled_students": 1, "student_names": ["PRIVATE"]}
     report = programs.list_program_reports(ANALYST, program["id"])[0]
     assert report["report_status"] == "stale"

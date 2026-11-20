@@ -1,4 +1,5 @@
 """Bộ phân loại an toàn học được (lớp 2 sau từ khoá)."""
+
 import json
 from pathlib import Path
 

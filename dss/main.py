@@ -1,4 +1,5 @@
 """DSS Streamlit app — routing and sidebar."""
+
 from __future__ import annotations
 
 import sys
@@ -17,45 +18,65 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-from dss.config import apply_plotly_patches, inject_styles, install_display_text_filter, setup_page
+from dss.config import (
+    THEME_LABELS,
+    THEME_MODES,
+    apply_plotly_patches,
+    current_theme,
+    inject_styles,
+    install_display_text_filter,
+    setup_page,
+)
+from dss.core import bootstrap_service
 from dss.core.data_helpers import generate_data, generate_lms_data, load_data
 from dss.core.init_app import clear_all_session_state_for_new_data, init_trainers_and_warehouse
-from dss.core import bootstrap_service
 from dss.core.logging_config import get_logger
-from dss.tabs import loading_screen
+from dss.core.roles import (
+    ALL_TABS,
+    CLASSROOM_TAB_LABEL,
+    HOME_TAB_LABEL,
+    MATERIALS_TAB_LABEL,
+    PROGRAM_TAB_LABEL,
+    display_label,
+    filter_tabs_for_role,
+    nav_label,
+)
+from dss.services import auth_service, model_service, search_service, subscription_service
+from dss.services.model_service import (
+    build_metrics_dataframe as _build_metrics_dataframe,
+)
+from dss.services.model_service import (
+    clear_prediction_training_state as _clear_prediction_training_state,
+)
+from dss.services.model_service import (
+    resolve_production_for_prediction,
+)
+from dss.services.model_service import (
+    resolve_ranking_col as _resolve_ranking_col,
+)
+from dss.services.model_service import (
+    run_training as _run_ml_hub_training,
+)
+from dss.tabs import loading_screen, ui_kit
+from dss.tabs.admin_reports import admin_reports_tab
+from dss.tabs.admin_settings import admin_integration_tab, admin_settings_tab, admin_users_tab
 from dss.tabs.advisory import student_advisory_tab
-from dss.tabs.learning_explainer_tab import learning_explainer_tab
-from dss.tabs.ai_advisor import ai_advisor_tab
+from dss.tabs.ai_advisor import ai_advisor_tab, ai_configuration_tab
 from dss.tabs.clustering import clustering_hybrid_tab
+from dss.tabs.consultation_history import consultation_history_tab
 from dss.tabs.dashboard import main_dashboard_tab, render_dashboard_activity_feed
 from dss.tabs.eda import data_exploration_tab
+from dss.tabs.home import render_home_tab
+from dss.tabs.knowledge_base import knowledge_base_tab, lecturer_document_approval_tab
+from dss.tabs.learning_explainer_tab import learning_explainer_tab
 from dss.tabs.ml_hub import (
     batch_prediction_tab,
     file_prediction_tab,
     personal_prediction_tab,
     render_training_config_ui,
 )
-from dss.core.roles import CLASSROOM_TAB_LABEL, PROGRAM_TAB_LABEL, MATERIALS_TAB_LABEL, ALL_TABS, HOME_TAB_LABEL, filter_tabs_for_role, display_label, nav_label
-from dss.config import THEME_LABELS, THEME_MODES, current_theme
-from dss.services import auth_service, search_service, subscription_service
-from dss.services import model_service
-from dss.services.model_service import (
-    build_metrics_dataframe as _build_metrics_dataframe,
-    clear_prediction_training_state as _clear_prediction_training_state,
-    run_training as _run_ml_hub_training,
-    resolve_production_for_prediction,
-    resolve_ranking_col as _resolve_ranking_col,
-)
-from dss.tabs.home import render_home_tab
-from dss.tabs.warehouse_tab import warehouse_tab, model_registry_tab
-from dss.tabs.admin_reports import admin_reports_tab
-from dss.tabs.consultation_history import consultation_history_tab
-from dss.tabs.knowledge_base import knowledge_base_tab, lecturer_document_approval_tab
-from dss.tabs.ai_advisor import ai_configuration_tab
-from dss.tabs.admin_settings import admin_settings_tab, admin_users_tab, admin_integration_tab
 from dss.tabs.university_onboarding_tab import university_onboarding_tab
-from dss.tabs import ui_kit
-
+from dss.tabs.warehouse_tab import model_registry_tab, warehouse_tab
 
 ROOT = Path(__file__).resolve().parent.parent
 _main_logger = get_logger(__name__)
@@ -88,6 +109,7 @@ current_role = _user["role"]
 st.session_state["current_student_id"] = _user.get("student_id")
 
 from dss.core.runtime_mode import synthetic_data_allowed
+
 # Nhãn "dữ liệu mô phỏng" hiển thị theo CHÍNH dữ liệu của từng trang
 # (ui_kit.render_synthetic_data_banner) — khung toàn cục cũ ở đây lặp lại cùng
 # thông tin ngay phía trên nhãn đó và ghi sai khi đang dùng dữ liệu thật.
@@ -102,7 +124,7 @@ if not subscription_service.render_subscription_gate(current_role):
             st.session_state["_subscription_settings_open"] = True
         if st.session_state.get("_subscription_settings_open"):
             admin_settings_tab()
-    if st.button("Đăng xuất", key="locked_logout"):          # màn khoá không có sidebar, nên cần nút riêng
+    if st.button("Đăng xuất", key="locked_logout"):  # màn khoá không có sidebar, nên cần nút riêng
         auth_service.logout()
         st.rerun()
     st.stop()
@@ -124,6 +146,7 @@ if 'current_df' not in st.session_state:
     # báo "chưa có dữ liệu" còn hơn để người dùng thật nhìn nhầm số liệu giả là
     # số liệu thật. Hành vi DEMO_SYNTHETIC (mặc định, dev/test) giữ nguyên 100%.
     from dss.core.runtime_mode import synthetic_data_allowed
+
     if not synthetic_data_allowed():
         # Classroom and programme records do not depend on an ML dataframe.
         st.session_state.current_df = None
@@ -148,12 +171,18 @@ if st.session_state.get("_workspace_ready_for") != _ready_key:
     def _on_bootstrap_progress(pct, stage_key):
         with _loading_slot.container():
             loading_screen.render_loading_screen(
-                pct, loading_screen.stage_message(stage_key, current_role, pct), current_role,
+                pct,
+                loading_screen.stage_message(stage_key, current_role, pct),
+                current_role,
             )
 
     try:
         bootstrap_service.initialize_workspace(
-            current_role, st.session_state.current_df, wh, clf, reg,
+            current_role,
+            st.session_state.current_df,
+            wh,
+            clf,
+            reg,
             progress_callback=_on_bootstrap_progress,
         )
         st.session_state["_workspace_ready_for"] = _ready_key
@@ -203,14 +232,23 @@ SIDEBAR_NAV_GROUPS = {
     ],
     "Giảng viên / CVHT": [
         ("TỔNG QUAN", [HOME_TAB_LABEL, "📊 Dashboard"]),
-        ("PHÂN TÍCH LỚP HỌC", [CLASSROOM_TAB_LABEL, "🔍 Khám phá — Xử lý dữ liệu", "🧪 Huấn luyện — Dự đoán", "🔬 Phân cụm — Gợi ý"]),
+        (
+            "PHÂN TÍCH LỚP HỌC",
+            [CLASSROOM_TAB_LABEL, "🔍 Khám phá — Xử lý dữ liệu", "🧪 Huấn luyện — Dự đoán", "🔬 Phân cụm — Gợi ý"],
+        ),
         ("HỖ TRỢ & TÀI LIỆU", [PROGRAM_TAB_LABEL, "🤖 Tư vấn — AI (LLM)", "📄 Duyệt tài liệu", "📦 Kho dữ liệu"]),
     ],
     "Admin": [
         ("TỔNG QUAN", [HOME_TAB_LABEL]),
-        ("NGƯỜI DÙNG & DỮ LIỆU", [CLASSROOM_TAB_LABEL, "👥 Người dùng", "📦 Kho dữ liệu", "🔍 Khám phá — Xử lý dữ liệu"]),
+        (
+            "NGƯỜI DÙNG & DỮ LIỆU",
+            [CLASSROOM_TAB_LABEL, "👥 Người dùng", "📦 Kho dữ liệu", "🔍 Khám phá — Xử lý dữ liệu"],
+        ),
         ("TRI THỨC & AI", [MATERIALS_TAB_LABEL, "📚 Quản lý tri thức (RAG)", "⚙️ Cấu hình AI", "🤖 Tư vấn — AI (LLM)"]),
-        ("VẬN HÀNH", [PROGRAM_TAB_LABEL, "🔗 Tích hợp LMS/CMS", "🗄️ Model Registry", "📈 Báo cáo hệ thống", "🔧 Cài đặt"]),
+        (
+            "VẬN HÀNH",
+            [PROGRAM_TAB_LABEL, "🔗 Tích hợp LMS/CMS", "🗄️ Model Registry", "📈 Báo cáo hệ thống", "🔧 Cài đặt"],
+        ),
     ],
 }
 
@@ -322,6 +360,7 @@ if True:  # khối nội dung trang (giữ thụt lề cũ để diff gọn)
     selected_main_tab = selected_nav_tab if selected_nav_tab in tabs_list else (tabs_list[0] if tabs_list else None)
     if selected_main_tab:
         from dss.core import metrics as _metrics
+
         _metrics.record_page_view(selected_main_tab, current_role)
 
     # Thanh công cụ phía trên — CHỈ có ô tìm sinh viên cho vai trò được phép
@@ -336,7 +375,8 @@ if True:  # khối nội dung trang (giữ thụt lề cũ để diff gọn)
                 _tb_query = st.text_input(
                     "Tìm sinh viên theo mã số",
                     placeholder="Tìm sinh viên theo mã số…",
-                    label_visibility="collapsed", key="topbar_student_search",
+                    label_visibility="collapsed",
+                    key="topbar_student_search",
                 )
     if current_role in search_service.ROLES_ALLOWED_STUDENT_SEARCH and _tb_query:
         _search_results = search_service.search_students(df, _tb_query, role=current_role)
@@ -355,7 +395,8 @@ if True:  # khối nội dung trang (giữ thụt lề cũ để diff gọn)
                             st.caption(" · ".join(f"{lbl}: {val}" for lbl, val in _result.metrics))
                     with _rcol_action:
                         if st.button(
-                            "Xem phân tích", key=f"tb_search_action_{_result.student_id}",
+                            "Xem phân tích",
+                            key=f"tb_search_action_{_result.student_id}",
                             width="stretch",
                         ):
                             # Điều hướng THẬT: đặt sẵn lựa chọn cho selectbox "Chọn
@@ -372,23 +413,29 @@ if True:  # khối nội dung trang (giữ thụt lề cũ để diff gọn)
             st.info("Chưa kết nối dữ liệu LMS. Bạn vẫn có thể sử dụng lớp học, bài đánh giá và kế hoạch đã lưu.")
             if current_role == "Sinh viên":
                 from dss.tabs.learning_plan_workspace import render_learning_plan_workspace
+
                 render_learning_plan_workspace(None)
             if CLASSROOM_TAB_LABEL in tabs_list and st.button("Mở lớp học", key="home_open_classroom"):
                 st.session_state["_pending_nav_target"] = CLASSROOM_TAB_LABEL
                 st.rerun()
         else:
             render_home_tab(
-                current_role, wh, dashboard_mode=True,
+                current_role,
+                wh,
+                dashboard_mode=True,
                 current_student_id=st.session_state.get("current_student_id"),
-                df=df, llm_integration=llm_integration,
+                df=df,
+                llm_integration=llm_integration,
             )
     elif selected_main_tab == CLASSROOM_TAB_LABEL:
         from dss.tabs.classroom_tab import classroom_tab
+
         classroom_tab()
     elif selected_main_tab == MATERIALS_TAB_LABEL:
         learning_explainer_tab(None, role=current_role, llm_integration=llm_integration)
     elif selected_main_tab == PROGRAM_TAB_LABEL:
         from dss.tabs.programs_tab import programs_tab
+
         programs_tab()
 
     # --- TAB DASHBOARD (không gian phân tích chuyên sâu — TÁCH BIỆT với
@@ -455,15 +502,22 @@ if True:  # khối nội dung trang (giữ thụt lề cũ để diff gọn)
                 # Chuẩn chống leakage: luôn train từ dữ liệu gốc và để tiền xử lý nằm trong pipeline/CV.
                 cleaned_df = st.session_state.get('cleaned_df')
                 if cleaned_df is not None:
-                    ui_kit.render_badge("✅ Đã có dữ liệu làm sạch để tham khảo — huấn luyện vẫn dùng dữ liệu gốc, tiền xử lý nằm trong pipeline CV (chống rò rỉ dữ liệu).", kind="success")
+                    ui_kit.render_badge(
+                        "✅ Đã có dữ liệu làm sạch để tham khảo — huấn luyện vẫn dùng dữ liệu gốc, tiền xử lý nằm trong pipeline CV (chống rò rỉ dữ liệu).",
+                        kind="success",
+                    )
                 else:
-                    ui_kit.render_badge("ℹ️ Chưa có dữ liệu làm sạch sẵn — hệ thống dùng dữ liệu gốc, tiền xử lý sau khi chia train/test trong pipeline CV.", kind="info")
+                    ui_kit.render_badge(
+                        "ℹ️ Chưa có dữ liệu làm sạch sẵn — hệ thống dùng dữ liệu gốc, tiền xử lý sau khi chia train/test trong pipeline CV.",
+                        kind="info",
+                    )
 
                 # Hướng dẫn nhanh + từ điển thuật ngữ — gộp vào 1 expander phụ trợ
                 # DUY NHẤT, thu gọn mặc định, đặt dưới cùng của phần mở đầu để không
                 # chiếm chỗ màn hình chính (nội dung KHÔNG đổi, chỉ gộp trình bày).
                 with st.expander("Quy trình thực hiện & từ điển thuật ngữ", expanded=False):
-                    st.markdown("""
+                    st.markdown(
+                        """
                     <ol style='color: var(--text-primary); line-height: 2; margin: 0;'>
                         <li><strong>Khám phá dữ liệu</strong> ở tab trước và kiểm tra thống kê sau làm sạch</li>
                         <li><strong>Chọn Target & Features</strong> theo mục tiêu bài toán (hệ thống tự động phát hiện loại bài toán)</li>
@@ -471,7 +525,9 @@ if True:  # khối nội dung trang (giữ thụt lề cũ để diff gọn)
                         <li><strong>Đánh giá</strong> bằng MAE / RMSE / R2 và xem biểu đồ dự đoán so với thực tế</li>
                         <li><strong>Thực hiện dự đoán</strong> cho từng sinh viên hoặc toàn bộ lớp, sau đó tải kết quả</li>
                     </ol>
-                    """, unsafe_allow_html=True)
+                    """,
+                        unsafe_allow_html=True,
+                    )
                     st.markdown(
                         "---\n"
                         "- `train_test_split` (**chia dữ liệu train/test**)\n"
@@ -504,6 +560,7 @@ if True:  # khối nội dung trang (giữ thụt lề cũ để diff gọn)
                 )
                 with tab_eval_ml:
                     from dss.tabs.evaluation_report import evaluation_report_tab
+
                     evaluation_report_tab()
 
             if tab_train_ml is not None:
@@ -513,9 +570,7 @@ if True:  # khối nội dung trang (giữ thụt lề cũ để diff gọn)
                     # (bảng so sánh đầy đủ + mức độ quan trọng đặc trưng). Toàn bộ
                     # widget/callback GIỮ NGUYÊN so với bản trước — chỉ đổi vị trí
                     # hiển thị theo đúng yêu cầu bố cục (không đổi business logic).
-                    train_config = render_training_config_ui(
-                        df_train, clf, reg, key_prefix="train_hub"
-                    )
+                    train_config = render_training_config_ui(df_train, clf, reg, key_prefix="train_hub")
 
                     _target_for_status = train_config["target_col"] if train_config else None
                     _prod_status = None
@@ -532,9 +587,7 @@ if True:  # khối nội dung trang (giữ thụt lề cũ để diff gọn)
                         _tcol1, _tcol2, _tcol3, _tcol4 = st.columns(4)
                         with _tcol1.container(key="ml_hub_dataset_metric"):
                             st.caption("Dataset")
-                            st.markdown(
-                                f"**{st.session_state.get('current_dataset_id', '—') or '—'}**"
-                            )
+                            st.markdown(f"**{st.session_state.get('current_dataset_id', '—') or '—'}**")
                         _tcol2.metric("Target", _target_for_status or "—")
                         _tcol3.metric(
                             "Chiến lược huấn luyện",
@@ -554,7 +607,9 @@ if True:  # khối nội dung trang (giữ thụt lề cũ để diff gọn)
                         with st.container(border=True):
                             st.markdown("##### Chạy huấn luyện & Đánh giá")
                             if not train_config:
-                                st.warning("⚠️ Chọn đủ **Target** và ít nhất **một Feature** ở panel cấu hình phía trên để huấn luyện.")
+                                st.warning(
+                                    "⚠️ Chọn đủ **Target** và ít nhất **một Feature** ở panel cấu hình phía trên để huấn luyện."
+                                )
                             else:
                                 training_strategy = train_config.get(
                                     "training_strategy", "So sánh nhiều mô hình (Compare)"
@@ -601,9 +656,15 @@ if True:  # khối nội dung trang (giữ thụt lề cũ để diff gọn)
                                         f"cho target `{_target_for_status}`."
                                     )
                                 elif _prod_status and _prod_status.get("status") == "empty":
-                                    st.info(f"Chưa có Production cho target `{_target_for_status}`. Huấn luyện bên trái để tạo bản đầu tiên.")
+                                    st.info(
+                                        f"Chưa có Production cho target `{_target_for_status}`. Huấn luyện bên trái để tạo bản đầu tiên."
+                                    )
                                 else:
-                                    st.warning((_prod_status or {}).get("message", "Không xác định được trạng thái Production."))
+                                    st.warning(
+                                        (_prod_status or {}).get(
+                                            "message", "Không xác định được trạng thái Production."
+                                        )
+                                    )
                             else:
                                 st.caption("Chọn Target ở panel cấu hình để xem trạng thái Production tương ứng.")
 
@@ -614,8 +675,12 @@ if True:  # khối nội dung trang (giữ thụt lề cũ để diff gọn)
                                 model_metrics_df = _build_metrics_dataframe(current_results, current_hub_type)
                                 if not model_metrics_df.empty:
                                     # S-1: cùng tiêu chí xếp hạng với pick_best_model_name (is_best khi lưu Kho).
-                                    rank_metric, rank_ascending = _resolve_ranking_col(model_metrics_df, current_hub_type)
-                                    ranked_models_df = model_metrics_df.sort_values(rank_metric, ascending=rank_ascending)
+                                    rank_metric, rank_ascending = _resolve_ranking_col(
+                                        model_metrics_df, current_hub_type
+                                    )
+                                    ranked_models_df = model_metrics_df.sort_values(
+                                        rank_metric, ascending=rank_ascending
+                                    )
                                     suggested_model = ranked_models_df.index[0]
                                     st.metric(
                                         "🏆 Mô hình tốt nhất",
@@ -654,24 +719,37 @@ if True:  # khối nội dung trang (giữ thụt lề cũ để diff gọn)
                                     # thể chọn cột này làm Feature ở panel cấu hình (dùng cho model chính
                                     # có encoder riêng), nhưng panel ước lượng nhanh này phải lọc lại.
                                     _fi_feats2 = [
-                                        c for c in (train_config.get("selected_features", []) if train_config else [])
+                                        c
+                                        for c in (train_config.get("selected_features", []) if train_config else [])
                                         if c in df_train.columns and pd.api.types.is_numeric_dtype(df_train[c])
                                     ]
                                     if _fi_target2 and len(_fi_feats2) >= 2:
                                         try:
-                                            _fi_df2 = model_service.preview_feature_importance(df_train, _fi_feats2, _fi_target2).head(8)
+                                            _fi_df2 = model_service.preview_feature_importance(
+                                                df_train, _fi_feats2, _fi_target2
+                                            ).head(8)
                                             _fig_fi2 = px.bar(
-                                                _fi_df2.sort_values("Importance (%)"), x="Importance (%)", y="Feature",
-                                                orientation="h", text="Importance (%)",
+                                                _fi_df2.sort_values("Importance (%)"),
+                                                x="Importance (%)",
+                                                y="Feature",
+                                                orientation="h",
+                                                text="Importance (%)",
                                             )
                                             _fig_fi2.update_traces(marker_color="#0d9488", textposition="outside")
-                                            _fig_fi2.update_layout(template="plotly_white", height=280, margin=dict(t=10, b=10), showlegend=False)
+                                            _fig_fi2.update_layout(
+                                                template="plotly_white",
+                                                height=280,
+                                                margin=dict(t=10, b=10),
+                                                showlegend=False,
+                                            )
                                             st.plotly_chart(_fig_fi2, width="stretch", key="ml_hub_feature_importance")
                                         except Exception as _fi_ex2:
                                             # Cắt ngắn thông điệp lỗi — 1 số ValueError của sklearn/pandas nhúng
                                             # nguyên mảng giá trị không hợp lệ vào message, có thể dài hàng nghìn
                                             # ký tự nếu render thẳng (đã gặp thực tế với cột dạng chữ lọt vào đây).
-                                            ui_kit.empty_state("Không thể tính mức độ quan trọng đặc trưng.", hint=str(_fi_ex2)[:200])
+                                            ui_kit.empty_state(
+                                                "Không thể tính mức độ quan trọng đặc trưng.", hint=str(_fi_ex2)[:200]
+                                            )
                                     else:
                                         ui_kit.empty_state("Cần ít nhất 2 features để tính mức độ quan trọng.")
 
@@ -689,15 +767,13 @@ if True:  # khối nội dung trang (giữ thụt lề cũ để diff gọn)
                             else f" (không loại ngoại lai, ban đầu {before_outlier_rows} mẫu)"
                         )
                         + ". Các tab Dự đoán chạy trên **toàn bộ dữ liệu đầu vào** bạn cung cấp, "
-                          "nên số mẫu dự đoán có thể lớn hơn số mẫu đã dùng huấn luyện."
+                        "nên số mẫu dự đoán có thể lớn hơn số mẫu đã dùng huấn luyện."
                     )
                 _sv_id = st.session_state.get("current_student_id")
                 if current_role == "Sinh viên":
                     # "Hàng loạt" xuất dự đoán CẢ LỚP cùng lúc — không có ý
                     # nghĩa thu hẹp về 1 sinh viên nên ẩn hẳn với Sinh viên.
-                    pred_tab_manual, pred_tab_single = st.tabs(
-                        ["Dự đoán — Nhập tay", "Dự đoán — Dữ liệu đã có"]
-                    )
+                    pred_tab_manual, pred_tab_single = st.tabs(["Dự đoán — Nhập tay", "Dự đoán — Dữ liệu đã có"])
                     pred_tab_batch = None
                 else:
                     pred_tab_manual, pred_tab_single, pred_tab_batch = st.tabs(
@@ -712,7 +788,9 @@ if True:  # khối nội dung trang (giữ thụt lề cũ để diff gọn)
                     personal_prediction_tab(df_train, clf, reg, wh, train_config, role=current_role)
 
                 with pred_tab_single:
-                    file_prediction_tab(df_train, clf, reg, wh, train_config, role=current_role, current_student_id=_sv_id)
+                    file_prediction_tab(
+                        df_train, clf, reg, wh, train_config, role=current_role, current_student_id=_sv_id
+                    )
 
                 if pred_tab_batch is not None:
                     with pred_tab_batch:
@@ -724,7 +802,9 @@ if True:  # khối nội dung trang (giữ thụt lề cũ để diff gọn)
     # --- TAB PHÂN CỤM & GỢI Ý ---
     elif selected_main_tab == "🔬 Phân cụm — Gợi ý":
         if df is not None:
-            clustering_hybrid_tab(df, wh, role=current_role, current_student_id=st.session_state.get("current_student_id"))
+            clustering_hybrid_tab(
+                df, wh, role=current_role, current_student_id=st.session_state.get("current_student_id")
+            )
         else:
             _render_no_data_state("phân cụm sinh viên")
 
@@ -732,8 +812,10 @@ if True:  # khối nội dung trang (giữ thụt lề cũ để diff gọn)
     # --- TAB TƯ VẤN AI ---
     elif selected_main_tab == "🤖 Tư vấn — AI (LLM)":
         from dss.services import engine_gateway
+
         if engine_gateway.enabled():
             from dss.tabs.engine_advisor import engine_advisor_tab
+
             engine_advisor_tab(llm_integration=llm_integration)
         elif df is not None:
             llm_tabs_list = [
@@ -774,7 +856,9 @@ if True:  # khối nội dung trang (giữ thụt lề cũ để diff gọn)
                 student_advisory_tab(df, role=current_role, current_student_id=_sv_id_llm)
 
             elif selected_llm_tab == llm_tabs_list[2]:
-                learning_explainer_tab(df, role=current_role, current_student_id=_sv_id_llm, llm_integration=llm_integration)
+                learning_explainer_tab(
+                    df, role=current_role, current_student_id=_sv_id_llm, llm_integration=llm_integration
+                )
         else:
             _render_no_data_state("sử dụng Trợ lý AI")
 

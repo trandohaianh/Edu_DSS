@@ -2,6 +2,7 @@
 thuật (vd. 'ty_le_diem_danh'), nhưng điểm yếu thật sự do ai_advisor.py tạo ra
 có dạng "**Tỷ lệ điểm danh** (SV: x, TB lớp: y)" — NHÃN TIẾNG VIỆT, không bao
 giờ trùng khóa kỹ thuật -> bảng gợi ý là code chết trong luồng Tư vấn AI thật."""
+
 from __future__ import annotations
 
 from dss.core.models import MultiAIProvider

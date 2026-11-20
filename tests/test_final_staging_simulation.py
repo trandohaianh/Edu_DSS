@@ -25,6 +25,7 @@ fabricates a step result: every step either performs the real operation
 and records what actually happened, or is marked FAILED with the real
 exception — the test itself fails if any step fails.
 """
+
 from __future__ import annotations
 
 import json
@@ -112,24 +113,25 @@ def test_full_staging_narrative():
     # part of the Alembic schema migrations — see dss/db/seed.py::seed_roles).
     # A genuinely fresh database has no roles rows; this is real deployment
     # bootstrap, not a test fixture shortcut.
-    from dss.db.session import session_scope as _session_scope
     from dss.db.seed import seed_roles as _seed_roles
+    from dss.db.session import session_scope as _session_scope
+
     with _session_scope() as _session:
         _seed_roles(_session)
 
-    from dss.services import university_onboarding as onboarding
-    from dss.db.session import tenant_session_scope
-    from dss.db.repositories.prediction_repository import save_prediction, list_predictions
-    from dss.db.repositories import audit_log_repository
     from dss.db.models import AuditLog
-    from dss.services import model_service
-    from dss.services.llm_gateway import LLMGateway
+    from dss.db.repositories import audit_log_repository
+    from dss.db.repositories.prediction_repository import list_predictions, save_prediction
+    from dss.db.session import tenant_session_scope
+    from dss.integrations.lms_cms_connector import WebhookReceiver
     from dss.integrations.postgres_lms_cms import (
-        PostgresIntegrationBoundary,
         DurableWebhookProcessor,
+        PostgresIntegrationBoundary,
         deterministic_embedding,
     )
-    from dss.integrations.lms_cms_connector import WebhookReceiver
+    from dss.services import model_service
+    from dss.services import university_onboarding as onboarding
+    from dss.services.llm_gateway import LLMGateway
 
     state: dict = {}
 
@@ -152,7 +154,9 @@ def test_full_staging_narrative():
     def step3():
         with owner.connect() as conn:
             policies = conn.execute(
-                text("SELECT tablename, policyname FROM pg_policies WHERE policyname='tenant_isolation' AND tablename='students'")
+                text(
+                    "SELECT tablename, policyname FROM pg_policies WHERE policyname='tenant_isolation' AND tablename='students'"
+                )
             ).fetchall()
         assert len(policies) == 1, "tenant_isolation RLS policy missing on students"
         return {"rls_policy_confirmed_on": "students"}
@@ -181,7 +185,10 @@ def test_full_staging_narrative():
     def step8():
         os.environ["EDUDSS_LMS_TOKEN_STGA"] = "sim-token-org-a"
         state["connector_a"] = onboarding.configure_connector(
-            state["org_a"], "simulated_lms_cms", "org-a", SIMULATOR_URL,
+            state["org_a"],
+            "simulated_lms_cms",
+            "org-a",
+            SIMULATOR_URL,
             "EDUDSS_LMS_TOKEN_STGA",
         )
         return {"connector_id": state["connector_a"]}
@@ -189,7 +196,10 @@ def test_full_staging_narrative():
     def step9():
         os.environ["EDUDSS_LMS_TOKEN_STGB"] = "sim-token-org-b"
         state["connector_b"] = onboarding.configure_connector(
-            state["org_b"], "simulated_lms_cms", "org-b", SIMULATOR_URL,
+            state["org_b"],
+            "simulated_lms_cms",
+            "org-b",
+            SIMULATOR_URL,
             "EDUDSS_LMS_TOKEN_STGB",
         )
         return {"connector_id": state["connector_b"]}
@@ -322,7 +332,10 @@ def test_full_staging_narrative():
             json={
                 "resource": "content",
                 "external_id": "content-A-01",
-                "changes": {"body": "Updated Stage 5 staging lesson content.", "updated_at": "2026-09-22T00:00:00+00:00"},
+                "changes": {
+                    "body": "Updated Stage 5 staging lesson content.",
+                    "updated_at": "2026-09-22T00:00:00+00:00",
+                },
             },
             timeout=5,
         )
@@ -355,14 +368,20 @@ def test_full_staging_narrative():
     def step22():
         with owner.connect() as conn:
             row = conn.execute(
-                text("SELECT version, rag_document_id FROM cms_content WHERE organization_id=:o AND external_id='content-A-01'"),
+                text(
+                    "SELECT version, rag_document_id FROM cms_content WHERE organization_id=:o AND external_id='content-A-01'"
+                ),
                 {"o": state["org_a"]},
             ).one()
         results = state["boundary_a"].vector_store.search(
             deterministic_embedding("Updated Stage 5 staging lesson content."), top_k=5
         )
         assert results, "expected at least one retrieval result after reindex"
-        return {"cms_content_version": row.version, "rag_document_id": row.rag_document_id, "top_retrieval": results[0]["document_id"]}
+        return {
+            "cms_content_version": row.version,
+            "rag_document_id": row.rag_document_id,
+            "top_retrieval": results[0]["document_id"],
+        }
 
     n.record(20, "CMS content update on the live simulator (real HTTP mutation)", step20)
     n.record(21, "Real HTTP webhook delivery, HMAC-verified, durable inbox processed", step21)
@@ -389,8 +408,11 @@ def test_full_staging_narrative():
         # onboarding actions are audited — that gap is recorded in
         # FINAL_STAGING_SIMULATION.md as a real, disclosed limitation.
         ok = audit_log_repository.record(
-            "stage5.final_staging_smoke", "organization", str(state["org_a"]),
-            "stage5-simulation", organization_id=state["org_a"],
+            "stage5.final_staging_smoke",
+            "organization",
+            str(state["org_a"]),
+            "stage5-simulation",
+            organization_id=state["org_a"],
             after={"note": "final staging simulation smoke entry"},
         )
         assert ok is True
@@ -411,6 +433,7 @@ def test_full_staging_narrative():
     def step25():
         subprocess.run(["docker", "restart", POSTGRES_CONTAINER], check=True, capture_output=True, timeout=60)
         from dss.db.session import reset_engine_for_tests
+
         for _ in range(60):
             try:
                 with create_engine(OWNER_URL).connect() as conn:
@@ -429,8 +452,12 @@ def test_full_staging_narrative():
     # --- Step 26: persistence/idempotency check after restart ---------------
     def step26():
         with owner.connect() as conn:
-            count_a = conn.execute(text("SELECT count(*) FROM students WHERE organization_id=:o"), {"o": state["org_a"]}).scalar_one()
-            pred_count = conn.execute(text("SELECT count(*) FROM predictions WHERE id=:i"), {"i": state["prediction_id"]}).scalar_one()
+            count_a = conn.execute(
+                text("SELECT count(*) FROM students WHERE organization_id=:o"), {"o": state["org_a"]}
+            ).scalar_one()
+            pred_count = conn.execute(
+                text("SELECT count(*) FROM predictions WHERE id=:i"), {"i": state["prediction_id"]}
+            ).scalar_one()
         assert count_a > 0 and pred_count == 1
         return {"students_after_restart": count_a, "prediction_persisted": pred_count == 1}
 
@@ -462,6 +489,7 @@ def test_full_staging_narrative():
     # --- Step 29: coordinated backup + verify (real owner-role dump) --------
     def step29():
         import sys
+
         sys.path.insert(0, str(APP_ROOT))
         from ops.backup_recovery import backup, verify
 
@@ -491,9 +519,11 @@ def test_full_staging_narrative():
     # --- Step 30: GENUINE restore into a fresh, isolated database -----------
     def step30_restore():
         import sys
+
         sys.path.insert(0, str(APP_ROOT))
-        from ops.backup_recovery import restore
         from sqlalchemy.engine import make_url
+
+        from ops.backup_recovery import restore
 
         owner_url_obj = make_url(OWNER_URL)
         restore_db_name = f"edudss_restore_test_{suffix}"
@@ -528,19 +558,28 @@ def test_full_staging_narrative():
             ).scalar_one()
         restored_engine.dispose()
         assert org_count > 0 and student_count > 0
-        return {"restored_database": restore_db_name, "organizations_restored": org_count, "students_restored_for_org_a": student_count}
+        return {
+            "restored_database": restore_db_name,
+            "organizations_restored": org_count,
+            "students_restored_for_org_a": student_count,
+        }
 
-    n.record(30, "GENUINE restore-to-fresh-database test (not just checksum verify) — real data confirmed present", step30_restore)
+    n.record(
+        30,
+        "GENUINE restore-to-fresh-database test (not just checksum verify) — real data confirmed present",
+        step30_restore,
+    )
 
     # --- Step 31: short concurrency burst on the fresh containers ------------
     def step31_burst():
-        from ops.capacity_benchmark import run_capacity_profile, CapacitySlo
+        from ops.capacity_benchmark import CapacitySlo, run_capacity_profile
 
         def factory():
             training_id = f"stage5-burst-{uuid.uuid4().hex[:8]}"
 
             def op():
                 save_prediction(organization_id=state["org_a"], training_id=training_id, prediction_value=0.5)
+
             return op
 
         slo = CapacitySlo()
@@ -549,7 +588,9 @@ def test_full_staging_narrative():
         assert last["error_rate"] <= slo.max_error_rate
         return {"concurrency": last["concurrency"], "error_rate": last["error_rate"], "p95_ms": last["p95_ms"]}
 
-    n.record(31, "Short concurrency burst (concurrency=10) on freshly restarted+restored containers meets SLO", step31_burst)
+    n.record(
+        31, "Short concurrency burst (concurrency=10) on freshly restarted+restored containers meets SLO", step31_burst
+    )
 
     # --- Step 32: final happy-path smoke journey -----------------------------
     def step32_smoke():
@@ -559,7 +600,11 @@ def test_full_staging_narrative():
                 text("SELECT count(*) FROM students WHERE organization_id=:o"), {"o": state["org_b"]}
             ).scalar_one()
         gateway_ok = "".join(LLMGateway().stream_generate("Chào mừng đến EduDSS.", user_id="smoke")).strip() != ""
-        return {"university_b_activated": True, "university_b_students": student_count, "ai_gateway_responsive": gateway_ok}
+        return {
+            "university_b_activated": True,
+            "university_b_students": student_count,
+            "ai_gateway_responsive": gateway_ok,
+        }
 
     n.record(32, "Final smoke journey: University B activation + AI Gateway responsiveness", step32_smoke)
 

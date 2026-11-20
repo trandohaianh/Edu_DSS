@@ -14,6 +14,7 @@ Các phân hệ dữ liệu:
 7. Career Goal (Loại mục tiêu, Nghề mục tiêu, Khung thời gian 1/3/6/12/24 tháng)
 8. Feedback Loop (Lưu vết task đã hoàn thành, kỹ năng đã nâng cấp)
 """
+
 from __future__ import annotations
 
 import copy
@@ -56,14 +57,14 @@ SUBJECT_TO_COMPETENCY_DOMAIN: Dict[str, str] = {
 
 @dataclass
 class AcademicProfile:
-    gpa: float = 0.0                                             # GPA tổng quan (0.0 - 10.0 hoặc quy đổi)
+    gpa: float = 0.0  # GPA tổng quan (0.0 - 10.0 hoặc quy đổi)
     subject_scores: Dict[str, float] = field(default_factory=dict)  # tên môn/cột -> điểm 0-10
-    domain_scores: Dict[str, float] = field(default_factory=dict)   # competency domain -> điểm 0-10
-    strengths: List[str] = field(default_factory=list)             # domain điểm >= 7.0
-    weaknesses: List[str] = field(default_factory=list)            # domain điểm < 5.5
+    domain_scores: Dict[str, float] = field(default_factory=dict)  # competency domain -> điểm 0-10
+    strengths: List[str] = field(default_factory=list)  # domain điểm >= 7.0
+    weaknesses: List[str] = field(default_factory=list)  # domain điểm < 5.5
 
     @classmethod
-    def build(cls, raw_row: Dict[str, Any]) -> "AcademicProfile":
+    def build(cls, raw_row: Dict[str, Any]) -> AcademicProfile:
         subject_scores: Dict[str, float] = {}
         domain_accum: Dict[str, List[float]] = {}
 
@@ -118,8 +119,16 @@ SKILL_LEVELS = ["None", "Basic", "Intermediate", "Advanced"]
 SKILL_LEVEL_VALUE = {"None": 0.0, "Basic": 0.33, "Intermediate": 0.66, "Advanced": 1.0}
 
 TECHNICAL_SKILLS = [
-    "Python", "SQL", "Java", "C++", "Excel", "Power BI",
-    "Machine Learning", "Statistics", "Database", "Cloud",
+    "Python",
+    "SQL",
+    "Java",
+    "C++",
+    "Excel",
+    "Power BI",
+    "Machine Learning",
+    "Statistics",
+    "Database",
+    "Cloud",
 ]
 BUSINESS_SKILLS = ["Requirement Analysis", "Documentation", "KPI Analysis", "Process Analysis"]
 SOFT_SKILLS = ["Communication", "Presentation", "Teamwork", "Problem Solving", "Self-learning"]
@@ -145,11 +154,11 @@ _DOMAIN_TO_SKILL_EVIDENCE = {
 @dataclass
 class SkillItem:
     skill_name: str
-    category: str                                            # technical | business | soft | language
-    skill_level: str = "None"                                # None | Basic | Intermediate | Advanced
-    evidence: List[str] = field(default_factory=list)        # Các chuỗi chứng cứ thực tế
-    confidence: str = "low"                                  # low | medium | high
-    source: str = "self_assessment"                          # self_assessment | academic_score | project | experience | certificate
+    category: str  # technical | business | soft | language
+    skill_level: str = "None"  # None | Basic | Intermediate | Advanced
+    evidence: List[str] = field(default_factory=list)  # Các chuỗi chứng cứ thực tế
+    confidence: str = "low"  # low | medium | high
+    source: str = "self_assessment"  # self_assessment | academic_score | project | experience | certificate
 
     @property
     def achieved_level(self) -> float:
@@ -259,11 +268,11 @@ EXPERIENCE_TYPES = [
 
 @dataclass
 class ExperienceItem:
-    exp_type: str                                            # EXPERIENCE_TYPES
+    exp_type: str  # EXPERIENCE_TYPES
     title: str
     related_skills: List[str] = field(default_factory=list)  # skill_name gắn kèm
     description: str = ""
-    artifact_url: str = ""                                   # GitHub, Kaggle, Certificate URL...
+    artifact_url: str = ""  # GitHub, Kaggle, Certificate URL...
     added_at: str = field(default_factory=lambda: datetime.now().isoformat())
 
 
@@ -284,7 +293,8 @@ class ExperienceProfile:
             return 0
         related_set = set(related_domain_skills)
         return sum(
-            1 for it in self.items
+            1
+            for it in self.items
             if it.exp_type in ("project", "thesis", "internship", "employment", "portfolio")
             and related_set.intersection(it.related_skills)
         )
@@ -372,13 +382,13 @@ ENGLISH_LEVEL_VALUE = {"Beginner": 0.25, "Intermediate": 0.55, "Advanced": 0.8, 
 class CareerConstraints:
     desired_location: str = "Hồ Chí Minh"
     willing_to_relocate: bool = True
-    preferred_hours: str = "office_hours"                   # office_hours | shift_ok
-    shift_acceptance: bool = False                           # Có chấp nhận làm ca kíp không
+    preferred_hours: str = "office_hours"  # office_hours | shift_ok
+    shift_acceptance: bool = False  # Có chấp nhận làm ca kíp không
     expected_salary_band: str = "10 - 15 triệu"
-    english_level: str = "Intermediate"                      # Beginner | Intermediate | Advanced | Fluent
+    english_level: str = "Intermediate"  # Beginner | Intermediate | Advanced | Fluent
     learning_hours_per_week: float = 8.0
     preferred_industry: str = "Công nghệ thông tin"
-    remote_preference: str = "flexible"                      # remote | on_site | flexible
+    remote_preference: str = "flexible"  # remote | on_site | flexible
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -389,9 +399,9 @@ class CareerConstraints:
 # ============================================================================
 @dataclass
 class CareerGoal:
-    goal_type: str = "Fresher job"                           # Internship | Fresher job | Junior role | Career switching | Long-term career
+    goal_type: str = "Fresher job"  # Internship | Fresher job | Junior role | Career switching | Long-term career
     target_role_id: Optional[str] = "data_analyst"
-    target_timeframe_months: int = 6                         # 1 | 3 | 6 | 12 | 24 tháng
+    target_timeframe_months: int = 6  # 1 | 3 | 6 | 12 | 24 tháng
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -403,7 +413,7 @@ class CareerGoal:
 @dataclass
 class StudentCareerProfile:
     student_pseudonym: str
-    data_source: str                                         # "REAL" | "DEMO"
+    data_source: str  # "REAL" | "DEMO"
     academic: AcademicProfile = field(default_factory=AcademicProfile)
     skills: SkillProfile = field(default_factory=SkillProfile)
     experience: ExperienceProfile = field(default_factory=ExperienceProfile)
@@ -411,7 +421,7 @@ class StudentCareerProfile:
     work_style: WorkStyleProfile = field(default_factory=WorkStyleProfile)
     constraints: CareerConstraints = field(default_factory=CareerConstraints)
     goal: CareerGoal = field(default_factory=CareerGoal)
-    completed_tasks: List[str] = field(default_factory=list) # Danh sách task_id đã hoàn thành (Feedback loop)
+    completed_tasks: List[str] = field(default_factory=list)  # Danh sách task_id đã hoàn thành (Feedback loop)
     updated_at: str = field(default_factory=lambda: datetime.now().isoformat())
 
     def profile_completeness(self) -> Dict[str, bool]:
@@ -426,11 +436,13 @@ class StudentCareerProfile:
             "goal": bool(self.goal.target_role_id),
         }
 
-    def clone(self) -> "StudentCareerProfile":
+    def clone(self) -> StudentCareerProfile:
         """Deep copy để phục vụ What-if Analysis mà không làm thay đổi hồ sơ thật."""
         return copy.deepcopy(self)
 
-    def mark_task_completed(self, task_id: str, skill_to_upgrade: Optional[str] = None, new_level: str = "Intermediate") -> None:
+    def mark_task_completed(
+        self, task_id: str, skill_to_upgrade: Optional[str] = None, new_level: str = "Intermediate"
+    ) -> None:
         """Feedback loop: Đánh dấu task hoàn thành và nâng cấp kỹ năng liên quan."""
         if task_id not in self.completed_tasks:
             self.completed_tasks.append(task_id)
@@ -469,7 +481,7 @@ class StudentCareerProfile:
         student_id: str,
         raw_row: Dict[str, Any],
         data_source: str = "DEMO",
-    ) -> "StudentCareerProfile":
+    ) -> StudentCareerProfile:
         from dss.services.privacy_service import generate_pseudonym
 
         academic = AcademicProfile.build(raw_row)
@@ -477,10 +489,10 @@ class StudentCareerProfile:
         skills.add_evidence_from_academic(academic)
 
         # Khởi tạo mặc định các trục sở thích ở mức 3 (trung tính)
-        interest = InterestProfile(scores={k: 3 for k in INTEREST_AXES})
+        interest = InterestProfile(scores=dict.fromkeys(INTEREST_AXES, 3))
 
         # Khởi tạo mặc định phong cách làm việc ở mức 3 (cân bằng)
-        work_style = WorkStyleProfile(preferences={k: 3 for k in WORK_STYLE_AXES})
+        work_style = WorkStyleProfile(preferences=dict.fromkeys(WORK_STYLE_AXES, 3))
 
         return cls(
             student_pseudonym=generate_pseudonym(student_id),

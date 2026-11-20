@@ -9,6 +9,7 @@
 
 Kèm tập truy vấn kiểm thử chuẩn hóa có gán nhãn (Labeled Ground-Truth Query Set).
 """
+
 from __future__ import annotations
 
 import math
@@ -270,18 +271,20 @@ def evaluate_retrieval_pipeline(
         ndcg = calculate_ndcg_at_k(retrieved_ids, expected_set, k=k)
         ndcgs.append(ndcg)
 
-        detailed_results.append({
-            "query_id": tc.query_id,
-            "query_text": tc.query_text,
-            "expected_ids": tc.expected_doc_ids,
-            "retrieved_ids": retrieved_ids,
-            "hits": hits,
-            "recall": round(recall, 4),
-            "precision": round(precision, 4),
-            "mrr": round(mrr, 4),
-            "ndcg": round(ndcg, 4),
-            "latency_ms": round(latency_ms, 2),
-        })
+        detailed_results.append(
+            {
+                "query_id": tc.query_id,
+                "query_text": tc.query_text,
+                "expected_ids": tc.expected_doc_ids,
+                "retrieved_ids": retrieved_ids,
+                "hits": hits,
+                "recall": round(recall, 4),
+                "precision": round(precision, 4),
+                "mrr": round(mrr, 4),
+                "ndcg": round(ndcg, 4),
+                "latency_ms": round(latency_ms, 2),
+            }
+        )
 
     return {
         "summary": {

@@ -4,8 +4,10 @@ Chuyển đổi toàn bộ tên cột kỹ thuật (snake_case), mã enum chẩn
 quiz, trạng thái thuê bao, và các thuật ngữ ML thành nhãn tiếng Việt học thuật chuẩn mực.
 Tuyệt đối KHÔNG hiển thị raw identifiers trên giao diện người dùng.
 """
+
 from __future__ import annotations
-from typing import Optional, Dict, Any
+
+from typing import Any, Dict, Optional
 
 # 1. Cột dữ liệu & đặc trưng học tập
 RAW_COLUMN_TO_VIETNAMESE: Dict[str, str] = {
@@ -193,10 +195,13 @@ def map_subscription_status(status: Optional[str]) -> str:
 def map_ml_metric(metric_key: str) -> Dict[str, str]:
     """Trả về label và mô tả tiếng Việt cho chỉ số ML."""
     lower_key = str(metric_key).lower().strip()
-    return ML_METRIC_LABELS.get(lower_key, {
-        "label": metric_key.upper(),
-        "desc": f"Chỉ số đánh giá mô hình {metric_key.upper()}",
-    })
+    return ML_METRIC_LABELS.get(
+        lower_key,
+        {
+            "label": metric_key.upper(),
+            "desc": f"Chỉ số đánh giá mô hình {metric_key.upper()}",
+        },
+    )
 
 
 def map_rag_namespace(namespace: str) -> str:

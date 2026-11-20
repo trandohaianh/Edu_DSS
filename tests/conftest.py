@@ -19,6 +19,7 @@ warehouse) vẫn giữ lại cho test muốn 1 file/thư mục RIÊNG (khác nha
 test trong cùng phiên), nhưng KHÔNG còn là cơ chế chống-ghi-vào-app-thật duy
 nhất — lớp phòng thủ chính giờ là autouse ở dưới.
 """
+
 from __future__ import annotations
 
 import os
@@ -59,21 +60,32 @@ import streamlit as st  # noqa: E402
 
 from dss.core.data_root import DATA_ROOT_ENV_VAR  # noqa: E402
 
-
 _REAL_DATA_WAREHOUSE = _APP_ROOT / "data_warehouse"
 
 # Các file JSON đơn (so sánh theo nội dung — băm sha256) và các thư mục nhiều
 # file (so sánh theo DANH SÁCH tên file tương đối — phát hiện file mới bị thêm/
 # xoá, không quan tâm nội dung bên trong từng file mô hình/dataset nhị phân).
 _REAL_STORE_FILES = [
-    "users.json", "ai_default_provider.json", "subscription.json",
+    "users.json",
+    "ai_default_provider.json",
+    "subscription.json",
     "ai_token_usage.json",
-    "cms/lessons_registry.json", "cms/quiz_review_queue.json",
-    "cms/interaction_log.json", "cms/misconception_records.json",
+    "cms/lessons_registry.json",
+    "cms/quiz_review_queue.json",
+    "cms/interaction_log.json",
+    "cms/misconception_records.json",
 ]
 _REAL_STORE_DIRS = [
-    "models", "datasets", "raw_data", "processed_data", "training_data",
-    "evaluation_data", "metadata", "history", "embeddings", "vector_stores",
+    "models",
+    "datasets",
+    "raw_data",
+    "processed_data",
+    "training_data",
+    "evaluation_data",
+    "metadata",
+    "history",
+    "embeddings",
+    "vector_stores",
     "logs",
 ]
 
@@ -94,9 +106,7 @@ def _snapshot_real_data_warehouse() -> dict:
     for rel in _REAL_STORE_DIRS:
         d = _REAL_DATA_WAREHOUSE / rel
         if d.exists():
-            snapshot["dirs"][rel] = sorted(
-                str(p.relative_to(d)) for p in d.rglob("*") if p.is_file()
-            )
+            snapshot["dirs"][rel] = sorted(str(p.relative_to(d)) for p in d.rglob("*") if p.is_file())
         else:
             snapshot["dirs"][rel] = []
     return snapshot
@@ -172,11 +182,13 @@ def as_role():
     """Giả lập 1 phiên đã đăng nhập với vai trò cho trước — set đúng key mà
     `auth_service`/`require_role` đọc (`_auth_role`), không phải tự chế key
     riêng cho test."""
+
     def _set(role: str, username: str = "test_user", student_id: str | None = None):
         st.session_state["_authenticated"] = True
         st.session_state["_auth_role"] = role
         st.session_state["_auth_username"] = username
         st.session_state["_auth_student_id"] = student_id
+
     return _set
 
 
@@ -187,6 +199,7 @@ def isolated_users_file(tmp_path, monkeypatch):
     khi 1 test cần 1 users.json sạch, không lẫn với auto-provision của test
     khác trong CÙNG phiên pytest."""
     from dss.services import auth_service
+
     fake_path = tmp_path / "users.json"
     monkeypatch.setattr(auth_service, "_users_path", lambda: fake_path)
     return fake_path
@@ -196,6 +209,7 @@ def isolated_users_file(tmp_path, monkeypatch):
 def isolated_default_provider_file(tmp_path, monkeypatch):
     """Trỏ `admin_ai_config._config_path()` sang file tạm riêng cho test này."""
     from dss.services import admin_ai_config
+
     fake_path = tmp_path / "ai_default_provider.json"
     monkeypatch.setattr(admin_ai_config, "_config_path", lambda: fake_path)
     return fake_path
@@ -207,4 +221,5 @@ def warehouse(tmp_path):
     mục tạm — không đụng `data_warehouse/` thật, nhưng vẫn thực thi đúng code
     thật (không mock)."""
     from dss.core.warehouse import DataWarehouse
+
     return DataWarehouse(base_path=str(tmp_path / "data_warehouse"))

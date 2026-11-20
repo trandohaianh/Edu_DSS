@@ -4,18 +4,19 @@ Academic and topic scores use 0..10; accuracy/mastery/retention use 0..1.
 Zero is an observation, never a missing-value sentinel. Numeric defaults are
 None so downstream advice cannot silently turn absent logs into evidence.
 """
+
 from __future__ import annotations
 
-import math
 import json
+import math
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from typing import Any, Dict, List, Optional
 
 
-def observed_number(value: Any, *, minimum: float = 0.0,
-                    maximum: Optional[float] = None,
-                    integer: bool = False) -> Optional[float]:
+def observed_number(
+    value: Any, *, minimum: float = 0.0, maximum: Optional[float] = None, integer: bool = False
+) -> Optional[float]:
     """Return a finite, in-range observation; reject booleans and coercion errors."""
     if value is None or isinstance(value, bool) or type(value).__name__ == "bool_":
         return None
@@ -132,7 +133,7 @@ class LearningTrajectory:
 class StudentLearningProfile:
     student_pseudonym: str
     course_id: str
-    created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    created_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
     academic: AcademicEvidence = field(default_factory=AcademicEvidence)
     question_level: QuestionLevelEvidence = field(default_factory=QuestionLevelEvidence)
     behavioral: BehavioralEvidence = field(default_factory=BehavioralEvidence)
@@ -146,9 +147,13 @@ class StudentLearningProfile:
         return asdict(self)
 
     @classmethod
-    def build_from_lms_records(cls, student_id: str, course_id: str,
-                               raw_lms_data: Dict[str, Any],
-                               class_averages: Optional[Dict[str, float]] = None) -> StudentLearningProfile:
+    def build_from_lms_records(
+        cls,
+        student_id: str,
+        course_id: str,
+        raw_lms_data: Dict[str, Any],
+        class_averages: Optional[Dict[str, float]] = None,
+    ) -> StudentLearningProfile:
         from dss.services.privacy_service import privacy_service
 
         raw = raw_lms_data if isinstance(raw_lms_data, dict) else {}
@@ -184,7 +189,9 @@ class StudentLearningProfile:
 
         academic = AcademicEvidence(
             quiz_average=read("academic.quiz_average", "quiz_score", "quiz_average", maximum=10),
-            assignment_average=read("academic.assignment_average", "assignment_score", "assignment_average", maximum=10),
+            assignment_average=read(
+                "academic.assignment_average", "assignment_score", "assignment_average", maximum=10
+            ),
             exam_score=read("academic.exam_score", "exam_score", "diem_cuoi_ky", maximum=10),
             topic_scores=mapping("topic_scores", 10),
             prerequisite_mastery=mapping("prerequisite_mastery", 1),
@@ -217,14 +224,20 @@ class StudentLearningProfile:
             time_to_mastery_hours=read("trajectory.time_to_mastery_hours", "time_to_mastery"),
             delayed_retention_rate=read("trajectory.delayed_retention_rate", "retention_rate", maximum=1),
             repeated_misconceptions=_text_list(raw.get("misconceptions")),
-            historical_baseline_score=read("trajectory.historical_baseline_score", "gpa_previous", "baseline_score", maximum=10),
+            historical_baseline_score=read(
+                "trajectory.historical_baseline_score", "gpa_previous", "baseline_score", maximum=10
+            ),
             # No invented stable trend or assumed course grading weights.
             score_trend=raw.get("score_trend"),
         )
         return cls(
             student_pseudonym=privacy_service.generate_pseudonym(str(student_id)),
-            course_id=str(course_id), academic=academic, question_level=question,
-            behavioral=behavior, trajectory=trajectory,
+            course_id=str(course_id),
+            academic=academic,
+            question_level=question,
+            behavioral=behavior,
+            trajectory=trajectory,
             secondary_class_context=observed_mapping(class_averages, maximum=float("inf")),
-            evidence_sources=sources, invalid_fields=list(dict.fromkeys(invalid)),
+            evidence_sources=sources,
+            invalid_fields=list(dict.fromkeys(invalid)),
         )

@@ -11,10 +11,11 @@ Module này THUẦN (không import streamlit, không I/O) — dùng chung cho:
 - `document_approval_service` (kiểm tra quyền duyệt theo vai trò/loại tài liệu)
 - `rag_service.retrieve_unified_context` (bộ lọc CỨNG trước khi xếp hạng/cắt top-k)
 """
+
 from __future__ import annotations
 
 import hashlib
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from typing import Any, Dict, Optional
 
 # ---------------------------------------------------------------------------
@@ -27,7 +28,11 @@ STATUS_REJECTED = "REJECTED"
 STATUS_RETIRED = "RETIRED"
 
 ALL_STATUSES = {
-    STATUS_DRAFT, STATUS_PENDING_REVIEW, STATUS_APPROVED, STATUS_REJECTED, STATUS_RETIRED,
+    STATUS_DRAFT,
+    STATUS_PENDING_REVIEW,
+    STATUS_APPROVED,
+    STATUS_REJECTED,
+    STATUS_RETIRED,
 }
 
 # ---------------------------------------------------------------------------
@@ -41,8 +46,12 @@ DOC_TYPE_HUONG_DAN_HOC_TAP = "huong_dan_hoc_tap"
 DOC_TYPE_FAQ_CHINH_THUC = "faq_chinh_thuc"
 
 ALL_DOC_TYPES = {
-    DOC_TYPE_QUY_CHE, DOC_TYPE_DE_CUONG, DOC_TYPE_GIAO_TRINH,
-    DOC_TYPE_BAI_GIANG, DOC_TYPE_HUONG_DAN_HOC_TAP, DOC_TYPE_FAQ_CHINH_THUC,
+    DOC_TYPE_QUY_CHE,
+    DOC_TYPE_DE_CUONG,
+    DOC_TYPE_GIAO_TRINH,
+    DOC_TYPE_BAI_GIANG,
+    DOC_TYPE_HUONG_DAN_HOC_TAP,
+    DOC_TYPE_FAQ_CHINH_THUC,
 }
 
 # Loại tài liệu chỉ Admin mới có thẩm quyền duyệt (quy chế/FAQ chính thức cấp trường).
@@ -64,20 +73,20 @@ def _parse_dt(value: Any) -> Optional[datetime]:
     try:
         dt = datetime.fromisoformat(str(value))
         if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
+            dt = dt.replace(tzinfo=UTC)
         return dt
     except Exception:
         return None
 
 
 def is_expired(meta: Dict[str, Any], *, now: Optional[datetime] = None) -> bool:
-    now = now or datetime.now(timezone.utc)
+    now = now or datetime.now(UTC)
     exp = _parse_dt(meta.get("expires_at"))
     return exp is not None and exp <= now
 
 
 def is_not_yet_effective(meta: Dict[str, Any], *, now: Optional[datetime] = None) -> bool:
-    now = now or datetime.now(timezone.utc)
+    now = now or datetime.now(UTC)
     eff = _parse_dt(meta.get("effective_from"))
     return eff is not None and eff > now
 

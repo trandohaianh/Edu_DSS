@@ -1,6 +1,7 @@
 """Navigation labels and allowed roles; authentication is enforced by auth_service.
 Classroom and programme services independently enforce their own scope and roles.
 """
+
 import re
 
 ROLES = ["Giảng viên / CVHT", "Sinh viên", "Admin"]
@@ -93,6 +94,7 @@ def tab_icon(tab_label: str) -> str:
     """Lấy icon emoji/ký hiệu của tab."""
     return TAB_ICONS.get(tab_label, "📌")
 
+
 ROLE_INFO = {
     "Giảng viên / CVHT": {
         "icon": "👩‍🏫",
@@ -147,7 +149,10 @@ ROLE_ALIASES = {
 }
 
 ALL_TABS = [
-    HOME_TAB_LABEL, CLASSROOM_TAB_LABEL, MATERIALS_TAB_LABEL, PROGRAM_TAB_LABEL,
+    HOME_TAB_LABEL,
+    CLASSROOM_TAB_LABEL,
+    MATERIALS_TAB_LABEL,
+    PROGRAM_TAB_LABEL,
     "📊 Dashboard",
     "🔍 Khám phá — Xử lý dữ liệu",
     "🧪 Huấn luyện — Dự đoán",

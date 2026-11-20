@@ -10,11 +10,11 @@ Bối cảnh: lớp thiểu số trong bộ dữ liệu của dự án có thể
 3. F1 đo tại MỘT ngưỡng nên dịch rất mạnh khi lớp hiếm chỉ vài mẫu; PR-AUC lấy trung
    bình trên toàn dải ngưỡng nên đo đúng khả năng xếp hạng — thứ sản phẩm thực sự dùng.
 """
+
 from __future__ import annotations
 
 import numpy as np
 import pytest
-
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 
@@ -44,9 +44,7 @@ class TestApplyClassWeight:
         assert tra_ve is model
 
     def test_giu_nguyen_cac_tham_so_khac(self):
-        model, _ = apply_class_weight_balanced(
-            RandomForestClassifier(n_estimators=37, max_depth=4, random_state=7)
-        )
+        model, _ = apply_class_weight_balanced(RandomForestClassifier(n_estimators=37, max_depth=4, random_state=7))
         p = model.get_params()
         assert p["n_estimators"] == 37 and p["max_depth"] == 4 and p["random_state"] == 7
 
@@ -72,7 +70,7 @@ class TestPrAucMacro:
 
     def test_khong_nem_loi_khi_so_cot_xac_suat_lech_so_lop(self):
         y = np.array([0, 1, 2, 0, 1, 2])
-        proba = np.array([[0.5, 0.5]] * 6)          # 2 cột nhưng 3 lớp
+        proba = np.array([[0.5, 0.5]] * 6)  # 2 cột nhưng 3 lớp
         assert pr_auc_macro(y, proba, classes=[0, 1, 2]) is None
 
     def test_pr_auc_on_dinh_hon_f1_khi_lop_hiem_rat_it_mau(self):
@@ -82,7 +80,7 @@ class TestPrAucMacro:
         """
         from sklearn.metrics import f1_score
 
-        y = np.array([0] * 8 + [1, 1])                      # lớp hiếm: 2 trên 10
+        y = np.array([0] * 8 + [1, 1])  # lớp hiếm: 2 trên 10
         # Mô hình A: bắt được 1 trong 2 mẫu hiếm.  Mô hình B: bắt được cả 2.
         pred_a = np.array([0] * 8 + [1, 0])
         pred_b = np.array([0] * 8 + [1, 1])

@@ -4,6 +4,7 @@ displays it verbatim as "Độ tin cậy kế hoạch: 85%" — presenting a fix
 as if it were a measured/calibrated confidence score. Distinct from E-5
 (`DiagnosisEngine` hypothesis confidence), which remains confirmed NON-user-facing
 on re-check (grep across dss/tabs finds zero renders of hypothesis.confidence)."""
+
 from __future__ import annotations
 
 import inspect
@@ -24,7 +25,9 @@ def _make_profile(**overrides):
         student_pseudonym="sv_test",
         course_id="CS101",
         academic=AcademicEvidence(quiz_average=8.0, assignment_average=8.0),
-        behavioral=BehavioralEvidence(active_days_last_month=20, practice_frequency_per_week=4, average_session_duration_minutes=45),
+        behavioral=BehavioralEvidence(
+            active_days_last_month=20, practice_frequency_per_week=4, average_session_duration_minutes=45
+        ),
         trajectory=LearningTrajectory(score_trend="improving", learning_velocity=1.2),
         question_level=QuestionLevelEvidence(accuracy_rate=0.9),
     )
@@ -68,4 +71,6 @@ def test_learning_plan_module_documents_confidence_is_a_fixed_constant():
     làm căn cứ ra quyết định."""
     source = inspect.getsource(LearningPlanGenerator.generate_plan)
     lowered = source.lower()
-    assert "hằng số" in lowered or "khong phai" in lowered.replace("ô", "o").replace("đ", "d") or "không phải" in lowered
+    assert (
+        "hằng số" in lowered or "khong phai" in lowered.replace("ô", "o").replace("đ", "d") or "không phải" in lowered
+    )

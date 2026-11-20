@@ -2,6 +2,7 @@
 tests. Skipped (not faked) without a configured database — see
 tests/test_db_schema.py's module docstring for local setup.
 """
+
 from __future__ import annotations
 
 import uuid
@@ -31,14 +32,16 @@ def org_id():
 
 
 def _demo_df(n=5):
-    return pd.DataFrame({
-        "student_id": [f"SV{i:03d}" for i in range(1, n + 1)],
-        "diem_giua_ky": [7.5] * n,
-        "diem_ky_nay": [8.0] * n,
-        "diem_du_an": [7.0] * n,
-        "diem_ky_sau": [7.8] * n,
-        "ty_le_diem_danh": [0.9] * n,
-    })
+    return pd.DataFrame(
+        {
+            "student_id": [f"SV{i:03d}" for i in range(1, n + 1)],
+            "diem_giua_ky": [7.5] * n,
+            "diem_ky_nay": [8.0] * n,
+            "diem_du_an": [7.0] * n,
+            "diem_ky_sau": [7.8] * n,
+            "ty_le_diem_danh": [0.9] * n,
+        }
+    )
 
 
 def test_upsert_student_is_idempotent(org_id):

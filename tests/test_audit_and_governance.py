@@ -1,6 +1,7 @@
 """Audit and Governance Test Suite — Bao phủ toàn bộ 15 yêu cầu kiểm thử (A -> O)
 theo bản đặc tả audit & refactor EduDSS.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -8,20 +9,20 @@ import pandas as pd
 import pytest
 import streamlit as st
 
+from dss.core.data_helpers import generate_data, load_data
 from dss.core.target_utils import (
     canonicalize_columns,
     filter_leakage_features,
     score_to_xep_loai,
 )
-from dss.core.data_helpers import generate_data, load_data
-from dss.core.warehouse import DataWarehouse
 from dss.core.trainers import ClassificationTrainer
+from dss.core.warehouse import DataWarehouse
 from dss.services import model_registry
 from dss.services.model_service import (
-    resolve_production_for_prediction,
-    run_preview_benchmark,
     compute_shap_local_explanation,
     compute_shap_summary,
+    resolve_production_for_prediction,
+    run_preview_benchmark,
 )
 
 
@@ -37,14 +38,16 @@ class _DummyPipeline:
 # TEST A: target=xep_loai không chứa grade/diem_ky_sau/final_score trong X
 # ============================================================================
 def test_a_classification_target_excludes_all_aliases_and_generators():
-    df = pd.DataFrame({
-        "diem_ky_nay": [7.0, 8.0, 6.5],
-        "diem_giua_ky": [6.0, 7.5, 8.0],
-        "diem_ky_sau": [7.5, 8.5, 7.0],
-        "final_score": [7.5, 8.5, 7.0],
-        "xep_loai": ["Khá", "Giỏi", "Khá"],
-        "grade": ["Khá", "Giỏi", "Khá"],
-    })
+    df = pd.DataFrame(
+        {
+            "diem_ky_nay": [7.0, 8.0, 6.5],
+            "diem_giua_ky": [6.0, 7.5, 8.0],
+            "diem_ky_sau": [7.5, 8.5, 7.0],
+            "final_score": [7.5, 8.5, 7.0],
+            "xep_loai": ["Khá", "Giỏi", "Khá"],
+            "grade": ["Khá", "Giỏi", "Khá"],
+        }
+    )
     target_col = "xep_loai"
     feature_cols = ["diem_ky_nay", "diem_giua_ky", "diem_ky_sau", "final_score", "grade"]
 
@@ -63,14 +66,16 @@ def test_a_classification_target_excludes_all_aliases_and_generators():
 # TEST B: target=diem_ky_sau không chứa final_score/xep_loai/grade trong X
 # ============================================================================
 def test_b_regression_target_excludes_all_aliases_and_derived_targets():
-    df = pd.DataFrame({
-        "diem_ky_nay": [7.0, 8.0, 6.5],
-        "so_gio_hoc_tuan": [15, 20, 10],
-        "diem_ky_sau": [7.5, 8.5, 7.0],
-        "final_score": [7.5, 8.5, 7.0],
-        "xep_loai": ["Khá", "Giỏi", "Khá"],
-        "grade": ["Khá", "Giỏi", "Khá"],
-    })
+    df = pd.DataFrame(
+        {
+            "diem_ky_nay": [7.0, 8.0, 6.5],
+            "so_gio_hoc_tuan": [15, 20, 10],
+            "diem_ky_sau": [7.5, 8.5, 7.0],
+            "final_score": [7.5, 8.5, 7.0],
+            "xep_loai": ["Khá", "Giỏi", "Khá"],
+            "grade": ["Khá", "Giỏi", "Khá"],
+        }
+    )
     target_col = "diem_ky_sau"
     feature_cols = ["diem_ky_nay", "so_gio_hoc_tuan", "final_score", "xep_loai", "grade"]
 
@@ -109,20 +114,24 @@ def test_c_canonical_alias_conversion():
 # ============================================================================
 def test_d_conflicting_aliases_raise_inconsistency_error():
     # grade và xep_loai mâu thuẫn
-    df_conflict_clf = pd.DataFrame({
-        "student_id": [1, 2],
-        "xep_loai": ["Giỏi", "Khá"],
-        "grade": ["Yếu", "Trung bình"],
-    })
+    df_conflict_clf = pd.DataFrame(
+        {
+            "student_id": [1, 2],
+            "xep_loai": ["Giỏi", "Khá"],
+            "grade": ["Yếu", "Trung bình"],
+        }
+    )
     with pytest.raises(ValueError, match="Xung đột dữ liệu"):
         canonicalize_columns(df_conflict_clf, strict=True)
 
     # final_score và diem_ky_sau mâu thuẫn
-    df_conflict_reg = pd.DataFrame({
-        "student_id": [1, 2],
-        "diem_ky_sau": [8.5, 7.0],
-        "final_score": [2.0, 3.5],
-    })
+    df_conflict_reg = pd.DataFrame(
+        {
+            "student_id": [1, 2],
+            "diem_ky_sau": [8.5, 7.0],
+            "final_score": [2.0, 3.5],
+        }
+    )
     with pytest.raises(ValueError, match="Xung đột dữ liệu"):
         canonicalize_columns(df_conflict_reg, strict=True)
 
@@ -271,13 +280,15 @@ def test_i_f1_macro_computed_correctly_for_multiclass():
     # Tạo dataset phân loại 3 lớp với phân phối không đều
     np.random.seed(42)
     n = 120
-    df = pd.DataFrame({
-        "feature_1": np.random.normal(0, 1, n),
-        "feature_2": np.random.normal(5, 2, n),
-        "diem_ky_nay": np.random.uniform(1, 10, n),
-        # 3 lớp mất cân bằng: 70% Khá, 20% Giỏi, 10% Yếu
-        "xep_loai": np.random.choice(["Khá", "Giỏi", "Yếu"], size=n, p=[0.70, 0.20, 0.10]),
-    })
+    df = pd.DataFrame(
+        {
+            "feature_1": np.random.normal(0, 1, n),
+            "feature_2": np.random.normal(5, 2, n),
+            "diem_ky_nay": np.random.uniform(1, 10, n),
+            # 3 lớp mất cân bằng: 70% Khá, 20% Giỏi, 10% Yếu
+            "xep_loai": np.random.choice(["Khá", "Giỏi", "Yếu"], size=n, p=[0.70, 0.20, 0.10]),
+        }
+    )
 
     trainer = ClassificationTrainer()
     results, pipelines, labels, feats, X_test, y_test, X_train = trainer.train_and_evaluate(
@@ -304,11 +315,13 @@ def test_i_f1_macro_computed_correctly_for_multiclass():
 # TEST J: CV preprocessing fit trong fold
 # ============================================================================
 def test_j_preview_benchmark_uses_pipeline_without_dataset_leakage():
-    df = pd.DataFrame({
-        "cat_col": ["A", "B", "A", "B", "C", "A", "B", "C", "A", "B", "C", "A"],
-        "num_col": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0],
-        "target": [0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1],
-    })
+    df = pd.DataFrame(
+        {
+            "cat_col": ["A", "B", "A", "B", "C", "A", "B", "C", "A", "B", "C", "A"],
+            "num_col": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0],
+            "target": [0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1],
+        }
+    )
 
     bench = run_preview_benchmark(
         df=df,
@@ -329,11 +342,13 @@ def test_k_smote_does_not_affect_test_set_size_or_distribution():
     # Kiểm tra trực quan từ luồng train_and_evaluate
     np.random.seed(42)
     n = 100
-    df = pd.DataFrame({
-        "feat1": np.random.randn(n),
-        "feat2": np.random.randn(n),
-        "target": ["A"] * 85 + ["B"] * 15,
-    })
+    df = pd.DataFrame(
+        {
+            "feat1": np.random.randn(n),
+            "feat2": np.random.randn(n),
+            "target": ["A"] * 85 + ["B"] * 15,
+        }
+    )
 
     trainer = ClassificationTrainer()
     results, pipelines, labels, feats, X_test, y_test, X_train = trainer.train_and_evaluate(
@@ -356,18 +371,20 @@ def test_k_smote_does_not_affect_test_set_size_or_distribution():
 # TEST L: multiclass SHAP chọn đúng predicted class
 # ============================================================================
 def test_l_multiclass_shap_prediction_mapping():
-    from sklearn.ensemble import RandomForestClassifier
     from sklearn.compose import ColumnTransformer
-    from sklearn.preprocessing import StandardScaler
+    from sklearn.ensemble import RandomForestClassifier
     from sklearn.pipeline import Pipeline
+    from sklearn.preprocessing import StandardScaler
 
     np.random.seed(42)
     n = 100
-    X = pd.DataFrame({
-        "diem_giua_ky": np.random.uniform(0, 10, n),
-        "diem_du_an": np.random.uniform(0, 10, n),
-        "so_gio_hoc": np.random.uniform(5, 30, n),
-    })
+    X = pd.DataFrame(
+        {
+            "diem_giua_ky": np.random.uniform(0, 10, n),
+            "diem_du_an": np.random.uniform(0, 10, n),
+            "so_gio_hoc": np.random.uniform(5, 30, n),
+        }
+    )
     # 5 lớp học lực chuẩn
     y = np.random.choice(["Yếu", "Trung bình", "Khá", "Giỏi", "Xuất sắc"], size=n)
 
@@ -401,16 +418,16 @@ def test_m_pd_cut_boundaries_match_specification():
     labels = score_to_xep_loai(scores)
 
     expected = [
-        "Yếu",          # 0.00
-        "Yếu",          # 3.99
-        "Trung bình",   # 4.00
-        "Trung bình",   # 5.49
-        "Khá",          # 5.50
-        "Khá",          # 6.99
-        "Giỏi",         # 7.00
-        "Giỏi",         # 8.49
-        "Xuất sắc",     # 8.50
-        "Xuất sắc",     # 10.00
+        "Yếu",  # 0.00
+        "Yếu",  # 3.99
+        "Trung bình",  # 4.00
+        "Trung bình",  # 5.49
+        "Khá",  # 5.50
+        "Khá",  # 6.99
+        "Giỏi",  # 7.00
+        "Giỏi",  # 8.49
+        "Xuất sắc",  # 8.50
+        "Xuất sắc",  # 10.00
     ]
     assert list(labels) == expected
 
@@ -433,11 +450,13 @@ def test_n_same_random_state_produces_identical_synthetic_dataset():
 def test_o_real_evaluation_mode_does_not_auto_generate_target(tmp_path):
     # Tạo 1 file CSV thực tế không chứa target diem_ky_sau
     csv_file = tmp_path / "real_historical_courses.csv"
-    real_df = pd.DataFrame({
-        "student_id": ["SV01", "SV02", "SV03"],
-        "diem_ky_nay": [7.5, 8.0, 6.0],
-        "diem_giua_ky": [7.0, 8.5, 6.5],
-    })
+    real_df = pd.DataFrame(
+        {
+            "student_id": ["SV01", "SV02", "SV03"],
+            "diem_ky_nay": [7.5, 8.0, 6.0],
+            "diem_giua_ky": [7.0, 8.5, 6.5],
+        }
+    )
     real_df.to_csv(csv_file, index=False)
 
     loaded_df = load_data(str(csv_file))

@@ -2,6 +2,7 @@
 liệu có sẵn, không rơi xuống LLM (trước đợt này: router phân loại đúng
 nhưng không có reply-builder, nên hành vi thật vẫn gọi LLM — xem
 docs/ai/AI_ROUTING_MATRIX.md "Gaps found")."""
+
 from __future__ import annotations
 
 from dss.services import ai_router
@@ -46,5 +47,6 @@ def test_function_never_takes_student_id_from_question_text():
     số nào cho phép chỉ định student_id khác từ bên ngoài student_row đã
     resolve sẵn — chữ ký hàm CHỈ nhận `question` và `student_row`."""
     import inspect
+
     sig = inspect.signature(ai_router.build_direct_data_lookup_reply)
     assert set(sig.parameters.keys()) == {"question", "student_row"}

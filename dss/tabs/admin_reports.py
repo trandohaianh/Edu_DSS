@@ -4,10 +4,12 @@ Toàn bộ số liệu lấy từ dữ liệu thật đã ghi trong kho (`wareho
 hard-code số liệu, không tạo dữ liệu giả để khớp mockup. Không gọi thêm bất kỳ
 service ghi/sửa nào — trang này CHỈ ĐỌC.
 """
-import os
 
-from dss.config import *  # noqa: F403
+import os
+from datetime import UTC
+
 from dss import config as dss_config
+from dss.config import *  # noqa: F403
 from dss.config import GEMINI_AVAILABLE, GROQ_AVAILABLE, OLLAMA_AVAILABLE, OPENAI_AVAILABLE
 from dss.core.roles import ALL_TABS, HOME_TAB_LABEL, filter_tabs_for_role
 from dss.services import auth_service
@@ -41,23 +43,41 @@ def _operational_checks(datasets, models, df, b_status):
     if df is None:
         checks.append(("warning", "Chưa có dữ liệu học tập", "Chưa có bộ dữ liệu nào được nạp cho phiên làm việc."))
     elif is_synthetic_data(df):
-        checks.append(("warning", "Đang dùng dữ liệu mô phỏng",
-                       "Số liệu trên hệ thống chưa phản ánh sinh viên thật."))
+        checks.append(("warning", "Đang dùng dữ liệu mô phỏng", "Số liệu trên hệ thống chưa phản ánh sinh viên thật."))
     if n_production == 0:
-        checks.append(("warning", "Chưa có mô hình Production",
-                       "Dự đoán và cảnh báo rủi ro chưa khả dụng cho Giảng viên/Sinh viên."))
-    checks.append(("neutral", "LMS/CMS chưa kết nối",
-                   "Chưa có kết nối tới hệ thống quản lý học tập thật của Trường."))
+        checks.append(
+            (
+                "warning",
+                "Chưa có mô hình Production",
+                "Dự đoán và cảnh báo rủi ro chưa khả dụng cho Giảng viên/Sinh viên.",
+            )
+        )
+    checks.append(("neutral", "LMS/CMS chưa kết nối", "Chưa có kết nối tới hệ thống quản lý học tập thật của Trường."))
     providers_checked = [st.session_state.get(f"_admin_ai_health_{k}") for k in ("gemini", "groq", "openai")]
     if not any(providers_checked):
-        checks.append(("pending", "Chưa kiểm tra kết nối AI",
-                       "Trạng thái nhà cung cấp AI chưa được kiểm tra trong phiên này (trang Cấu hình AI)."))
+        checks.append(
+            (
+                "pending",
+                "Chưa kiểm tra kết nối AI",
+                "Trạng thái nhà cung cấp AI chưa được kiểm tra trong phiên này (trang Cấu hình AI).",
+            )
+        )
     elif not any(h and h.get("category") == "READY" for h in providers_checked):
-        checks.append(("warning", "Không có nhà cung cấp AI trực tuyến nào sẵn sàng",
-                       "Các chức năng dựa trên tính toán và quy tắc vẫn hoạt động; phần diễn giải bằng AI bị hạn chế."))
+        checks.append(
+            (
+                "warning",
+                "Không có nhà cung cấp AI trực tuyến nào sẵn sàng",
+                "Các chức năng dựa trên tính toán và quy tắc vẫn hoạt động; phần diễn giải bằng AI bị hạn chế.",
+            )
+        )
     if b_status and b_status.get("alert_message"):
-        checks.append(("danger" if "exceeded" in b_status.get("status", "") else "warning",
-                       "Ngân sách AI", ui_kit.strip_decoration(b_status["alert_message"])))
+        checks.append(
+            (
+                "danger" if "exceeded" in b_status.get("status", "") else "warning",
+                "Ngân sách AI",
+                ui_kit.strip_decoration(b_status["alert_message"]),
+            )
+        )
     return checks
 
 
@@ -92,6 +112,7 @@ def admin_reports_tab(warehouse, df=None, as_home=False):
     n_total_users = sum(user_counts.values())
 
     from dss.services import token_tracker
+
     try:
         b_status = token_tracker.get_system_budget_status()
     except Exception:
@@ -100,7 +121,11 @@ def admin_reports_tab(warehouse, df=None, as_home=False):
     overview = None
     if df is not None and not as_home:
         gpa_col = next(
-            (c for c in ['diem_ky_sau', 'diem_ky_nay', 'final_score', 'gpa_previous', 'gpa', 'score'] if c in df.columns),
+            (
+                c
+                for c in ['diem_ky_sau', 'diem_ky_nay', 'final_score', 'gpa_previous', 'gpa', 'score']
+                if c in df.columns
+            ),
             None,
         )
         if gpa_col:
@@ -116,7 +141,12 @@ def admin_reports_tab(warehouse, df=None, as_home=False):
         [
             ("Người dùng", n_total_users, "Tổng số tài khoản trong hệ thống"),
             ("Sinh viên trong dữ liệu", f"{len(df):,}" if df is not None else "—", "Bộ dữ liệu đang mở"),
-            ("Mô hình Production", n_production, "Mô hình đang dùng cho dự đoán", "success" if n_production else "warning"),
+            (
+                "Mô hình Production",
+                n_production,
+                "Mô hình đang dùng cho dự đoán",
+                "success" if n_production else "warning",
+            ),
             ("Lượt tư vấn AI", len(consultations), "Tổng số lượt đã lưu"),
         ]
     )
@@ -152,14 +182,32 @@ def admin_reports_tab(warehouse, df=None, as_home=False):
                     badge = ui_kit.badge_html(_health.get("friendly_label", "Không khả dụng"), "danger")
                 rows.append((f"AI · {_name}", badge))
             if dss_config._local_llm_libs_loaded:
-                _embed = ui_kit.status_html("verified", "Đã nạp") if dss_config.HF_AVAILABLE else ui_kit.status_html("failed", "Lỗi tải thư viện")
+                _embed = (
+                    ui_kit.status_html("verified", "Đã nạp")
+                    if dss_config.HF_AVAILABLE
+                    else ui_kit.status_html("failed", "Lỗi tải thư viện")
+                )
             else:
-                _embed = ui_kit.badge_html("Đã cài, chưa nạp", "pending") if dss_config.HF_AVAILABLE else ui_kit.status_html("not_configured", "Chưa cài")
+                _embed = (
+                    ui_kit.badge_html("Đã cài, chưa nạp", "pending")
+                    if dss_config.HF_AVAILABLE
+                    else ui_kit.status_html("not_configured", "Chưa cài")
+                )
             rows.append(("Tìm kiếm tài liệu (embedding)", _embed))
             rows.append(("Tích hợp LMS/CMS", ui_kit.status_html("not_configured", "Chưa kết nối")))
-            rows.append(("Mô hình dự đoán", ui_kit.badge_html(f"{n_production} Production", "success") if n_production else ui_kit.status_html("warning", "Chưa có")))
+            rows.append(
+                (
+                    "Mô hình dự đoán",
+                    ui_kit.badge_html(f"{n_production} Production", "success")
+                    if n_production
+                    else ui_kit.status_html("warning", "Chưa có"),
+                )
+            )
             st.markdown(
-                "".join(f"<div class='dss-kv'><span class='dss-kv-key'>{k}</span><span class='dss-kv-value'>{v}</span></div>" for k, v in rows),
+                "".join(
+                    f"<div class='dss-kv'><span class='dss-kv-key'>{k}</span><span class='dss-kv-value'>{v}</span></div>"
+                    for k, v in rows
+                ),
                 unsafe_allow_html=True,
             )
             st.caption("Trạng thái AI lấy từ lần \"Kiểm tra kết nối\" gần nhất ở trang Cấu hình AI.")
@@ -177,7 +225,14 @@ def admin_reports_tab(warehouse, df=None, as_home=False):
             ui_kit.empty_state("Chưa có hoạt động nào được ghi nhận.")
         else:
             _act_df = pd.DataFrame(
-                [{"Thời gian": a.get("timestamp", ""), "Hành động": a.get("action", ""), "Chi tiết": a.get("details", "")} for a in activities]
+                [
+                    {
+                        "Thời gian": a.get("timestamp", ""),
+                        "Hành động": a.get("action", ""),
+                        "Chi tiết": a.get("details", ""),
+                    }
+                    for a in activities
+                ]
             )
             st.dataframe(_act_df, width="stretch", hide_index=True, height=min(320, 38 + 35 * len(_act_df)))
 
@@ -190,11 +245,13 @@ def admin_reports_tab(warehouse, df=None, as_home=False):
     st.markdown("<div class='dss-spacer-16'></div>", unsafe_allow_html=True)
     ui_kit.subsection_header("Dữ liệu & mô hình")
     if n_high_risk is not None:
-        ui_kit.kpi_row([
-            ("Sinh viên rủi ro cao (dữ liệu hiện tại)", n_high_risk, ui_kit.RELATIVE_RISK_DISCLAIMER, "danger"),
-            ("Bộ dữ liệu trong kho", len(datasets)),
-            ("Mô hình trong kho", len(models)),
-        ])
+        ui_kit.kpi_row(
+            [
+                ("Sinh viên rủi ro cao (dữ liệu hiện tại)", n_high_risk, ui_kit.RELATIVE_RISK_DISCLAIMER, "danger"),
+                ("Bộ dữ liệu trong kho", len(datasets)),
+                ("Mô hình trong kho", len(models)),
+            ]
+        )
         st.caption(ui_kit.RELATIVE_RISK_DISCLAIMER)
     col_left, col_right = st.columns(2, gap="medium")
     with col_left:
@@ -226,14 +283,20 @@ def admin_reports_tab(warehouse, df=None, as_home=False):
     with col_perf:
         with st.container(border=True):
             ui_kit.card_title("Chỉ số mô hình Production")
-            _prod_models = [m for m in models if m.get("is_production") and m.get("metrics", {}).get("type") != "clustering"]
+            _prod_models = [
+                m for m in models if m.get("is_production") and m.get("metrics", {}).get("type") != "clustering"
+            ]
             if not _prod_models:
                 ui_kit.empty_state("Chưa có mô hình Production.")
             else:
                 for m in _prod_models:
                     st.markdown(f"**{m['model_name']}** · mục tiêu `{m.get('target_col', '—')}`")
                     _metrics = m.get("metrics", {}) or {}
-                    _keys = [k for k in ("R2 Score", "RMSE", "MAE", "Accuracy", "F1 Score", "Precision", "Recall") if k in _metrics]
+                    _keys = [
+                        k
+                        for k in ("R2 Score", "RMSE", "MAE", "Accuracy", "F1 Score", "Precision", "Recall")
+                        if k in _metrics
+                    ]
                     st.markdown(
                         "".join(
                             f"<div class='dss-kv'><span class='dss-kv-key'>{'R² (tập kiểm tra)' if _k == 'R2 Score' else _k}</span>"
@@ -242,7 +305,9 @@ def admin_reports_tab(warehouse, df=None, as_home=False):
                         ),
                         unsafe_allow_html=True,
                     )
-                st.caption("Đo trên tập kiểm tra của dữ liệu huấn luyện — không phải kiểm định độc lập trên sinh viên thật.")
+                st.caption(
+                    "Đo trên tập kiểm tra của dữ liệu huấn luyện — không phải kiểm định độc lập trên sinh viên thật."
+                )
     with col_storage:
         with st.container(border=True):
             ui_kit.card_title("Dung lượng lưu trữ")
@@ -252,7 +317,10 @@ def admin_reports_tab(warehouse, df=None, as_home=False):
                 ("Chỉ mục tài liệu", _dir_size_mb(getattr(warehouse, "embeddings_path", None))),
             ]
             st.markdown(
-                "".join(f"<div class='dss-kv'><span class='dss-kv-key'>{_label}</span><span class='dss-kv-value'>{_mb:.1f} MB</span></div>" for _label, _mb in _storage_items),
+                "".join(
+                    f"<div class='dss-kv'><span class='dss-kv-key'>{_label}</span><span class='dss-kv-value'>{_mb:.1f} MB</span></div>"
+                    for _label, _mb in _storage_items
+                ),
                 unsafe_allow_html=True,
             )
 
@@ -266,12 +334,22 @@ def admin_reports_tab(warehouse, df=None, as_home=False):
                 st.warning(ui_kit.strip_decoration(b_status["alert_message"]))
             tk1, tk2, tk3, tk4 = st.columns(4)
             tk1.metric("Tokens hôm nay", f"{b_status['daily_tokens']:,}")
-            tk2.metric("Chi phí hôm nay (USD)", f"${b_status['daily_cost']:.4f}", help=f"Ngân sách ngày: ${b_status['daily_budget']:.2f}")
+            tk2.metric(
+                "Chi phí hôm nay (USD)",
+                f"${b_status['daily_cost']:.4f}",
+                help=f"Ngân sách ngày: ${b_status['daily_budget']:.2f}",
+            )
             tk3.metric("Tokens tháng này", f"{b_status['monthly_tokens']:,}")
-            tk4.metric("Chi phí tháng (USD)", f"${b_status['monthly_cost']:.4f}", help=f"Ngân sách tháng: ${b_status['monthly_budget']:.2f}")
-            st.caption("Chi phí = số token × bảng giá niêm yết (token_tracker.MODEL_PRICING_PER_M, cập nhật "
-                       f"{token_tracker.PRICING_AS_OF}). Số token lấy từ usage do Gemini/Groq/OpenAI trả về khi có; "
-                       "lượt nào provider không trả usage thì đếm xấp xỉ theo ký tự. Đây chưa phải hoá đơn.")
+            tk4.metric(
+                "Chi phí tháng (USD)",
+                f"${b_status['monthly_cost']:.4f}",
+                help=f"Ngân sách tháng: ${b_status['monthly_budget']:.2f}",
+            )
+            st.caption(
+                "Chi phí = số token × bảng giá niêm yết (token_tracker.MODEL_PRICING_PER_M, cập nhật "
+                f"{token_tracker.PRICING_AS_OF}). Số token lấy từ usage do Gemini/Groq/OpenAI trả về khi có; "
+                "lượt nào provider không trả usage thì đếm xấp xỉ theo ký tự. Đây chưa phải hoá đơn."
+            )
 
     if not as_home:
         st.markdown("<div class='dss-spacer-16'></div>", unsafe_allow_html=True)
@@ -284,7 +362,7 @@ def _cost_and_operations_section() -> None:
 
     from ops import pipeline
 
-    month = datetime.now(timezone.utc).strftime("%Y-%m")
+    month = datetime.now(UTC).strftime("%Y-%m")
     with st.container(border=True):
         ui_kit.card_title("Tổng chi phí tháng này (AI + hạ tầng)")
         try:
@@ -296,16 +374,35 @@ def _cost_and_operations_section() -> None:
             c1, c2, c3, c4 = st.columns(4)
             c1.metric("AI (USD)", f"${ai_m['cost_usd']:.4f}")
             c2.metric("Hạ tầng (USD)", f"${snapshot['infra_month_usd']:.2f}")
-            c3.metric("USD / người dùng AI", f"${ai_m['cost_per_active_user_usd']:.4f}",
-                      help=f"{ai_m['active_ai_users']} người dùng có gọi AI trong tháng")
+            c3.metric(
+                "USD / người dùng AI",
+                f"${ai_m['cost_per_active_user_usd']:.4f}",
+                help=f"{ai_m['active_ai_users']} người dùng có gọi AI trong tháng",
+            )
             share = ai_m["provider_counted_token_share"]
-            c4.metric("Token đếm bởi provider", "—" if share is None else f"{share:.0%}",
-                      help="Phần token lấy từ usage thật của provider (phần còn lại là ước lượng).")
+            c4.metric(
+                "Token đếm bởi provider",
+                "—" if share is None else f"{share:.0%}",
+                help="Phần token lấy từ usage thật của provider (phần còn lại là ước lượng).",
+            )
         rows = [r for r in pipeline.load_infra_costs() if r.get("month") == month]
         if rows:
-            st.dataframe(pd.DataFrame([{"Nhà cung cấp": r["provider"], "Khoản mục": r["item"],
-                                        "USD": r["amount_usd"], "Ghi chú": r.get("note", ""), "id": r["id"]}
-                                       for r in rows]), hide_index=True, width="stretch")
+            st.dataframe(
+                pd.DataFrame(
+                    [
+                        {
+                            "Nhà cung cấp": r["provider"],
+                            "Khoản mục": r["item"],
+                            "USD": r["amount_usd"],
+                            "Ghi chú": r.get("note", ""),
+                            "id": r["id"],
+                        }
+                        for r in rows
+                    ]
+                ),
+                hide_index=True,
+                width="stretch",
+            )
         with st.form("infra_cost_form", clear_on_submit=True, border=False):
             f1, f2, f3, f4 = st.columns([1.2, 1.6, 0.8, 0.6])
             provider = f1.text_input("Nhà cung cấp", placeholder="Oracle Cloud")
@@ -314,14 +411,19 @@ def _cost_and_operations_section() -> None:
             f4.markdown("<div class='dss-spacer-16'></div>", unsafe_allow_html=True)
             if f4.form_submit_button("Thêm"):
                 try:
-                    pipeline.save_infra_cost(month, provider, item, amount,
-                                             actor=str(st.session_state.get("_auth_username") or ""))
+                    pipeline.save_infra_cost(
+                        month, provider, item, amount, actor=str(st.session_state.get("_auth_username") or "")
+                    )
                     st.rerun()
                 except ValueError as exc:
                     st.error(str(exc))
         if rows:
-            del_id = st.selectbox("Xoá khoản", [None] + [r["id"] for r in rows],
-                                  format_func=lambda v: "—" if v is None else f"#{v}", key="infra_del")
+            del_id = st.selectbox(
+                "Xoá khoản",
+                [None] + [r["id"] for r in rows],
+                format_func=lambda v: "—" if v is None else f"#{v}",
+                key="infra_del",
+            )
             if del_id and st.button("Xoá khoản đã chọn"):
                 pipeline.delete_infra_cost(int(del_id))
                 st.rerun()
@@ -330,24 +432,36 @@ def _cost_and_operations_section() -> None:
     with st.container(border=True):
         ui_kit.card_title("Pipeline vận hành")
         runs = pipeline.last_runs()
-        labels = {"kpi_snapshot": "KPI theo giờ", "data_quality": "Chất lượng & drift dữ liệu",
-                  "backup": "Backup + diễn tập khôi phục", "retention": "Dọn dẹp / lưu giữ"}
+        labels = {
+            "kpi_snapshot": "KPI theo giờ",
+            "data_quality": "Chất lượng & drift dữ liệu",
+            "backup": "Backup + diễn tập khôi phục",
+            "retention": "Dọn dẹp / lưu giữ",
+        }
         table = []
         for job in pipeline.JOBS:
             row = runs.get(job) or {}
             finished = row.get("finished_at")
-            table.append({
-                "Tác vụ": labels[job],
-                "Kết quả": {"ok": "Thành công", "degraded": "Cảnh báo", "failed": "Lỗi"}.get(row.get("status"), "Chưa chạy"),
-                "Lần chạy cuối (UTC)": datetime.fromtimestamp(finished, timezone.utc).strftime("%d/%m %H:%M") if finished else "—",
-                "Thời gian (s)": row.get("duration_s", "—"),
-            })
+            table.append(
+                {
+                    "Tác vụ": labels[job],
+                    "Kết quả": {"ok": "Thành công", "degraded": "Cảnh báo", "failed": "Lỗi"}.get(
+                        row.get("status"), "Chưa chạy"
+                    ),
+                    "Lần chạy cuối (UTC)": datetime.fromtimestamp(finished, UTC).strftime("%d/%m %H:%M")
+                    if finished
+                    else "—",
+                    "Thời gian (s)": row.get("duration_s", "—"),
+                }
+            )
         st.dataframe(pd.DataFrame(table), hide_index=True, width="stretch")
         dq = (runs.get("data_quality") or {}).get("detail") or {}
         bk = (runs.get("backup") or {}).get("detail") or {}
         if dq:
-            st.caption(f"Drift lớn nhất (PSI) so với dữ liệu tham chiếu: {dq.get('drift_max_psi', 0):.3f} "
-                       "(≥ 0,25 là lệch mạnh). Mức nặng nhất: " + str(dq.get("worst_severity")))
+            st.caption(
+                f"Drift lớn nhất (PSI) so với dữ liệu tham chiếu: {dq.get('drift_max_psi', 0):.3f} "
+                "(≥ 0,25 là lệch mạnh). Mức nặng nhất: " + str(dq.get("worst_severity"))
+            )
         if bk:
             st.caption(f"Backup gần nhất: {bk.get('files', 0)} tệp, diễn tập khôi phục: {bk.get('restore_drill')}.")
         job = st.selectbox("Chạy ngay", list(pipeline.JOBS), format_func=lambda j: labels[j], key="pipeline_run_job")

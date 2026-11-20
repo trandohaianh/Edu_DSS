@@ -1,15 +1,28 @@
 """Portable relational models for classroom delivery and programme allocations."""
+
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from uuid import uuid4
 
-from sqlalchemy import Boolean, CheckConstraint, DateTime, Float, ForeignKey, ForeignKeyConstraint, Integer, JSON, String, Text, UniqueConstraint
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    Float,
+    ForeignKey,
+    ForeignKeyConstraint,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
 def utcnow():
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def new_id():
@@ -47,13 +60,18 @@ class Classroom(PlatformBase):
 
 def class_scope_fk():
     return ForeignKeyConstraint(
-        ["school_id", "class_id"], ["lp_classes.school_id", "lp_classes.id"], ondelete="CASCADE",
+        ["school_id", "class_id"],
+        ["lp_classes.school_id", "lp_classes.id"],
+        ondelete="CASCADE",
     )
 
 
 class TeachingAssignment(PlatformBase):
     __tablename__ = "lp_teaching_assignments"
-    __table_args__ = (class_scope_fk(), UniqueConstraint("school_id", "class_id", "teacher_username", name="uq_lp_teacher_assignment"))
+    __table_args__ = (
+        class_scope_fk(),
+        UniqueConstraint("school_id", "class_id", "teacher_username", name="uq_lp_teacher_assignment"),
+    )
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
     school_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     class_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
@@ -63,7 +81,10 @@ class TeachingAssignment(PlatformBase):
 
 class ClassEnrollment(PlatformBase):
     __tablename__ = "lp_enrollments"
-    __table_args__ = (class_scope_fk(), UniqueConstraint("school_id", "class_id", "student_code", name="uq_lp_enrollment_owner"))
+    __table_args__ = (
+        class_scope_fk(),
+        UniqueConstraint("school_id", "class_id", "student_code", name="uq_lp_enrollment_owner"),
+    )
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
     school_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     class_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
@@ -98,14 +119,20 @@ class Attempt(PlatformBase):
     __tablename__ = "lp_attempts"
     __table_args__ = (
         class_scope_fk(),
-        ForeignKeyConstraint(["school_id", "class_id", "assessment_id"],
-                             ["lp_assessments.school_id", "lp_assessments.class_id", "lp_assessments.id"]),
-        ForeignKeyConstraint(["school_id", "class_id", "student_code"],
-                             ["lp_enrollments.school_id", "lp_enrollments.class_id", "lp_enrollments.student_code"]),
+        ForeignKeyConstraint(
+            ["school_id", "class_id", "assessment_id"],
+            ["lp_assessments.school_id", "lp_assessments.class_id", "lp_assessments.id"],
+        ),
+        ForeignKeyConstraint(
+            ["school_id", "class_id", "student_code"],
+            ["lp_enrollments.school_id", "lp_enrollments.class_id", "lp_enrollments.student_code"],
+        ),
         UniqueConstraint("school_id", "class_id", "student_code", "submission_key", name="uq_lp_attempt_request"),
         UniqueConstraint("school_id", "class_id", "student_code", "id", name="uq_lp_attempt_owner"),
         CheckConstraint("score >= 0 AND score <= 10", name="ck_lp_attempt_score"),
-        CheckConstraint("total_count > 0 AND correct_count >= 0 AND correct_count <= total_count", name="ck_lp_attempt_counts"),
+        CheckConstraint(
+            "total_count > 0 AND correct_count >= 0 AND correct_count <= total_count", name="ck_lp_attempt_counts"
+        ),
     )
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
     school_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
@@ -126,8 +153,10 @@ class ClassPlan(PlatformBase):
     __tablename__ = "lp_class_plans"
     __table_args__ = (
         class_scope_fk(),
-        ForeignKeyConstraint(["school_id", "class_id", "student_code", "attempt_id"],
-                             ["lp_attempts.school_id", "lp_attempts.class_id", "lp_attempts.student_code", "lp_attempts.id"]),
+        ForeignKeyConstraint(
+            ["school_id", "class_id", "student_code", "attempt_id"],
+            ["lp_attempts.school_id", "lp_attempts.class_id", "lp_attempts.student_code", "lp_attempts.id"],
+        ),
         UniqueConstraint("attempt_id", name="uq_lp_plan_attempt"),
         UniqueConstraint("school_id", "class_id", "student_code", "version", name="uq_lp_plan_version"),
         CheckConstraint("version > 0", name="ck_lp_plan_version"),
@@ -147,8 +176,10 @@ class Intervention(PlatformBase):
     __tablename__ = "lp_interventions"
     __table_args__ = (
         class_scope_fk(),
-        ForeignKeyConstraint(["school_id", "class_id", "student_code"],
-                             ["lp_enrollments.school_id", "lp_enrollments.class_id", "lp_enrollments.student_code"]),
+        ForeignKeyConstraint(
+            ["school_id", "class_id", "student_code"],
+            ["lp_enrollments.school_id", "lp_enrollments.class_id", "lp_enrollments.student_code"],
+        ),
         CheckConstraint("status IN ('open','completed')", name="ck_lp_intervention_status"),
     )
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
@@ -185,7 +216,9 @@ class ProgramMember(PlatformBase):
         CheckConstraint("program_role IN ('manager','analyst')", name="ck_lp_program_member_role"),
     )
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
-    program_id: Mapped[str] = mapped_column(ForeignKey("lp_programs.id", ondelete="CASCADE"), nullable=False, index=True)
+    program_id: Mapped[str] = mapped_column(
+        ForeignKey("lp_programs.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     principal_school_id: Mapped[str] = mapped_column(String(64), nullable=False)
     username: Mapped[str] = mapped_column(String(128), nullable=False)
     program_role: Mapped[str] = mapped_column(String(16), nullable=False)
@@ -199,7 +232,9 @@ class SchoolAllocation(PlatformBase):
         CheckConstraint("status IN ('active','suspended','revoked')", name="ck_lp_allocation_status"),
     )
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
-    program_id: Mapped[str] = mapped_column(ForeignKey("lp_programs.id", ondelete="CASCADE"), nullable=False, index=True)
+    program_id: Mapped[str] = mapped_column(
+        ForeignKey("lp_programs.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     school_id: Mapped[str] = mapped_column(ForeignKey("lp_schools.id", ondelete="CASCADE"), nullable=False, index=True)
     status: Mapped[str] = mapped_column(String(16), default="active", nullable=False)
     seats: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -209,11 +244,11 @@ class SchoolAllocation(PlatformBase):
 
 class SchoolSummarySnapshot(PlatformBase):
     __tablename__ = "lp_school_summary_snapshots"
-    __table_args__ = (
-        CheckConstraint("cohort_threshold >= 5", name="ck_lp_snapshot_threshold"),
-    )
+    __table_args__ = (CheckConstraint("cohort_threshold >= 5", name="ck_lp_snapshot_threshold"),)
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
-    program_id: Mapped[str] = mapped_column(ForeignKey("lp_programs.id", ondelete="CASCADE"), nullable=False, index=True)
+    program_id: Mapped[str] = mapped_column(
+        ForeignKey("lp_programs.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     school_id: Mapped[str] = mapped_column(ForeignKey("lp_schools.id", ondelete="CASCADE"), nullable=False, index=True)
     as_of: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     metric_version: Mapped[str] = mapped_column(String(64), nullable=False)

@@ -2,6 +2,7 @@
 calls run_on_demand_drift_check() — not just that the function exists in
 isolation (source-inspection, same convention used elsewhere in this
 session for Streamlit UI code hard to test via real widgets)."""
+
 from __future__ import annotations
 
 import inspect

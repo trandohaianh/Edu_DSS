@@ -14,6 +14,7 @@ License policy (engineering gate):
               keep notices, do not statically embed modified copies)
   ALLOWED  -> MIT, BSD, Apache-2.0, ISC, PSF, Python-2.0, Unlicense, HPND, zlib, 0BSD
 """
+
 from __future__ import annotations
 
 import argparse
@@ -28,15 +29,31 @@ OUT = APP / "THIRD_PARTY_NOTICES.md"
 
 # Non-Python components shipped with or required by a deployment.
 EXTRA_COMPONENTS = [
-    ("sentence-transformers/all-MiniLM-L6-v2", "embedding model (downloaded at runtime)", "Apache-2.0",
-     "https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2"),
-    ("python:3.11.16-slim-trixie", "container base image (Debian + CPython)", "PSF-2.0 / Debian component licenses",
-     "https://hub.docker.com/_/python"),
-    ("pgvector/pgvector:pg16", "database image (PostgreSQL + pgvector)", "PostgreSQL License",
-     "https://github.com/pgvector/pgvector"),
+    (
+        "sentence-transformers/all-MiniLM-L6-v2",
+        "embedding model (downloaded at runtime)",
+        "Apache-2.0",
+        "https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2",
+    ),
+    (
+        "python:3.11.16-slim-trixie",
+        "container base image (Debian + CPython)",
+        "PSF-2.0 / Debian component licenses",
+        "https://hub.docker.com/_/python",
+    ),
+    (
+        "pgvector/pgvector:pg16",
+        "database image (PostgreSQL + pgvector)",
+        "PostgreSQL License",
+        "https://github.com/pgvector/pgvector",
+    ),
     ("caddy:2", "reverse proxy image (deploy/production)", "Apache-2.0", "https://github.com/caddyserver/caddy"),
-    ("Streamlit bundled web fonts (Source Sans / Source Code)", "UI fonts shipped inside the streamlit wheel",
-     "SIL OFL 1.1", "https://github.com/adobe-fonts"),
+    (
+        "Streamlit bundled web fonts (Source Sans / Source Code)",
+        "UI fonts shipped inside the streamlit wheel",
+        "SIL OFL 1.1",
+        "https://github.com/adobe-fonts",
+    ),
 ]
 BLOCKED = re.compile(r"\b(AGPL|Affero|SSPL|Commons Clause|proprietary)\b|\bGPL(?!.*Lesser)|GNU General Public", re.I)
 REVIEW = re.compile(r"\b(LGPL|Lesser General|MPL|Mozilla|EPL|Eclipse|CDDL)\b", re.I)

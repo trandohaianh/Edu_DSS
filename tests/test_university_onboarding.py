@@ -9,6 +9,7 @@ onboarded through this module ONLY (no source copying, no second
 implementation, no data inserted behind the service's back); both remain
 operational and mutually isolated.
 """
+
 from __future__ import annotations
 
 import os
@@ -23,7 +24,9 @@ from sqlalchemy import create_engine, text
 
 OWNER_URL = os.getenv("WORKSTREAM_ONBOARDING_OWNER_URL")
 APP_URL = os.getenv("WORKSTREAM_ONBOARDING_DATABASE_URL")
-pytestmark = pytest.mark.skipif(not OWNER_URL or not APP_URL, reason="University onboarding PostgreSQL URLs are required")
+pytestmark = pytest.mark.skipif(
+    not OWNER_URL or not APP_URL, reason="University onboarding PostgreSQL URLs are required"
+)
 APP_ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -32,6 +35,7 @@ def _application_database():
     previous = os.environ.get("DATABASE_URL")
     os.environ["DATABASE_URL"] = APP_URL or ""
     from dss.db.session import reset_engine_for_tests
+
     reset_engine_for_tests()
     yield
     reset_engine_for_tests()
@@ -50,6 +54,7 @@ def simulator():
     )
     url = f"http://127.0.0.1:{port}"
     import time
+
     for _ in range(80):
         try:
             if requests.get(url + "/health", timeout=0.2).status_code == 200:
@@ -66,6 +71,7 @@ def simulator():
 
 def _free_port():
     import socket
+
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))
         return sock.getsockname()[1]
@@ -76,13 +82,19 @@ def _seed_roles_once():
     owner = create_engine(OWNER_URL)
     with owner.begin() as conn:
         for role in ("Admin", "Giảng viên / CVHT", "Sinh viên", "Platform Admin"):
-            conn.execute(text("INSERT INTO roles (name,created_at,updated_at) VALUES (:r,now(),now()) ON CONFLICT (name) DO NOTHING"), {"r": role})
+            conn.execute(
+                text(
+                    "INSERT INTO roles (name,created_at,updated_at) VALUES (:r,now(),now()) ON CONFLICT (name) DO NOTHING"
+                ),
+                {"r": role},
+            )
     owner.dispose()
 
 
 @pytest.fixture
 def as_platform_admin(monkeypatch):
     import streamlit as st
+
     st.session_state["_auth_role"] = "Platform Admin"
     yield
     st.session_state.pop("_auth_role", None)
@@ -133,8 +145,11 @@ def test_01_onboard_university_b_while_university_a_remains_operational(simulato
     cred_ref = f"TEST_LMS_TOKEN_{uuid.uuid4().hex[:8]}"
     monkeypatch.setenv(cred_ref, "sim-token-org-b")
     onboarding.configure_connector(
-        org_b, connector_type="simulated_lms_cms", external_organization_id="org-b",
-        base_url=simulator, credential_reference=cred_ref,
+        org_b,
+        connector_type="simulated_lms_cms",
+        external_organization_id="org-b",
+        base_url=simulator,
+        credential_reference=cred_ref,
     )
 
     conn_result = onboarding.test_connection(org_b)
@@ -158,11 +173,17 @@ def test_01_onboard_university_b_while_university_a_remains_operational(simulato
     app_engine = create_engine(APP_URL)
     with app_engine.begin() as conn:
         conn.execute(text("SET LOCAL app.organization_id=:o"), {"o": str(org_b)})
-        b_students = conn.execute(text("SELECT count(*) FROM students WHERE organization_id=:o"), {"o": org_b}).scalar_one()
-        a_visible_from_b = conn.execute(text("SELECT count(*) FROM students WHERE organization_id=:o"), {"o": org_a}).scalar_one()
+        b_students = conn.execute(
+            text("SELECT count(*) FROM students WHERE organization_id=:o"), {"o": org_b}
+        ).scalar_one()
+        a_visible_from_b = conn.execute(
+            text("SELECT count(*) FROM students WHERE organization_id=:o"), {"o": org_a}
+        ).scalar_one()
     with app_engine.begin() as conn:
         conn.execute(text("SET LOCAL app.organization_id=:o"), {"o": str(org_a)})
-        b_visible_from_a = conn.execute(text("SELECT count(*) FROM students WHERE organization_id=:o"), {"o": org_b}).scalar_one()
+        b_visible_from_a = conn.execute(
+            text("SELECT count(*) FROM students WHERE organization_id=:o"), {"o": org_b}
+        ).scalar_one()
     app_engine.dispose()
 
     assert b_students > 0  # B genuinely synced its own data
@@ -199,13 +220,17 @@ def test_03_test_connection_reports_honest_failures_not_fabricated_success(simul
     # Valid token, wrong external org claimed -> 403
     good_cred = f"TEST_GOOD_TOKEN_{uuid.uuid4().hex[:8]}"
     monkeypatch.setenv(good_cred, "sim-token-org-a")
-    onboarding.configure_connector(org_id, "simulated_lms_cms", "org-b", simulator, good_cred)  # token is for org-a, claims org-b
+    onboarding.configure_connector(
+        org_id, "simulated_lms_cms", "org-b", simulator, good_cred
+    )  # token is for org-a, claims org-b
     result = onboarding.test_connection(org_id)
     assert result["status"] == "FAILED"
     assert result["http_status"] == 403
 
     # Credential reference doesn't resolve at all (env var unset)
-    onboarding.configure_connector(org_id, "simulated_lms_cms", "org-a", simulator, f"TEST_UNSET_{uuid.uuid4().hex[:8]}")
+    onboarding.configure_connector(
+        org_id, "simulated_lms_cms", "org-a", simulator, f"TEST_UNSET_{uuid.uuid4().hex[:8]}"
+    )
     result = onboarding.test_connection(org_id)
     assert result["status"] == "FAILED"
     assert "did not resolve" in result["detail"]
@@ -229,7 +254,10 @@ def test_04_configure_connector_rejects_raw_secret_as_credential_reference(as_pl
     org_id = onboarding.provision_university("uniE_" + uuid.uuid4().hex[:8], "University E")
     with pytest.raises(ValueError, match="credential_reference"):
         onboarding.configure_connector(
-            org_id, "simulated_lms_cms", "org-a", "http://localhost:8765",
+            org_id,
+            "simulated_lms_cms",
+            "org-a",
+            "http://localhost:8765",
             credential_reference="sim-token-org-a-actual-secret-value-pasted-directly this has spaces",
         )
 
@@ -251,7 +279,9 @@ def test_05_disable_university_preserves_data_does_not_delete(simulator, as_plat
     app_engine = create_engine(APP_URL)
     with app_engine.begin() as conn:
         conn.execute(text("SET LOCAL app.organization_id=:o"), {"o": str(org_id)})
-        before = conn.execute(text("SELECT count(*) FROM students WHERE organization_id=:o"), {"o": org_id}).scalar_one()
+        before = conn.execute(
+            text("SELECT count(*) FROM students WHERE organization_id=:o"), {"o": org_id}
+        ).scalar_one()
     app_engine.dispose()
     assert before > 0
 
@@ -300,8 +330,12 @@ def test_07_non_superuser_cross_tenant_connector_and_mapping_isolated(simulator,
     app_engine = create_engine(APP_URL)
     with app_engine.begin() as conn:
         conn.execute(text("SET LOCAL app.organization_id=:o"), {"o": str(org_i)})
-        connector_visible = conn.execute(text("SELECT count(*) FROM lms_connector_configs WHERE organization_id=:o"), {"o": org_h}).scalar_one()
-        mapping_visible = conn.execute(text("SELECT count(*) FROM lms_mapping_profiles WHERE organization_id=:o"), {"o": org_h}).scalar_one()
+        connector_visible = conn.execute(
+            text("SELECT count(*) FROM lms_connector_configs WHERE organization_id=:o"), {"o": org_h}
+        ).scalar_one()
+        mapping_visible = conn.execute(
+            text("SELECT count(*) FROM lms_mapping_profiles WHERE organization_id=:o"), {"o": org_h}
+        ).scalar_one()
     app_engine.dispose()
     assert connector_visible == 0
     assert mapping_visible == 0

@@ -49,6 +49,7 @@ def test_ai_failure_counted_without_secret_in_log(monkeypatch):
 
 def test_rag_metrics_omit_retrieved_text(monkeypatch):
     from dss.services.rag_service import retrieve_documents
+
     stream = _capture(monkeypatch)
 
     class FakeProvider:
@@ -65,6 +66,7 @@ def test_rag_metrics_omit_retrieved_text(monkeypatch):
 
 def test_vector_backend_label_without_document_content(monkeypatch, tmp_path):
     from dss.services.vector_store import LocalVectorStore
+
     stream = _capture(monkeypatch)
     store = LocalVectorStore(base_dir=str(tmp_path))
     assert store.search([0.1, 0.2]) == []
@@ -90,8 +92,12 @@ def test_ml_metrics_omit_feature_rows(monkeypatch):
 def test_health_and_readiness_are_distinct(monkeypatch):
     assert health_diagnostics.liveness()["status"] == "alive"
     monkeypatch.setattr(health_diagnostics, "postgres_diagnostic", lambda: {"status": "unavailable", "required": True})
-    monkeypatch.setattr(health_diagnostics, "pgvector_diagnostic", lambda: {"status": "not_required", "required": False})
-    monkeypatch.setattr(health_diagnostics, "model_artifact_diagnostic", lambda: {"status": "not_available", "required": False})
+    monkeypatch.setattr(
+        health_diagnostics, "pgvector_diagnostic", lambda: {"status": "not_required", "required": False}
+    )
+    monkeypatch.setattr(
+        health_diagnostics, "model_artifact_diagnostic", lambda: {"status": "not_available", "required": False}
+    )
     result = health_diagnostics.readiness()
     assert result["status"] == "not_ready"
     assert result["checks"]["postgresql"]["status"] == "unavailable"
@@ -99,6 +105,7 @@ def test_health_and_readiness_are_distinct(monkeypatch):
 
 def test_postgres_probe_failure_is_safe(monkeypatch):
     from dss.db import session
+
     monkeypatch.setenv("DATABASE_URL", "postgresql://user:private-password@invalid/edudss")
     monkeypatch.setattr(session, "get_engine", lambda: (_ for _ in ()).throw(RuntimeError("private-password")))
     result = health_diagnostics.postgres_diagnostic()
@@ -107,8 +114,9 @@ def test_postgres_probe_failure_is_safe(monkeypatch):
 
 
 def test_existing_redaction_still_applies_to_structured_logs():
-    record = logging.LogRecord("dss.test", logging.INFO, __file__, 1,
-                               "Authorization: Bearer sk-abcdefghijklmnop student SV123", (), None)
+    record = logging.LogRecord(
+        "dss.test", logging.INFO, __file__, 1, "Authorization: Bearer sk-abcdefghijklmnop student SV123", (), None
+    )
     output = observability.StructuredFormatter().format(record)
     assert "sk-abcdefghijklmnop" not in output
     assert "SV123" not in output

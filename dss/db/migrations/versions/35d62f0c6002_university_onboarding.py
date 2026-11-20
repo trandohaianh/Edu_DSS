@@ -11,8 +11,9 @@ as every prior migration.
 Revision ID: 35d62f0c6002
 Revises: 6cfe48a652ca
 """
-from alembic import op
+
 import sqlalchemy as sa
+from alembic import op
 
 revision = "35d62f0c6002"
 down_revision = "6cfe48a652ca"
@@ -25,7 +26,9 @@ NEW_TENANT_TABLES = ("lms_connector_configs", "lms_mapping_profiles")
 def _tenant_columns(*extra):
     return [
         sa.Column("id", sa.Integer(), primary_key=True),
-        sa.Column("organization_id", sa.Integer(), sa.ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "organization_id", sa.Integer(), sa.ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+        ),
         *extra,
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
@@ -33,12 +36,24 @@ def _tenant_columns(*extra):
 
 
 def upgrade():
-    op.add_column("organizations", sa.Column(
-        "lifecycle_status", sa.String(32), nullable=False, server_default="ACTIVE",
-    ))
-    op.add_column("organizations", sa.Column(
-        "deployment_mode", sa.String(32), nullable=False, server_default="MULTI_TENANT_SAAS",
-    ))
+    op.add_column(
+        "organizations",
+        sa.Column(
+            "lifecycle_status",
+            sa.String(32),
+            nullable=False,
+            server_default="ACTIVE",
+        ),
+    )
+    op.add_column(
+        "organizations",
+        sa.Column(
+            "deployment_mode",
+            sa.String(32),
+            nullable=False,
+            server_default="MULTI_TENANT_SAAS",
+        ),
+    )
 
     op.create_table(
         "lms_mapping_profiles",
@@ -62,7 +77,9 @@ def upgrade():
             sa.Column("retry_policy", sa.JSON()),
             sa.Column("enabled_resources", sa.JSON()),
             sa.Column("sync_mode", sa.String(32), server_default="incremental"),
-            sa.Column("mapping_profile_id", sa.Integer(), sa.ForeignKey("lms_mapping_profiles.id", ondelete="SET NULL")),
+            sa.Column(
+                "mapping_profile_id", sa.Integer(), sa.ForeignKey("lms_mapping_profiles.id", ondelete="SET NULL")
+            ),
             sa.Column("last_connection_status", sa.String(32)),
             sa.Column("last_connection_at", sa.DateTime(timezone=True)),
             sa.Column("last_connection_detail", sa.Text()),
@@ -76,11 +93,13 @@ def upgrade():
         op.create_index(f"ix_{table}_organization_id", table, ["organization_id"])
         op.execute(sa.text(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY"))
         op.execute(sa.text(f"ALTER TABLE {table} FORCE ROW LEVEL SECURITY"))
-        op.execute(sa.text(
-            f"CREATE POLICY tenant_isolation ON {table} "
-            f"USING (organization_id = NULLIF(current_setting('app.organization_id', true), '')::integer) "
-            f"WITH CHECK (organization_id = NULLIF(current_setting('app.organization_id', true), '')::integer)"
-        ))
+        op.execute(
+            sa.text(
+                f"CREATE POLICY tenant_isolation ON {table} "
+                f"USING (organization_id = NULLIF(current_setting('app.organization_id', true), '')::integer) "
+                f"WITH CHECK (organization_id = NULLIF(current_setting('app.organization_id', true), '')::integer)"
+            )
+        )
 
 
 def downgrade():

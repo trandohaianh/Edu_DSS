@@ -3,6 +3,7 @@
 thêm 1 câu cảnh báo vào nội dung, nhưng vẫn lưu vào lịch sử chat như MỌI câu
 trả lời khác — không có cách nào phân biệt "đã xác minh" với "chưa xác minh"
 khi xem lại lịch sử. Giờ mỗi tin nhắn lưu kèm cờ `hallucinated` rõ ràng."""
+
 from __future__ import annotations
 
 import inspect

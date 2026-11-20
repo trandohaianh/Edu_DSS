@@ -4,6 +4,7 @@ và "tiến bộ" phải so sánh CÙNG THANG điểm với kỳ trước, khôn
 
 Dùng warehouse THẬT (tmp_path, không mock) — đúng phong cách test_model_registry.py.
 """
+
 from __future__ import annotations
 
 import inspect
@@ -113,14 +114,10 @@ def test_k4_sample_data_improvement_rate_not_near_100_percent():
     old_improving_rate = float((old_buggy_delta > 0.15).mean())
     assert old_improving_rate > 0.95, "Bằng chứng lỗi lệch thang không còn tái hiện được trên dữ liệu mẫu."
 
-    fixed_deltas = [
-        compute_progress_note(row["diem_ky_sau"], row)[0]
-        for _, row in df.iterrows()
-    ]
+    fixed_deltas = [compute_progress_note(row["diem_ky_sau"], row)[0] for _, row in df.iterrows()]
     fixed_improving_rate = sum(1 for d in fixed_deltas if d > 0.15) / len(fixed_deltas)
     assert fixed_improving_rate < 0.5, (
-        f"Tỷ lệ 'đang cải thiện' sau khi sửa vẫn quá cao ({fixed_improving_rate:.2%}), "
-        "có thể vẫn còn lệch thang."
+        f"Tỷ lệ 'đang cải thiện' sau khi sửa vẫn quá cao ({fixed_improving_rate:.2%}), có thể vẫn còn lệch thang."
     )
 
 
@@ -152,7 +149,9 @@ def test_prompt_reflects_gpa_source_label_not_hardcoded_du_doan():
 
     advisor = MultiAIProvider.__new__(MultiAIProvider)
     prompt, *_ = advisor._prepare_personalized_advice_prompt(
-        ["Cần cải thiện điểm danh"], 6.5, [],
+        ["Cần cải thiện điểm danh"],
+        6.5,
+        [],
         student_profile={"risk_level": "cao", "gpa_label": "Điểm hiện tại (chưa có mô hình Production)"},
     )
     assert "Điểm hiện tại (chưa có mô hình Production)" in prompt

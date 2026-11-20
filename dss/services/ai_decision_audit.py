@@ -12,6 +12,7 @@ Module này HỢP NHẤT — KHÔNG viết 1 đường ghi DB song song mới, m
 DỤNG `audit_log_repository.record()` (đã có, đã test, best-effort/không
 raise) với 1 payload đầy đủ, có cấu trúc, đóng vai trò "canonical decision-
 event contract" mà Section 10 yêu cầu."""
+
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field

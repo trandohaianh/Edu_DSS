@@ -7,6 +7,7 @@ Theo dõi chi tiết:
 - Ngân sách hàng ngày / hàng tháng toàn hệ thống (System budget & alerts)
 - Tuyệt đối KHÔNG ghi log API key thật.
 """
+
 from __future__ import annotations
 
 import json
@@ -14,7 +15,7 @@ import os
 import threading
 import uuid
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -26,6 +27,7 @@ _LOCK = threading.Lock()
 def _usage_file() -> Path:
     """PERF-002: tính lại mỗi lần gọi, không cache mức module (xem dss/core/data_root.py)."""
     return get_data_root() / "ai_token_usage.json"
+
 
 # Bảng giá định mức chi phí ($ / 1,000,000 tokens) — giá niêm yết trả theo lượt (paid tier),
 # kiểm tra lại 16/11/2026. Token "suy nghĩ" (thinking) của Gemini tính theo giá OUTPUT.
@@ -138,9 +140,7 @@ class UsageRecord:
 def estimate_cost(provider: str, model: str, input_tokens: int, output_tokens: int) -> float:
     """Chi phí ước tính (USD) theo bảng giá. output_tokens gồm cả token suy nghĩ (nếu có)."""
     pricing = price_for(provider, model)
-    cost = (input_tokens / 1_000_000.0 * pricing["input"]) + (
-        output_tokens / 1_000_000.0 * pricing["output"]
-    )
+    cost = (input_tokens / 1_000_000.0 * pricing["input"]) + (output_tokens / 1_000_000.0 * pricing["output"])
     return round(cost, 6)
 
 
@@ -160,7 +160,7 @@ def _load_all_records() -> List[Dict[str, Any]]:
     if not usage_file.exists():
         return []
     try:
-        with open(usage_file, "r", encoding="utf-8") as f:
+        with open(usage_file, encoding="utf-8") as f:
             data = json.load(f)
             return data if isinstance(data, list) else []
     except (json.JSONDecodeError, OSError):
@@ -216,7 +216,7 @@ def record_usage(
 
     record = UsageRecord(
         usage_id=f"use_{uuid.uuid4().hex[:12]}",
-        timestamp=datetime.now(timezone.utc).isoformat(),
+        timestamp=datetime.now(UTC).isoformat(),
         user_id=safe_user_id,
         role=role or "Sinh viên",
         request_type=request_type or "advisor_plan",
@@ -233,10 +233,17 @@ def record_usage(
     try:
         from dss.core import metrics
 
-        metrics.record_ai_usage(provider=record.provider, model=record.model, request_type=record.request_type,
-                                input_tokens=input_tokens, output_tokens=output_tokens,
-                                thinking_tokens=record.thinking_tokens, cost_usd=cost, cache_hit=cache_hit,
-                                source=record.usage_source)
+        metrics.record_ai_usage(
+            provider=record.provider,
+            model=record.model,
+            request_type=record.request_type,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            thinking_tokens=record.thinking_tokens,
+            cost_usd=cost,
+            cache_hit=cache_hit,
+            source=record.usage_source,
+        )
     except Exception:
         pass
 
@@ -263,7 +270,7 @@ def record_usage(
 def get_user_daily_token_usage(user_id: str, date_str: Optional[str] = None) -> int:
     """Tổng token sinh viên/người dùng đã dùng trong ngày (mặc định hôm nay theo UTC)."""
     if not date_str:
-        date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        date_str = datetime.now(UTC).strftime("%Y-%m-%d")
 
     records = _load_all_records()
     total = 0
@@ -296,7 +303,7 @@ def check_user_quota(user_id: str, role: str, requested_tokens: int = 0) -> Tupl
 
 def get_system_budget_status() -> Dict[str, Any]:
     """Tính toán chi phí ngày và tháng hiện tại để cảnh báo ngưỡng ngân sách."""
-    now_utc = datetime.now(timezone.utc)
+    now_utc = datetime.now(UTC)
     today_prefix = now_utc.strftime("%Y-%m-%d")
     month_prefix = now_utc.strftime("%Y-%m")
 
@@ -330,13 +337,13 @@ def get_system_budget_status() -> Dict[str, Any]:
         alert_message = f"🚨 Ngân sách AI tháng (${monthly_budget:.2f}) đã chạm mức 100% (${monthly_cost:.2f})!"
     elif monthly_cost >= monthly_budget * warn_ratio:
         status = "monthly_warning"
-        alert_message = f"⚠️ Cảnh báo: Đã dùng {(monthly_cost/monthly_budget)*100:.1f}% ngân sách AI tháng (${monthly_cost:.2f}/${monthly_budget:.2f})."
+        alert_message = f"⚠️ Cảnh báo: Đã dùng {(monthly_cost / monthly_budget) * 100:.1f}% ngân sách AI tháng (${monthly_cost:.2f}/${monthly_budget:.2f})."
     elif daily_cost >= daily_budget:
         status = "daily_exceeded"
         alert_message = f"🚨 Chi phí AI hôm nay (${daily_cost:.2f}) đã vượt ngân sách ngày (${daily_budget:.2f})!"
     elif daily_cost >= daily_budget * warn_ratio:
         status = "daily_warning"
-        alert_message = f"⚠️ Cảnh báo: Chi phí AI hôm nay đã đạt {(daily_cost/daily_budget)*100:.1f}% ngân sách ngày (${daily_cost:.2f}/${daily_budget:.2f})."
+        alert_message = f"⚠️ Cảnh báo: Chi phí AI hôm nay đã đạt {(daily_cost / daily_budget) * 100:.1f}% ngân sách ngày (${daily_cost:.2f}/${daily_budget:.2f})."
 
     return {
         "status": status,

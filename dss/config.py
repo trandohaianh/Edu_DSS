@@ -1,4 +1,5 @@
 """Imports, flags, plotly patches, exceptions."""
+
 from __future__ import annotations
 
 # --- PHẦN 1: IMPORT CÁC THƯ VIỆN CẦN THIẾT ---
@@ -40,6 +41,7 @@ except ImportError:
 
 try:
     import joblib  # lưu/restore các pipeline/mô hình scikit-learn
+
     JOBLIB_AVAILABLE = True
 except Exception:
     joblib = None
@@ -69,8 +71,8 @@ except Exception:
 
 
 # Visualize libraries
-import plotly.express as px
 import matplotlib.pyplot as plt
+import plotly.express as px
 
 # Chuẩn hóa hiển thị giá trị trên biểu đồ để dễ đọc nhanh.
 _px_bar_original = px.bar
@@ -110,43 +112,45 @@ px.bar = _px_bar_with_labels
 px.line = _px_line_with_labels
 
 # ML libraries
-from sklearn.preprocessing import StandardScaler, MinMaxScaler, LabelEncoder, OneHotEncoder, RobustScaler
-from sklearn.decomposition import PCA
-from sklearn.cluster import KMeans, DBSCAN, AgglomerativeClustering
+from sklearn.cluster import DBSCAN, AgglomerativeClustering, KMeans
 from sklearn.compose import ColumnTransformer
+from sklearn.decomposition import PCA
 from sklearn.ensemble import (
     RandomForestClassifier,
     RandomForestRegressor,
     StackingRegressor,
 )
-from sklearn.linear_model import LogisticRegression, LinearRegression, Ridge, Lasso
-from sklearn.svm import SVC, SVR
-from sklearn.model_selection import train_test_split, GridSearchCV, cross_val_score, StratifiedKFold, KFold
+from sklearn.feature_selection import RFE, SelectKBest, mutual_info_classif
+from sklearn.impute import KNNImputer, SimpleImputer
+from sklearn.linear_model import Lasso, LinearRegression, LogisticRegression, Ridge
 from sklearn.metrics import (
-    confusion_matrix,
     accuracy_score,
-    precision_score,
-    recall_score,
+    confusion_matrix,
     f1_score,
-    mean_squared_error,
     mean_absolute_error,
+    mean_squared_error,
+    precision_score,
     r2_score,
-    )
+    recall_score,
+)
 from sklearn.metrics.pairwise import cosine_similarity
-from sklearn.impute import SimpleImputer, KNNImputer
-from sklearn.pipeline import Pipeline, Pipeline as SklearnPipeline
-from sklearn.feature_selection import SelectKBest, mutual_info_classif, RFE
+from sklearn.model_selection import GridSearchCV, KFold, StratifiedKFold, cross_val_score, train_test_split
+from sklearn.pipeline import Pipeline
+from sklearn.pipeline import Pipeline as SklearnPipeline
+from sklearn.preprocessing import LabelEncoder, MinMaxScaler, OneHotEncoder, RobustScaler, StandardScaler
+from sklearn.svm import SVC, SVR
 
 # Imbalanced-Learn for SMOTE
 try:
+    from imblearn.over_sampling import ADASYN, SMOTE, BorderlineSMOTE
     from imblearn.pipeline import Pipeline as ImbPipeline
-    from imblearn.over_sampling import SMOTE, BorderlineSMOTE, ADASYN
+
     IMB_LEARN_AVAILABLE = True
 except ImportError:
     ImbPipeline = None
     SMOTE = BorderlineSMOTE = ADASYN = None
     IMB_LEARN_AVAILABLE = False
-    
+
 from scipy.spatial.distance import cosine
 
 # SHAP for Model Explainability (optional — tránh crash khi chưa cài)
@@ -168,6 +172,7 @@ except ImportError:
 # - xlsxwriter, openpyxl: ghi Excel nâng cao
 try:
     import xgboost as xgb  # XGBoost (nếu cài)
+
     XGBOOST_AVAILABLE = True
 except ImportError:
     xgb = None
@@ -175,6 +180,7 @@ except ImportError:
 
 try:
     import lightgbm as lgb  # LightGBM (nếu cài)
+
     LIGHTGBM_AVAILABLE = True
 except ImportError:
     lgb = None
@@ -188,9 +194,7 @@ def _safe_n_splits(n_samples, desired_folds=5, min_folds=2):
     n_samples = int(n_samples)
     desired_folds = int(desired_folds)
     if n_samples < min_folds:
-        raise ValueError(
-            f"Không đủ dữ liệu để cross-validation: cần >= {min_folds} mẫu, hiện có {n_samples}."
-        )
+        raise ValueError(f"Không đủ dữ liệu để cross-validation: cần >= {min_folds} mẫu, hiện có {n_samples}.")
     return max(min_folds, min(desired_folds, n_samples))
 
 
@@ -297,17 +301,15 @@ def _explain_best_params(best_params):
                 "`C` lớn -> phạt yếu hơn (mô hình linh hoạt hơn)."
             )
         elif param_name == "solver":
-            explanations.append(
-                f"- `{full_key} = {value}`: thuật toán tối ưu dùng để fit Logistic Regression."
-            )
+            explanations.append(f"- `{full_key} = {value}`: thuật toán tối ưu dùng để fit Logistic Regression.")
         else:
-            explanations.append(
-                f"- `{full_key} = {value}`: tham số tối ưu được chọn tự động bởi GridSearchCV."
-            )
+            explanations.append(f"- `{full_key} = {value}`: tham số tối ưu được chọn tự động bởi GridSearchCV.")
     return explanations
+
 
 try:
     from huggingface_hub import login as hf_login
+
     HUGGINGFACE_HUB_AVAILABLE = True
 except ImportError:
     hf_login = None
@@ -366,13 +368,17 @@ def _ensure_local_llm_libs():
     _t0 = perf_mark("_ensure_local_llm_libs: start (first call this process)")
     try:
         import torch as _torch
+
         torch = _torch
         TORCH_AVAILABLE = True
     except (ImportError, OSError):
         TORCH_AVAILABLE = False
     _t1 = perf_mark("_ensure_local_llm_libs: torch imported", _t0)
     try:
-        from transformers import AutoTokenizer as _AT, AutoModelForCausalLM as _AMCL, AutoModel as _AM
+        from transformers import AutoModel as _AM
+        from transformers import AutoModelForCausalLM as _AMCL
+        from transformers import AutoTokenizer as _AT
+
         AutoTokenizer, AutoModelForCausalLM, AutoModel = _AT, _AMCL, _AM
         HF_AVAILABLE = True
     except (ImportError, OSError):
@@ -380,6 +386,7 @@ def _ensure_local_llm_libs():
     _t2 = perf_mark("_ensure_local_llm_libs: transformers imported", _t1)
     try:
         from sentence_transformers import SentenceTransformer as _ST
+
         SentenceTransformer = _ST
         SENTENCE_TRANSFORMERS_AVAILABLE = True
     except (ImportError, OSError):
@@ -388,8 +395,10 @@ def _ensure_local_llm_libs():
     perf_mark("_ensure_local_llm_libs: sentence_transformers imported (done)", _t2)
     perf_mark("_ensure_local_llm_libs: TOTAL", _t0)
 
+
 try:
     import openai  # type: ignore  # API OpenAI (nếu dùng)
+
     OPENAI_AVAILABLE = True
 except ImportError:
     openai = None
@@ -398,6 +407,7 @@ except ImportError:
 # AI Providers: Gemini, Groq, Ollama
 try:
     import google.genai as genai  # type: ignore  # Google Gemini API (SDK mới — google.generativeai đã bị Google khai tử)
+
     GEMINI_AVAILABLE = True
 except ImportError:
     genai = None
@@ -405,6 +415,7 @@ except ImportError:
 
 try:
     from groq import Groq  # type: ignore  # Groq API
+
     GROQ_AVAILABLE = True
 except ImportError:
     Groq = None
@@ -412,6 +423,7 @@ except ImportError:
 
 try:
     import requests  # type: ignore  # For Ollama API calls
+
     OLLAMA_AVAILABLE = True
 except ImportError:
     requests = None
@@ -419,15 +431,18 @@ except ImportError:
 
 try:
     import xlsxwriter  # type: ignore  # optional excel writer
+
     XLSXWRITER_AVAILABLE = True
 except ImportError:
     XLSXWRITER_AVAILABLE = False
 
 try:
     import openpyxl  # type: ignore  # optional excel reader/writer
+
     OPENPYXL_AVAILABLE = True
 except ImportError:
     OPENPYXL_AVAILABLE = False
+
 
 # For custom exceptions
 # ============================================================================
@@ -438,7 +453,6 @@ class ConfigError(Exception):
     Exception tùy chỉnh cho các lỗi cấu hình.
     Được sử dụng khi có vấn đề với cấu hình hệ thống hoặc tham số không hợp lệ.
     """
-    pass
 
 
 def setup_page() -> None:
@@ -467,7 +481,12 @@ DEFAULT_THEME = "system"
 CHART_TOKENS = {
     "light": {"text": "#5F6368", "title": "#202124", "grid": "#E3E5E8", "line": "#C4C8CD"},
     "dark": {"text": "#CBD5E1", "title": "#F8FAFC", "grid": "#273449", "line": "#3B4A63"},
-    "system": {"text": "#8A94A6", "title": "#8A94A6", "grid": "rgba(138,148,166,0.25)", "line": "rgba(138,148,166,0.45)"},
+    "system": {
+        "text": "#8A94A6",
+        "title": "#8A94A6",
+        "grid": "rgba(138,148,166,0.25)",
+        "line": "rgba(138,148,166,0.45)",
+    },
 }
 
 
@@ -482,8 +501,9 @@ def current_theme() -> str:
 
 def inject_styles() -> None:
     """Nạp main.css + marker chế độ giao diện đang chọn (sáng / tối / theo hệ thống)."""
-    import streamlit as st
     from pathlib import Path
+
+    import streamlit as st
 
     css_path = Path(__file__).resolve().parent / "styles" / "main.css"
     if css_path.is_file():
@@ -516,10 +536,20 @@ def style_figure(fig):
         )
         if getattr(fig.layout.title, "text", None):
             fig.update_layout(title_font=dict(color=tokens["title"], size=16))
-        fig.update_xaxes(gridcolor=tokens["grid"], linecolor=tokens["line"], zerolinecolor=tokens["line"],
-                         tickfont=dict(color=tokens["text"]), title_font=dict(color=tokens["text"]))
-        fig.update_yaxes(gridcolor=tokens["grid"], linecolor=tokens["line"], zerolinecolor=tokens["line"],
-                         tickfont=dict(color=tokens["text"]), title_font=dict(color=tokens["text"]))
+        fig.update_xaxes(
+            gridcolor=tokens["grid"],
+            linecolor=tokens["line"],
+            zerolinecolor=tokens["line"],
+            tickfont=dict(color=tokens["text"]),
+            title_font=dict(color=tokens["text"]),
+        )
+        fig.update_yaxes(
+            gridcolor=tokens["grid"],
+            linecolor=tokens["line"],
+            zerolinecolor=tokens["line"],
+            tickfont=dict(color=tokens["text"]),
+            title_font=dict(color=tokens["text"]),
+        )
     except Exception:
         pass
     return fig
@@ -566,9 +596,26 @@ def strip_leading_decoration(text):
     return _LEADING_DECOR_RE.sub(lambda m: m.group(1), text, count=1)
 
 
-_TEXT_FIRST_ARG = ("success", "info", "warning", "error", "caption", "subheader", "header", "title", "toast",
-                   "button", "download_button", "form_submit_button", "checkbox", "toggle", "expander",
-                   "popover", "metric", "markdown")
+_TEXT_FIRST_ARG = (
+    "success",
+    "info",
+    "warning",
+    "error",
+    "caption",
+    "subheader",
+    "header",
+    "title",
+    "toast",
+    "button",
+    "download_button",
+    "form_submit_button",
+    "checkbox",
+    "toggle",
+    "expander",
+    "popover",
+    "metric",
+    "markdown",
+)
 
 
 def _wrap_first_text_arg(fn, name):

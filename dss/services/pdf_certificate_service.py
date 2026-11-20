@@ -9,6 +9,7 @@ theo tiêu chuẩn mẫu chứng chỉ / Career Passport sang trọng:
 - Kế hoạch can thiệp 4 tuần & Liều lượng học tập (Dosage)
 - Khối chữ ký xác nhận của Cố vấn học tập & Hệ thống AI
 """
+
 from __future__ import annotations
 
 import io
@@ -161,7 +162,6 @@ def generate_career_passport_pdf(
         bottomMargin=36,
     )
 
-
     # Style definitions
     header_org = ParagraphStyle(
         "HeaderOrg",
@@ -251,17 +251,19 @@ def generate_career_passport_pdf(
         ],
         [
             Paragraph(f"<b>Ngày ban hành:</b> {issue_date}", normal_text),
-            Paragraph(f"<b>Cơ chế đánh giá:</b> Heuristic & ML closed-loop (LMS)", normal_text),
+            Paragraph("<b>Cơ chế đánh giá:</b> Heuristic & ML closed-loop (LMS)", normal_text),
         ],
     ]
     t_id = Table(id_data, colWidths=[260, 258])
     t_id.setStyle(
-        TableStyle([
-            ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#F8FAFC")),
-            ("BOX", (0, 0), (-1, -1), 0.8, colors.HexColor("#E2E8F0")),
-            ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#F1F5F9")),
-            ("PADDING", (0, 0), (-1, -1), 4.5),
-        ])
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#F8FAFC")),
+                ("BOX", (0, 0), (-1, -1), 0.8, colors.HexColor("#E2E8F0")),
+                ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#F1F5F9")),
+                ("PADDING", (0, 0), (-1, -1), 4.5),
+            ]
+        )
     )
     elements.append(t_id)
     elements.append(Spacer(1, 8))
@@ -285,13 +287,15 @@ def generate_career_passport_pdf(
     ]
     t_score = Table(score_data, colWidths=[230, 95, 95, 98])
     t_score.setStyle(
-        TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#EFF6FF")),
-            ("BOX", (0, 0), (-1, -1), 1, colors.HexColor("#BFDBFE")),
-            ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#DBEAFE")),
-            ("ALIGN", (1, 0), (-1, -1), "CENTER"),
-            ("PADDING", (0, 0), (-1, -1), 5),
-        ])
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#EFF6FF")),
+                ("BOX", (0, 0), (-1, -1), 1, colors.HexColor("#BFDBFE")),
+                ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#DBEAFE")),
+                ("ALIGN", (1, 0), (-1, -1), "CENTER"),
+                ("PADDING", (0, 0), (-1, -1), 5),
+            ]
+        )
     )
     elements.append(t_score)
     elements.append(Spacer(1, 6))
@@ -326,10 +330,26 @@ def generate_career_passport_pdf(
     ]
 
     default_plans = [
-        {"week": 1, "topic": "Lỗ hổng kiến thức nền tảng", "action": "Ôn tập lại các khái niệm cơ sở, hoàn thành các bài quiz chẩn đoán có điểm dưới trung bình."},
-        {"week": 2, "topic": "Củng cố kỹ năng thực hành lab", "action": "Giải quyết các bài tập cấu trúc dữ liệu và xử lý mảng, code lại các thuật toán trọng yếu."},
-        {"week": 3, "topic": "Nâng cao năng lực chuyên sâu", "action": "Thực hiện đồ án nhỏ theo nhóm, rèn luyện kỹ năng viết mã sạch và tối ưu thời gian chạy."},
-        {"week": 4, "topic": "Kiểm chứng & Tổng duyệt", "action": "Làm bài thi thử nghiệm tổng hợp, đánh giá mức cải thiện GPA và sẵn sàng ứng tuyển."},
+        {
+            "week": 1,
+            "topic": "Lỗ hổng kiến thức nền tảng",
+            "action": "Ôn tập lại các khái niệm cơ sở, hoàn thành các bài quiz chẩn đoán có điểm dưới trung bình.",
+        },
+        {
+            "week": 2,
+            "topic": "Củng cố kỹ năng thực hành lab",
+            "action": "Giải quyết các bài tập cấu trúc dữ liệu và xử lý mảng, code lại các thuật toán trọng yếu.",
+        },
+        {
+            "week": 3,
+            "topic": "Nâng cao năng lực chuyên sâu",
+            "action": "Thực hiện đồ án nhỏ theo nhóm, rèn luyện kỹ năng viết mã sạch và tối ưu thời gian chạy.",
+        },
+        {
+            "week": 4,
+            "topic": "Kiểm chứng & Tổng duyệt",
+            "action": "Làm bài thi thử nghiệm tổng hợp, đánh giá mức cải thiện GPA và sẵn sàng ứng tuyển.",
+        },
     ]
     active_plan = four_week_plan or default_plans
 
@@ -337,20 +357,24 @@ def generate_career_passport_pdf(
         w_num = wp.get("week", 1)
         w_topic = wp.get("topic") or "Nội dung trọng tâm"
         w_act = wp.get("action") or "Thực hiện theo hướng dẫn bài giảng"
-        plan_rows.append([
-            Paragraph(f"<b>Tuần {w_num}</b>", bold_text),
-            Paragraph(f"<b>{w_topic}</b>", normal_text),
-            Paragraph(w_act[:120] + ("..." if len(w_act) > 120 else ""), normal_text),
-        ])
+        plan_rows.append(
+            [
+                Paragraph(f"<b>Tuần {w_num}</b>", bold_text),
+                Paragraph(f"<b>{w_topic}</b>", normal_text),
+                Paragraph(w_act[:120] + ("..." if len(w_act) > 120 else ""), normal_text),
+            ]
+        )
 
     t_plan = Table(plan_rows, colWidths=[55, 160, 303])
     t_plan.setStyle(
-        TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#F1F5F9")),
-            ("BOX", (0, 0), (-1, -1), 0.8, colors.HexColor("#CBD5E1")),
-            ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#E2E8F0")),
-            ("PADDING", (0, 0), (-1, -1), 4),
-        ])
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#F1F5F9")),
+                ("BOX", (0, 0), (-1, -1), 0.8, colors.HexColor("#CBD5E1")),
+                ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#E2E8F0")),
+                ("PADDING", (0, 0), (-1, -1), 4),
+            ]
+        )
     )
     elements.append(t_plan)
     elements.append(Spacer(1, 10))
@@ -368,10 +392,12 @@ def generate_career_passport_pdf(
     ]
     t_sig = Table(sig_data, colWidths=[259, 259])
     t_sig.setStyle(
-        TableStyle([
-            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-            ("PADDING", (0, 0), (-1, -1), 4),
-        ])
+        TableStyle(
+            [
+                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                ("PADDING", (0, 0), (-1, -1), 4),
+            ]
+        )
     )
     elements.append(KeepTogether(t_sig))
 

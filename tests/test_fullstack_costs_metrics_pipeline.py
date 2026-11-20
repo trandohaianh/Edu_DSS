@@ -1,4 +1,5 @@
 """Real provider token usage, pricing, Prometheus metrics, ops pipeline, eval gates."""
+
 from __future__ import annotations
 
 import importlib.util
@@ -35,15 +36,21 @@ def test_gemini_usage_metadata_includes_thinking_tokens():
     meta = SimpleNamespace(prompt_token_count=1200, candidates_token_count=300, thoughts_token_count=80)
     llm_usage.from_gemini("gemini", "gemini-flash-lite-latest", meta)
     usage = llm_usage.take()
-    assert usage == {"provider": "gemini", "model": "gemini-flash-lite-latest", "input_tokens": 1200,
-                     "thinking_tokens": 80, "output_tokens": 380}
+    assert usage == {
+        "provider": "gemini",
+        "model": "gemini-flash-lite-latest",
+        "input_tokens": 1200,
+        "thinking_tokens": 80,
+        "output_tokens": 380,
+    }
     assert llm_usage.take() is None
 
 
 def test_openai_reasoning_tokens_are_not_double_counted():
     llm_usage.begin()
-    usage = SimpleNamespace(prompt_tokens=50, completion_tokens=40,
-                            completion_tokens_details=SimpleNamespace(reasoning_tokens=10))
+    usage = SimpleNamespace(
+        prompt_tokens=50, completion_tokens=40, completion_tokens_details=SimpleNamespace(reasoning_tokens=10)
+    )
     llm_usage.from_openai_compatible("groq", "openai/gpt-oss-20b", usage)
     got = llm_usage.take()
     assert got["output_tokens"] == 40 and got["thinking_tokens"] == 10 and got["input_tokens"] == 50
@@ -71,22 +78,41 @@ def test_gateway_records_provider_usage_instead_of_estimate(monkeypatch):
     monkeypatch.setattr(token_tracker, "record_usage", lambda **kw: recorded.append(kw))
     monkeypatch.setattr(token_tracker, "check_user_quota", lambda *a, **k: (True, ""))
     from dss.services import subscription_service
+
     monkeypatch.setattr(subscription_service, "consume_ai_request_quota", lambda *a, **k: None)
     gateway = llm_gateway.LLMGateway(llm_integration=FakeIntegration())
-    monkeypatch.setattr(gateway, "resolve_active_provider_and_model",
-                        lambda **kw: ("gemini", "gemini-2.5-flash", "fake-key"))
+    monkeypatch.setattr(
+        gateway, "resolve_active_provider_and_model", lambda **kw: ("gemini", "gemini-2.5-flash", "fake-key")
+    )
     monkeypatch.setattr(gateway, "_check_rate_limit", lambda: None)
-    text = "".join(gateway.stream_generate(prompt=f"câu hỏi duy nhất {id(recorded)}", user_id="u1", role="Sinh viên",
-                                           request_type="chat", provider="gemini"))
+    text = "".join(
+        gateway.stream_generate(
+            prompt=f"câu hỏi duy nhất {id(recorded)}",
+            user_id="u1",
+            role="Sinh viên",
+            request_type="chat",
+            provider="gemini",
+        )
+    )
     assert "Kế hoạch" in text
     real = [r for r in recorded if r.get("usage_source") == "provider"]
-    assert real and real[0]["input_tokens"] == 900 and real[0]["output_tokens"] == 150 and real[0]["thinking_tokens"] == 30
+    assert (
+        real and real[0]["input_tokens"] == 900 and real[0]["output_tokens"] == 150 and real[0]["thinking_tokens"] == 30
+    )
 
 
 def test_record_usage_stores_source_and_thinking(isolated_token_usage_file=None):
-    rec = token_tracker.record_usage(user_id="u9", role="Sinh viên", request_type="chat", provider="gemini",
-                                     model="gemini-2.5-flash", input_tokens=1000, output_tokens=200,
-                                     usage_source="provider", thinking_tokens=50)
+    rec = token_tracker.record_usage(
+        user_id="u9",
+        role="Sinh viên",
+        request_type="chat",
+        provider="gemini",
+        model="gemini-2.5-flash",
+        input_tokens=1000,
+        output_tokens=200,
+        usage_source="provider",
+        thinking_tokens=50,
+    )
     assert rec.usage_source == "provider" and rec.thinking_tokens == 50
     assert rec.estimated_cost == pytest.approx(1000 / 1e6 * 0.30 + 200 / 1e6 * 2.50, rel=1e-4)
 
@@ -97,8 +123,16 @@ def test_metrics_endpoint_content_and_auth(monkeypatch):
 
     metrics.record_login("google", "success")
     metrics.record_page_view("🧪 Huấn luyện — Dự đoán", "Sinh viên")
-    metrics.record_ai_usage(provider="gemini", model="gemini-2.5-flash", request_type="chat", input_tokens=10,
-                            output_tokens=5, cost_usd=0.001, cache_hit=False, source="provider")
+    metrics.record_ai_usage(
+        provider="gemini",
+        model="gemini-2.5-flash",
+        request_type="chat",
+        input_tokens=10,
+        output_tokens=5,
+        cost_usd=0.001,
+        cache_hit=False,
+        source="provider",
+    )
     body, _ = metrics_exporter.render()
     text = body.decode()
     assert 'edudss_logins_total{method="google",result="success"}' in text
@@ -135,8 +169,9 @@ def test_data_quality_rules():
 
     good = pd.DataFrame({"student_id": ["SV1", "SV2"], "diem_ky_nay": [7.0, 8.5], "ty_le_diem_danh": [0.9, 1.0]})
     assert check_dataframe(good, "g")["severity"] == "ok"
-    bad = pd.DataFrame({"student_id": ["SV1", "SV1", "SV3"], "diem_ky_nay": [7.0, 12.0, None],
-                        "ty_le_diem_danh": [0.9, 1.4, 0.8]})
+    bad = pd.DataFrame(
+        {"student_id": ["SV1", "SV1", "SV3"], "diem_ky_nay": [7.0, 12.0, None], "ty_le_diem_danh": [0.9, 1.4, 0.8]}
+    )
     report = check_dataframe(bad, "b")
     assert report["severity"] == "fail"
     assert report["out_of_range"] == {"diem_ky_nay": 1, "ty_le_diem_danh": 1}
@@ -145,6 +180,7 @@ def test_data_quality_rules():
 
 def test_psi_detects_shift():
     import numpy as np
+
     from ops.pipeline import _psi
 
     rng = np.random.default_rng(0)
@@ -197,7 +233,9 @@ def test_eval_gates_and_regressions():
     th = {"min": {"ml_reg_r2": 0.9}, "max": {"ml_reg_mae": 0.3}, "must_be_true": ["ml_leakage_guard_ok"]}
     assert ev.gates({"ml_reg_r2": 0.95, "ml_reg_mae": 0.1, "ml_leakage_guard_ok": True}, th) == []
     assert len(ev.gates({"ml_reg_r2": 0.5, "ml_reg_mae": 0.5, "ml_leakage_guard_ok": False}, th)) == 3
-    regs, deltas = ev.regressions({"ml_reg_r2": 0.90, "ml_reg_mae": 0.40}, {"ml_reg_r2": 0.99, "ml_reg_mae": 0.06}, 0.03)
+    regs, deltas = ev.regressions(
+        {"ml_reg_r2": 0.90, "ml_reg_mae": 0.40}, {"ml_reg_r2": 0.99, "ml_reg_mae": 0.06}, 0.03
+    )
     assert len(regs) == 2 and deltas["ml_reg_r2"] == pytest.approx(-0.09)
 
 

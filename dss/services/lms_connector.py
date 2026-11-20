@@ -18,6 +18,7 @@ Tuân thủ nguyên tắc:
    - PARTIAL (Hỗ trợ SQLite/PostgreSQL nội bộ)
    - FUTURE REAL INTEGRATION (Canvas LTI 1.3, Moodle REST API, edX xAPI).
 """
+
 from __future__ import annotations
 
 import uuid
@@ -54,8 +55,8 @@ class LMSEnrollment:
     course_name: str
     semester: str
     progress_percent: float = 100.0  # 0.0 - 100.0
-    attendance_rate: float = 90.0    # 0.0 - 100.0
-    status: str = "completed"        # "enrolled" | "completed" | "dropped"
+    attendance_rate: float = 90.0  # 0.0 - 100.0
+    status: str = "completed"  # "enrolled" | "completed" | "dropped"
 
 
 @dataclass
@@ -63,7 +64,7 @@ class LMSAssessmentRecord:
     assessment_id: str
     course_id: str
     title: str
-    assessment_type: str             # "quiz" | "assignment" | "midterm" | "final"
+    assessment_type: str  # "quiz" | "assignment" | "midterm" | "final"
     topic: str
     score: float
     max_score: float = 10.0
@@ -78,7 +79,7 @@ class LMSAssessmentRecord:
 @dataclass
 class LMSLearningActivity:
     event_id: str
-    activity_type: str               # "video_watch" | "quiz_attempt" | "material_read" | "lab_practice"
+    activity_type: str  # "video_watch" | "quiz_attempt" | "material_read" | "lab_practice"
     course_id: str
     topic: str
     duration_seconds: int
@@ -91,6 +92,7 @@ class LMSLearningActivity:
 @dataclass
 class LMSStudentLearningSummary:
     """Hồ sơ tổng hợp năng lực học tập thực tế trích xuất từ LMS."""
+
     student_id: str
     pseudonym: str
     gpa: float
@@ -135,7 +137,6 @@ class BaseLMSRepository(ABC):
         raw_row: Optional[Dict[str, Any]] = None,
     ) -> LMSStudentLearningSummary:
         """Trích xuất toàn bộ hồ sơ năng lực học tập thực tế từ LMS."""
-        pass
 
     @abstractmethod
     def record_learning_action(
@@ -150,14 +151,15 @@ class BaseLMSRepository(ABC):
         assessment_type: str = "quiz",
     ) -> LMSAssessmentRecord:
         """Ghi nhận hành động học tập mới vào LMS (Closed-loop capture)."""
-        pass
 
     def get_integration_status(self) -> Dict[str, str]:
         return {
             "component": "LMS Connector",
             "mode": self.mode,
             "architecture_status": STATUS_IMPLEMENTED,
-            "data_mode_status": STATUS_DEMO if self.mode == MODE_DEMO else (STATUS_PARTIAL if self.mode == MODE_REAL else STATUS_DEMO),
+            "data_mode_status": STATUS_DEMO
+            if self.mode == MODE_DEMO
+            else (STATUS_PARTIAL if self.mode == MODE_REAL else STATUS_DEMO),
             "external_systems": STATUS_FUTURE_REAL,
             "external_notes": "Sẵn sàng kết nối Moodle Core REST API / Canvas LTI 1.3 qua RealConnectorLMSRepository.",
         }
@@ -181,6 +183,7 @@ class DemoLMSRepository(BaseLMSRepository):
 
         row = raw_row or {}
         from dss.services.privacy_service import generate_pseudonym
+
         pseudonym = generate_pseudonym(student_id)
 
         # Trích xuất điểm các môn học cơ bản từ dataset hoặc sinh dữ liệu hợp lý
@@ -260,14 +263,12 @@ class DemoLMSRepository(BaseLMSRepository):
         evidences: List[str] = [
             f"[LMS] Hoàn thành khóa học 'Cơ sở dữ liệu & SQL' đạt {course_grades.get('Cơ sở dữ liệu & SQL', 7.8)}/10",
             f"[LMS] Hoàn thành khóa học 'Thống kê & Xác suất' đạt {course_grades.get('Thống kê & Xác suất ứng dụng', 8.2)}/10",
-            f"[LMS] Tỷ lệ chuyên cần đạt 94%, hoàn thành 100% các bài trắc nghiệm chương",
-            f"[LMS] Tổng thời lượng tương tác học tập tích lũy: 135 giờ trên hệ thống",
+            "[LMS] Tỷ lệ chuyên cần đạt 94%, hoàn thành 100% các bài trắc nghiệm chương",
+            "[LMS] Tổng thời lượng tương tác học tập tích lũy: 135 giờ trên hệ thống",
         ]
 
         for act in self._action_log.get(student_id, []):
-            evidences.append(
-                f"[LMS Action Mới] Đã nộp {act.title} đạt {act.score:.1f}/10 ({act.topic})"
-            )
+            evidences.append(f"[LMS Action Mới] Đã nộp {act.title} đạt {act.score:.1f}/10 ({act.topic})")
 
         summary = LMSStudentLearningSummary(
             student_id=student_id,
@@ -320,7 +321,9 @@ class DemoLMSRepository(BaseLMSRepository):
             summary = self._cache[student_id]
             summary.assessment_history.append(record)
             summary.total_learning_hours += round(duration_minutes / 60.0, 1)
-            evidence_line = f"[LMS Action Mới] Đã hoàn thành {title} đạt {assessment_score:.1f}/{max_score:.0f} ({topic})"
+            evidence_line = (
+                f"[LMS Action Mới] Đã hoàn thành {title} đạt {assessment_score:.1f}/{max_score:.0f} ({topic})"
+            )
             if evidence_line not in summary.evidences:
                 summary.evidences.append(evidence_line)
 
@@ -381,11 +384,13 @@ class MockLMSRepository(BaseLMSRepository):
             max_score=max_score,
             passed=(assessment_score / max_score) >= 0.65,
         )
-        self.recorded_actions.append({
-            "student_id": student_id,
-            "record": rec,
-            "duration_minutes": duration_minutes,
-        })
+        self.recorded_actions.append(
+            {
+                "student_id": student_id,
+                "record": rec,
+                "duration_minutes": duration_minutes,
+            }
+        )
         if student_id in self.preset_summaries:
             summary = self.preset_summaries[student_id]
             summary.assessment_history.append(rec)
@@ -402,9 +407,11 @@ class RealConnectorLMSRepository(BaseLMSRepository):
         # test/E2E với EDUDSS_DATA_ROOT không tạo/ghi vào file .db thật.
         if db_path is None:
             from dss.core.data_root import get_data_root
+
             db_path = str(get_data_root() / "lms_production.db")
         self.db_path = db_path
         from dss.core.lms_repository import SQLiteLMSRepository
+
         self._sqlite_repo = SQLiteLMSRepository(db_path=db_path)
         self._demo_fallback = DemoLMSRepository()
 

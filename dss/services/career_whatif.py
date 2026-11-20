@@ -8,6 +8,7 @@ Hỗ trợ trả lời các câu hỏi giả định cốt lõi:
 3. "Nếu tôi không muốn làm ca thì nghề nào nên loại trừ?"
 4. "Nếu tôi muốn xin việc trong 3 tháng thì nên ưu tiên nghề nào?"
 """
+
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
@@ -91,9 +92,13 @@ def compare_scenarios(
         direction_ready = "tăng" if delta_readiness >= 0 else "giảm"
         parts = []
         if delta_fit != 0.0:
-            parts.append(f"Career Fit {direction_fit} {abs(delta_fit):.1f}% (từ {before_fit_result.fit_score:.1f}% → {after_fit_result.fit_score:.1f}%)")
+            parts.append(
+                f"Career Fit {direction_fit} {abs(delta_fit):.1f}% (từ {before_fit_result.fit_score:.1f}% → {after_fit_result.fit_score:.1f}%)"
+            )
         if delta_readiness != 0.0:
-            parts.append(f"Career Readiness {direction_ready} {abs(delta_readiness):.1f}% (từ {before_readiness_result.readiness_score:.1f}% → {after_readiness_result.readiness_score:.1f}%)")
+            parts.append(
+                f"Career Readiness {direction_ready} {abs(delta_readiness):.1f}% (từ {before_readiness_result.readiness_score:.1f}% → {after_readiness_result.readiness_score:.1f}%)"
+            )
 
         explanation = f"{change_description}: " + " và ".join(parts) + f" cho vị trí {role.role_name}."
 
@@ -108,7 +113,9 @@ def compare_scenarios(
     )
 
 
-def filter_roles_by_constraint(roles: List[CareerRole], constraint_name: str, constraint_value: Any) -> List[CareerRole]:
+def filter_roles_by_constraint(
+    roles: List[CareerRole], constraint_name: str, constraint_value: Any
+) -> List[CareerRole]:
     """Giả lập: 'Nếu tôi không muốn làm ca thì nghề nào nên loại?'
     Trả về danh sách nghề KHÔNG bị xung đột nghiêm trọng với ràng buộc mới."""
     if constraint_name == "preferred_hours" and constraint_value == "office_hours":
@@ -142,14 +149,16 @@ def rank_roles_for_timeframe(
             hybrid_score = round(fit.fit_score * 0.7 + ready.readiness_score * 0.3, 1)
             primary_metric = "Fit"
 
-        scored.append({
-            "role_id": r.role_id,
-            "role_name": r.role_name,
-            "fit_score": fit.fit_score,
-            "readiness_score": ready.readiness_score,
-            "hybrid_score": hybrid_score,
-            "primary_metric": primary_metric,
-        })
+        scored.append(
+            {
+                "role_id": r.role_id,
+                "role_name": r.role_name,
+                "fit_score": fit.fit_score,
+                "readiness_score": ready.readiness_score,
+                "hybrid_score": hybrid_score,
+                "primary_metric": primary_metric,
+            }
+        )
 
     scored.sort(key=lambda x: x["hybrid_score"], reverse=True)
     return scored[:top_k]

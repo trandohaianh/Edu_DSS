@@ -16,6 +16,7 @@ tiếp) — dùng `page.wait_for_timeout()` cố định 1 khoảng thời gian 
 tin cậy, vì Streamlit có thể còn đang rerender/stream nội dung tab cũ lẫn tab
 mới cùng lúc tại thời điểm chụp, khiến assertion sai một cách ngẫu nhiên.
 """
+
 from __future__ import annotations
 
 from playwright.sync_api import expect
@@ -127,7 +128,9 @@ def _click_dashboard_nav(page):
     # điều hướng chính giờ là st.button() theo nhóm, KHÔNG còn st.radio() — không
     # còn <label>/<input type="radio"> nào trong sidebar cho mục điều hướng. Dùng
     # role=button (ổn định, không phụ thuộc CSS class do Streamlit tự sinh).
-    page.locator("[data-testid='stSidebar']").get_by_role("button", name="Dashboard", exact=False).first.click(timeout=30000)
+    page.locator("[data-testid='stSidebar']").get_by_role("button", name="Dashboard", exact=False).first.click(
+        timeout=30000
+    )
     page.get_by_text("Dashboard lớp học", exact=False).first.wait_for(state="visible", timeout=30000)
 
 
@@ -198,7 +201,9 @@ def _open_ai_advisor_tab(page):
     # hiện trên nav là "🤖  Trợ lý AI", không còn chứa chuỗi "Tư vấn — AI" nữa.
     # Đồng thời không còn <label> nào bọc mục nav (xem _click_dashboard_nav) —
     # dùng role=button, scope trong sidebar để tránh trùng với nút cùng tên khác.
-    page.locator("[data-testid='stSidebar']").get_by_role("button", name="Trợ lý AI", exact=False).first.click(timeout=30000)
+    page.locator("[data-testid='stSidebar']").get_by_role("button", name="Trợ lý AI", exact=False).first.click(
+        timeout=30000
+    )
     # RỘT CAUSE của flake trước đây: chỉ đợi "Bước 1: Chọn sinh viên" — đây là
     # dòng RẤT SỚM trong ai_advisor_tab (dss/tabs/ai_advisor.py), render trước
     # cả phần cấu hình provider theo vai trò (dòng ~88/191) VÀ trước nút hành
@@ -230,9 +235,7 @@ def _open_ai_advisor_tab(page):
     # nhưng khi 13 test chạy NỐI TIẾP trên CÙNG 1 server (base_url session-scope)
     # có lúc vượt mốc 30s do tải tích luỹ — 45s đủ dư so với thời gian thật đã đo,
     # không phải "tăng timeout rồi coi như đã sửa" cho lỗi không tồn tại.
-    page.get_by_role("button", name="Tạo Kế hoạch Học tập", exact=False).wait_for(
-        state="visible", timeout=45000
-    )
+    page.get_by_role("button", name="Tạo Kế hoạch Học tập", exact=False).wait_for(state="visible", timeout=45000)
 
 
 def _expand_advisor_config_expanders(page):
@@ -390,7 +393,9 @@ def _open_warehouse_models_tab(page, wait_ready, expand_count=3):
     for _attempt in range(6):
         # Sidebar redesign: xem ghi chú trong _click_dashboard_nav ở trên —
         # "Kho dữ liệu" giờ là 1 st.button() (role=button), không phải label/radio.
-        page.locator("[data-testid='stSidebar']").get_by_role("button", name="Kho dữ liệu", exact=False).first.click(timeout=30000)
+        page.locator("[data-testid='stSidebar']").get_by_role("button", name="Kho dữ liệu", exact=False).first.click(
+            timeout=30000
+        )
         page.wait_for_timeout(1200)
         wait_ready(page, timeout=20)
         _tab = page.get_by_role("tab", name="AI Models", exact=False)
@@ -398,10 +403,9 @@ def _open_warehouse_models_tab(page, wait_ready, expand_count=3):
             _tab.first.click()
             page.wait_for_timeout(1500)
             wait_ready(page, timeout=20)
-            _has_model_evidence = (
-                page.locator("summary", has_text="(ID:").count() > 0
-                or "Chưa có mô hình nào" in page.inner_text("body")
-            )
+            _has_model_evidence = page.locator(
+                "summary", has_text="(ID:"
+            ).count() > 0 or "Chưa có mô hình nào" in page.inner_text("body")
         if _has_model_evidence:
             break
         page.wait_for_timeout(1500)

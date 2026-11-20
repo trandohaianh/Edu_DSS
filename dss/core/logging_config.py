@@ -16,6 +16,7 @@ key, hoặc access token — kể cả khi log lỗi (message lỗi từ thư vi
 đôi khi vô tình chứa key trong URL/payload; nếu nghi ngờ, chỉ log loại lỗi,
 không log message thô).
 """
+
 from __future__ import annotations
 
 import logging
@@ -45,9 +46,7 @@ def _configure_once() -> None:
     level_name = os.environ.get("DSS_LOG_LEVEL", "INFO").upper()
     root.setLevel(getattr(logging, level_name, logging.INFO))
 
-    handler = RotatingFileHandler(
-        log_file, maxBytes=2_000_000, backupCount=3, encoding="utf-8"
-    )
+    handler = RotatingFileHandler(log_file, maxBytes=2_000_000, backupCount=3, encoding="utf-8")
     install_log_redaction()
     handler.setFormatter(StructuredFormatter())
     root.addHandler(handler)

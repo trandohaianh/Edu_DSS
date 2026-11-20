@@ -2,6 +2,7 @@
 Complexity Router. Test dùng ĐÚNG các ví dụ nêu trong đề bài (Phần 6 "Router
 Safety" và Phần 34 "End-to-end questions" A-H) — không tự bịa ví dụ khác để
 dễ pass."""
+
 from __future__ import annotations
 
 from dss.services import ai_router
@@ -23,7 +24,9 @@ def test_B_gpa_target_question_routes_to_calculator():
     assert d.intent == ai_router.INTENT_GPA_CALCULATION
     assert d.requires_calculator is True
     assert d.requires_llm is False
-    assert d.wired_to_real_behavior is True, "GPA_CALCULATION phải là route ĐÃ wire vào hành vi thật (không chỉ nhãn phân loại)"
+    assert d.wired_to_real_behavior is True, (
+        "GPA_CALCULATION phải là route ĐÃ wire vào hành vi thật (không chỉ nhãn phân loại)"
+    )
 
 
 def test_C_course_registration_eligibility_routes_to_rule_engine():
@@ -46,7 +49,9 @@ def test_E_why_at_risk_routes_to_learning_explanation():
     evidence + LLM explanation."""
     d = ai_router.classify("Tại sao hệ thống đánh giá em có nguy cơ?")
     assert d.intent == ai_router.INTENT_LEARNING_EXPLANATION
-    assert d.requires_llm is True, "Vẫn cần LLM để DIỄN GIẢI kết quả ML/chẩn đoán đã có (không phải LLM tự bịa nguyên nhân)"
+    assert d.requires_llm is True, (
+        "Vẫn cần LLM để DIỄN GIẢI kết quả ML/chẩn đoán đã có (không phải LLM tự bịa nguyên nhân)"
+    )
 
 
 def test_E_alt_phrasing_passive_voice_also_routes_to_learning_explanation():

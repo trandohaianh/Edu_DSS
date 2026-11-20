@@ -2,6 +2,7 @@
 Dashboard/Phân cụm/Tư vấn AI (Huấn luyện đã có sẵn ở ml_hub.py) phải hiển thị
 rõ nhãn "Dữ liệu mô phỏng" — trước khi sửa, các trang này không hề đọc
 df.attrs['data_source_type'] nên không hiển thị gì."""
+
 from __future__ import annotations
 
 import inspect

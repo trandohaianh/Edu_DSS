@@ -5,6 +5,7 @@ C1.3: trước đây 3 khối này dồn chung 1 trang "Cài đặt". Tách thà
 đổi (auth_service, subscription_service, lms_connector, lms_live_sync) và
 không có chức năng nào được giả lập thêm.
 """
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -12,12 +13,12 @@ from datetime import datetime
 import pandas as pd
 import streamlit as st
 
-from dss.services import auth_service, subscription_service
 from dss.core.data_helpers import is_production_environment
 from dss.core.display_mapper import (
-    map_subscription_status,
     SUBSCRIPTION_PLAN_TO_VIETNAMESE,
+    map_subscription_status,
 )
+from dss.services import auth_service, subscription_service
 from dss.tabs import ui_kit
 
 _SUBSCRIPTION_STATUSES = ["ACTIVE", "EXPIRED", "SUSPENDED"]
@@ -45,9 +46,10 @@ def admin_users_tab():
         return
 
     if user_counts:
-        ui_kit.kpi_row([("Tổng tài khoản", sum(user_counts.values()))] + [
-            (role_name, count) for role_name, count in sorted(user_counts.items())
-        ])
+        ui_kit.kpi_row(
+            [("Tổng tài khoản", sum(user_counts.values()))]
+            + [(role_name, count) for role_name, count in sorted(user_counts.items())]
+        )
 
     st.markdown("<div class='dss-spacer-16'></div>", unsafe_allow_html=True)
     with st.container(border=True):
@@ -58,25 +60,36 @@ def admin_users_tab():
                 hint="Tài khoản được cấp qua hệ thống quản lý học tập của Trường hoặc do Quản trị viên tạo.",
             )
         else:
-            search = st.text_input(
-                "Tìm theo tên đăng nhập hoặc mã sinh viên",
-                key="admin_users_search",
-                placeholder="Nhập từ khoá…",
-            ).strip().lower()
+            search = (
+                st.text_input(
+                    "Tìm theo tên đăng nhập hoặc mã sinh viên",
+                    key="admin_users_search",
+                    placeholder="Nhập từ khoá…",
+                )
+                .strip()
+                .lower()
+            )
             rows = []
             for uname, urec in all_users.items():
                 sid = urec.get("student_id") or ""
                 if search and search not in uname.lower() and search not in str(sid).lower():
                     continue
-                rows.append({
-                    "Tên đăng nhập": uname,
-                    "Vai trò": urec.get("role", "—"),
-                    "Email (đăng nhập Google)": urec.get("email") or "—",
-                    "Mã sinh viên": sid or "—",
-                    "Trạng thái": "Đã khoá" if urec.get("is_active", True) is False else "Hoạt động",
-                    "Nguồn cấp": ("Tự cấp qua Google (demo)" if urec.get("auth_provider") == "google" or uname.startswith("g_")
-                                  else "Tự cấp khi đăng nhập (LMS)" if urec.get("auto_provisioned") else "Quản trị viên tạo"),
-                })
+                rows.append(
+                    {
+                        "Tên đăng nhập": uname,
+                        "Vai trò": urec.get("role", "—"),
+                        "Email (đăng nhập Google)": urec.get("email") or "—",
+                        "Mã sinh viên": sid or "—",
+                        "Trạng thái": "Đã khoá" if urec.get("is_active", True) is False else "Hoạt động",
+                        "Nguồn cấp": (
+                            "Tự cấp qua Google (demo)"
+                            if urec.get("auth_provider") == "google" or uname.startswith("g_")
+                            else "Tự cấp khi đăng nhập (LMS)"
+                            if urec.get("auto_provisioned")
+                            else "Quản trị viên tạo"
+                        ),
+                    }
+                )
             if rows:
                 st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True, height=min(420, 38 + 35 * len(rows)))
                 st.caption(f"{len(rows)} / {len(all_users)} tài khoản")
@@ -98,14 +111,18 @@ def _admin_account_forms(all_users: dict) -> None:
         with st.form("admin_create_account", clear_on_submit=True, border=False):
             username = st.text_input("Tên đăng nhập", placeholder="vd. nguyenvana")
             role = st.selectbox("Vai trò", auth_service.ASSIGNABLE_ROLES, index=1)
-            email = st.text_input("Email Google (tuỳ chọn)", placeholder="ten@truong.edu.vn",
-                                  help="Gắn email để người này đăng nhập bằng Google.")
+            email = st.text_input(
+                "Email Google (tuỳ chọn)",
+                placeholder="ten@truong.edu.vn",
+                help="Gắn email để người này đăng nhập bằng Google.",
+            )
             student_id = st.text_input("Mã sinh viên (chỉ cho vai trò Sinh viên)")
             password = st.text_input("Mật khẩu ban đầu (≥ 10 ký tự)", type="password")
             if st.form_submit_button("Tạo tài khoản", type="primary"):
                 try:
-                    auth_service.admin_create_account(username, password, role, email=email or None,
-                                                      student_id=student_id or None)
+                    auth_service.admin_create_account(
+                        username, password, role, email=email or None, student_id=student_id or None
+                    )
                     st.success(f"Đã tạo tài khoản {username.strip().lower()}.")
                     st.rerun()
                 except (ValueError, PermissionError) as exc:
@@ -122,8 +139,9 @@ def _admin_account_forms(all_users: dict) -> None:
         target = st.selectbox("Tài khoản", names, key="admin_edit_target")
         current = all_users.get(target, {})
         with st.form("admin_edit_account", border=False):
-            new_email = st.text_input("Email Google", value=current.get("email") or "",
-                                      help="Để trống để gỡ liên kết Google.")
+            new_email = st.text_input(
+                "Email Google", value=current.get("email") or "", help="Để trống để gỡ liên kết Google."
+            )
             roles = list(auth_service.ASSIGNABLE_ROLES)
             cur_role = current.get("role")
             new_role = st.selectbox("Vai trò", roles, index=roles.index(cur_role) if cur_role in roles else 0)
@@ -132,7 +150,8 @@ def _admin_account_forms(all_users: dict) -> None:
             if st.form_submit_button("Lưu thay đổi", type="primary"):
                 try:
                     auth_service.admin_update_account(
-                        target, email=new_email,
+                        target,
+                        email=new_email,
                         active=active if active != (current.get("is_active", True) is not False) else None,
                         role=new_role if new_role != cur_role else None,
                     )
@@ -155,7 +174,7 @@ def admin_integration_tab():
         subtitle="Trạng thái kết nối với hệ thống quản lý học tập và nội dung của Trường.",
     )
 
-    from dss.services.lms_connector import get_lms_repository, STATUS_DEMO, STATUS_PARTIAL
+    from dss.services.lms_connector import STATUS_DEMO, STATUS_PARTIAL, get_lms_repository
 
     try:
         status = get_lms_repository().get_integration_status()
@@ -198,6 +217,7 @@ def admin_integration_tab():
             ui_kit.card_title("Sự kiện đồng bộ gần đây")
             try:
                 from dss.services.lms_live_sync import lms_live_sync_manager
+
                 events = lms_live_sync_manager.get_event_history(limit=20)
             except Exception:
                 events = None
@@ -209,16 +229,20 @@ def admin_integration_tab():
                     hint="Sự kiện mô phỏng có thể phát từ trang Kho dữ liệu (môi trường phát triển).",
                 )
             else:
-                ev_df = pd.DataFrame([
-                    {
-                        "Thời gian": ev.timestamp,
-                        "Nguồn": ev.source,
-                        "Sự kiện": ev.event_type,
-                        "Sinh viên": ev.student_id,
-                        "Kết quả": {"processed": "Đã xử lý", "failed": "Lỗi", "pending": "Đang chờ"}.get(ev.status, ev.status),
-                    }
-                    for ev in events
-                ])
+                ev_df = pd.DataFrame(
+                    [
+                        {
+                            "Thời gian": ev.timestamp,
+                            "Nguồn": ev.source,
+                            "Sự kiện": ev.event_type,
+                            "Sinh viên": ev.student_id,
+                            "Kết quả": {"processed": "Đã xử lý", "failed": "Lỗi", "pending": "Đang chờ"}.get(
+                                ev.status, ev.status
+                            ),
+                        }
+                        for ev in events
+                    ]
+                )
                 st.dataframe(ev_df, width="stretch", hide_index=True)
                 n_failed = sum(1 for ev in events if ev.status == "failed")
                 st.caption(f"{len(events)} sự kiện · {n_failed} lỗi · tất cả là sự kiện mô phỏng")
@@ -238,12 +262,15 @@ def admin_integration_tab():
                     from dss.core.data_helpers import generate_lms_data
                     from dss.core.init_app import clear_all_session_state_for_new_data
                     from dss.services.academic_persistence import persist_dataframe_if_configured
+
                     clear_all_session_state_for_new_data()
                     _lms_df, _lms_course, _lms_term = generate_lms_data()
                     persist_dataframe_if_configured(_lms_df, "LMS_SYNC", _lms_course, _lms_term)
                     st.session_state.current_df = _lms_df
                     st.session_state.current_dataset_id = f"lms_sync_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-                    st.session_state.show_success_message = "Đã nạp dữ liệu LMS mô phỏng vào phiên làm việc (chưa phải dữ liệu LMS thật)."
+                    st.session_state.show_success_message = (
+                        "Đã nạp dữ liệu LMS mô phỏng vào phiên làm việc (chưa phải dữ liệu LMS thật)."
+                    )
                     st.rerun()
 
 

@@ -16,6 +16,7 @@ xóa trong trường hợp đó và hướng người dùng tới cơ chế lo�
 này, thay vì mở rộng phạm vi thay đổi sang registry bài giảng trong tác vụ
 này (ngoài phạm vi được cho phép — "KB delete" đơn thuần).
 """
+
 from __future__ import annotations
 
 from typing import Any, Dict, Optional
@@ -47,9 +48,7 @@ def _find_lesson_using_document(document_id: str) -> Optional[Any]:
 
 
 @require_role("Admin")
-def delete_document_safely(
-    document_id: str, namespace: str = NAMESPACE_STUDENT_LEARNING
-) -> Dict[str, Any]:
+def delete_document_safely(document_id: str, namespace: str = NAMESPACE_STUDENT_LEARNING) -> Dict[str, Any]:
     """Xóa 1 tài liệu khỏi Knowledge Base — CHỈ báo `status="success"` khi
     backend đang hoạt động THẬT SỰ đã xóa dữ liệu. Không bao giờ trả về
     thành công giả (fabricated success)."""
@@ -81,10 +80,7 @@ def delete_document_safely(
     if not deleted:
         return {
             "status": STATUS_NOT_FOUND,
-            "message": (
-                "Không tìm thấy tài liệu này trong Knowledge Base "
-                "(có thể đã bị xóa trước đó)."
-            ),
+            "message": ("Không tìm thấy tài liệu này trong Knowledge Base (có thể đã bị xóa trước đó)."),
         }
 
     return {"status": STATUS_SUCCESS, "message": "Đã xóa tài liệu khỏi Knowledge Base."}

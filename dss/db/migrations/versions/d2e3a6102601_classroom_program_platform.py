@@ -3,8 +3,9 @@
 Revision ID: d2e3a6102601
 Revises: 9f3a1c7d2e46
 """
-from alembic import op
+
 import sqlalchemy as sa
+from alembic import op
 
 revision = "d2e3a6102601"
 down_revision = "9f3a1c7d2e46"
@@ -220,7 +221,21 @@ DDL = (
     """CREATE INDEX ix_lp_class_plans_student_code ON lp_class_plans (student_code)""",
 )
 
-TABLES = ('lp_audit_events', 'lp_programs', 'lp_schools', 'lp_classes', 'lp_program_members', 'lp_school_allocations', 'lp_school_summary_snapshots', 'lp_assessments', 'lp_enrollments', 'lp_teaching_assignments', 'lp_attempts', 'lp_interventions', 'lp_class_plans')
+TABLES = (
+    'lp_audit_events',
+    'lp_programs',
+    'lp_schools',
+    'lp_classes',
+    'lp_program_members',
+    'lp_school_allocations',
+    'lp_school_summary_snapshots',
+    'lp_assessments',
+    'lp_enrollments',
+    'lp_teaching_assignments',
+    'lp_attempts',
+    'lp_interventions',
+    'lp_class_plans',
+)
 
 # These expressions read transaction-local values bound by platform_session.
 SCHOOL = "current_setting('app.organization_id', true)"
@@ -248,7 +263,11 @@ def policy(table, name, command, using=None, check=None):
 def upgrade():
     # Preserve the existing integer Course FK; CMS uses external course codes.
     op.add_column("rag_documents", sa.Column("course_code", sa.String(128), nullable=True))
-    op.execute(sa.text("UPDATE rag_documents r SET course_code = c.course_code FROM courses c WHERE c.id = r.course_id AND c.organization_id = r.organization_id"))
+    op.execute(
+        sa.text(
+            "UPDATE rag_documents r SET course_code = c.course_code FROM courses c WHERE c.id = r.course_id AND c.organization_id = r.organization_id"
+        )
+    )
     for sql in DDL:
         op.execute(sa.text(sql))
     for table in TABLES:
@@ -257,8 +276,13 @@ def upgrade():
     # Raw learning records remain school scoped. Programme membership alone
     # never satisfies these policies.
     for table in (
-        "lp_classes", "lp_teaching_assignments", "lp_enrollments",
-        "lp_assessments", "lp_attempts", "lp_class_plans", "lp_interventions",
+        "lp_classes",
+        "lp_teaching_assignments",
+        "lp_enrollments",
+        "lp_assessments",
+        "lp_attempts",
+        "lp_class_plans",
+        "lp_interventions",
     ):
         scope = f"school_id = {SCHOOL}"
         policy(table, "school_scope", "ALL", scope, scope)
@@ -272,10 +296,17 @@ def upgrade():
     policy("lp_program_members", "member_delete", "DELETE", OPERATOR)
 
     manager_directory = f"EXISTS (SELECT 1 FROM lp_program_members m WHERE {SELF} AND m.program_role = 'manager')"
-    allocated_directory = f"EXISTS (SELECT 1 FROM lp_school_allocations a WHERE a.school_id = lp_schools.id AND {member('a.program_id')})"
+    allocated_directory = (
+        f"EXISTS (SELECT 1 FROM lp_school_allocations a WHERE a.school_id = lp_schools.id AND {member('a.program_id')})"
+    )
     own_school = f"id = {SCHOOL}"
     school_write = f"({OPERATOR}) OR ({own_school} AND {ROLE} = 'Admin')"
-    policy("lp_schools", "school_directory_read", "SELECT", f"({own_school}) OR ({OPERATOR}) OR ({manager_directory}) OR ({allocated_directory})")
+    policy(
+        "lp_schools",
+        "school_directory_read",
+        "SELECT",
+        f"({own_school}) OR ({OPERATOR}) OR ({manager_directory}) OR ({allocated_directory})",
+    )
     policy("lp_schools", "school_directory_insert", "INSERT", check=school_write)
     policy("lp_schools", "school_directory_update", "UPDATE", school_write, school_write)
 
@@ -292,15 +323,24 @@ def upgrade():
     policy("lp_school_allocations", "allocation_update", "UPDATE", allocation_write, allocation_write)
 
     own_snapshot = f"school_id = {SCHOOL} AND {ROLE} = 'Admin' AND {SCHOOL} = {PRINCIPAL}"
-    policy("lp_school_summary_snapshots", "snapshot_read", "SELECT", f"({own_snapshot}) OR ({member('lp_school_summary_snapshots.program_id')})")
+    policy(
+        "lp_school_summary_snapshots",
+        "snapshot_read",
+        "SELECT",
+        f"({own_snapshot}) OR ({member('lp_school_summary_snapshots.program_id')})",
+    )
     allocation_exists = f"EXISTS (SELECT 1 FROM lp_school_allocations a WHERE a.program_id = lp_school_summary_snapshots.program_id AND a.school_id = {SCHOOL} AND a.status = 'active')"
-    policy("lp_school_summary_snapshots", "snapshot_insert", "INSERT", check=f"({own_snapshot}) AND ({allocation_exists})")
+    policy(
+        "lp_school_summary_snapshots", "snapshot_insert", "INSERT", check=f"({own_snapshot}) AND ({allocation_exists})"
+    )
 
     own_audit = f"school_id = {SCHOOL} AND school_id = {PRINCIPAL}"
     program_audit = f"program_id IS NOT NULL AND ({member('lp_audit_events.program_id')})"
     operator_audit = f"school_id IS NULL AND ({OPERATOR})"
     policy("lp_audit_events", "audit_read", "SELECT", f"({own_audit}) OR ({program_audit}) OR ({operator_audit})")
-    policy("lp_audit_events", "audit_insert", "INSERT", check=f"school_id = {SCHOOL} OR ({program_audit}) OR ({OPERATOR})")
+    policy(
+        "lp_audit_events", "audit_insert", "INSERT", check=f"school_id = {SCHOOL} OR ({program_audit}) OR ({OPERATOR})"
+    )
 
 
 def downgrade():

@@ -4,6 +4,7 @@ liệu SEED trong kho tri thức thật, ở trạng thái PENDING_REVIEW. Đây
 trích dẫn: seed -> Admin duyệt THẬT (có audit log) -> retrieve_unified_context
 mới trả về được. Bổ sung cho test_rag_service.py::
 test_real_lms_mode_filters_unverified_documents (đã cập nhật theo F-0b)."""
+
 from __future__ import annotations
 
 import pytest
@@ -11,8 +12,7 @@ import pytest
 import dss.config as dss_config
 from dss.services import document_approval_service as approval
 from dss.services import document_governance as gov
-from dss.services import legacy_knowledge_seed
-from dss.services import rag_service
+from dss.services import legacy_knowledge_seed, rag_service
 from dss.services import vector_store as vector_store_module
 from dss.services.rag_namespaces import NAMESPACE_STUDENT_LEARNING
 
@@ -21,6 +21,7 @@ from dss.services.rag_namespaces import NAMESPACE_STUDENT_LEARNING
 def llm_integration():
     dss_config._ensure_local_llm_libs()
     from dss.core.models import MultiAIProvider
+
     provider = MultiAIProvider()
     provider.get_embedding("khởi động model")
     return provider
@@ -71,8 +72,11 @@ def test_seeded_doc_003_not_citable_before_real_approval(llm_integration):
     test dưới)."""
     legacy_knowledge_seed.seed_legacy_knowledge_base_documents(llm_integration)
     result = rag_service.retrieve_unified_context(
-        llm_integration, _DOC_003_MATCHING_QUERY, role="Sinh viên",
-        namespace=NAMESPACE_STUDENT_LEARNING, top_k=5,
+        llm_integration,
+        _DOC_003_MATCHING_QUERY,
+        role="Sinh viên",
+        namespace=NAMESPACE_STUDENT_LEARNING,
+        top_k=5,
     )
     assert result["status"] == "NO_RELEVANT_EVIDENCE"
 
@@ -82,14 +86,19 @@ def test_legacy_document_becomes_citable_after_real_approval(llm_integration):
     retrieve_unified_context mới trả về được, kèm approved_by rõ ràng."""
     legacy_knowledge_seed.seed_legacy_knowledge_base_documents(llm_integration)
     ok, msg = approval.approve_document(
-        document_id="legacy_seed_doc_003", namespace=NAMESPACE_STUDENT_LEARNING,
-        actor_username="admin_that", actor_role="Admin",
+        document_id="legacy_seed_doc_003",
+        namespace=NAMESPACE_STUDENT_LEARNING,
+        actor_username="admin_that",
+        actor_role="Admin",
     )
     assert ok is True, msg
 
     result = rag_service.retrieve_unified_context(
-        llm_integration, _DOC_003_MATCHING_QUERY, role="Sinh viên",
-        namespace=NAMESPACE_STUDENT_LEARNING, top_k=5,
+        llm_integration,
+        _DOC_003_MATCHING_QUERY,
+        role="Sinh viên",
+        namespace=NAMESPACE_STUDENT_LEARNING,
+        top_k=5,
     )
     assert result["status"] == "ok"
     assert any(c["document_id"] == "legacy_seed_doc_003" for c in result["chunks"])

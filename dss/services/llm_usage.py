@@ -5,6 +5,7 @@ chunk cuối của stream và `report()` vào đây; `LLMGateway.stream_generate
 khi duyệt stream và `take()` sau khi xong để ghi token_tracker với usage_source="provider".
 Lưu theo luồng (thread-local): mỗi phiên Streamlit chạy script trên một luồng riêng.
 """
+
 from __future__ import annotations
 
 import threading

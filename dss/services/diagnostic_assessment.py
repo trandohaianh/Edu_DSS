@@ -16,6 +16,7 @@ Mục 10 Yêu cầu:
 - LLM TUYỆT ĐỐI không bao giờ được bịa đặt sự thật/kiến thức môn học.
 - Đánh giá có tính chất xếp loại cao (high-stakes) bắt buộc có phê duyệt của Giảng viên.
 """
+
 from __future__ import annotations
 
 import uuid
@@ -71,18 +72,20 @@ class DiagnosticAssessmentService:
     ) -> AssessmentBlueprint:
         """Tạo khung bài kiểm tra chẩn đoán dựa trên tài liệu đã được duyệt."""
         blueprint_id = f"diag_{uuid.uuid4().hex[:10]}"
-        allowed_ids = [d.get("id", "") for d in approved_docs if d.get("status") == "APPROVED" or d.get("source_verified")]
+        allowed_ids = [
+            d.get("id", "") for d in approved_docs if d.get("status") == "APPROVED" or d.get("source_verified")
+        ]
 
         # Khởi tạo câu hỏi dựa trên tài liệu đã kiểm chứng
         sample_questions: List[DiagnosticQuestion] = []
         for i, doc in enumerate(approved_docs[:num_questions]):
-            doc_id = doc.get("id", f"doc_{i+1}")
+            doc_id = doc.get("id", f"doc_{i + 1}")
             title = doc.get("title", "Chủ đề học tập")
             content = doc.get("content", "")
 
             sample_questions.append(
                 DiagnosticQuestion(
-                    question_id=f"q_{blueprint_id}_{i+1}",
+                    question_id=f"q_{blueprint_id}_{i + 1}",
                     topic=topic,
                     subskill=title,
                     question_text=f"Dựa trên kiến thức về '{title}': Đâu là phương pháp tiếp cận phù hợp nhất?",
@@ -129,26 +132,30 @@ class DiagnosticAssessmentService:
         if not isinstance(student_answers, (list, tuple)) or len(student_answers) != total_questions:
             raise ValueError("A completed response is required for every question")
         for answer, question in zip(student_answers, blueprint.questions):
-            if (isinstance(answer, bool) or not isinstance(answer, int)
-                    or answer < 0 or answer >= len(question.options)):
+            if isinstance(answer, bool) or not isinstance(answer, int) or answer < 0 or answer >= len(question.options):
                 raise ValueError("Answer index is outside the question options")
 
         correct_count = sum(
-            answer == question.correct_answer_index
-            for answer, question in zip(student_answers, blueprint.questions)
+            answer == question.correct_answer_index for answer, question in zip(student_answers, blueprint.questions)
         )
         accuracy = correct_count / total_questions
-        times = [observed_number(value) for value in response_times_seconds] if isinstance(response_times_seconds, (list, tuple)) else []
-        hints = [observed_number(value, integer=True) for value in hint_counts] if isinstance(hint_counts, (list, tuple)) else []
+        times = (
+            [observed_number(value) for value in response_times_seconds]
+            if isinstance(response_times_seconds, (list, tuple))
+            else []
+        )
+        hints = (
+            [observed_number(value, integer=True) for value in hint_counts]
+            if isinstance(hint_counts, (list, tuple))
+            else []
+        )
         avg_time = (
             sum(times) / total_questions
             if len(times) == total_questions and all(value is not None for value in times)
             else None
         )
         total_hints = (
-            sum(hints)
-            if len(hints) == total_questions and all(value is not None for value in hints)
-            else None
+            sum(hints) if len(hints) == total_questions and all(value is not None for value in hints) else None
         )
         # These metrics describe this assessment only. A weighted historical
         # average would require prior question counts and an explicit window.
@@ -173,9 +180,7 @@ class DiagnosticAssessmentService:
             "accuracy_score": accuracy,
             "average_response_time": avg_time,
             "hints_used": total_hints,
-            "feedback": (
-                "Đã ghi nhận kết quả bài chẩn đoán; đối chiếu theo chủ đề để chọn bước học tiếp theo."
-            ),
+            "feedback": ("Đã ghi nhận kết quả bài chẩn đoán; đối chiếu theo chủ đề để chọn bước học tiếp theo."),
         }
 
 

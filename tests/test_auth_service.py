@@ -4,6 +4,7 @@ Mã hoá lại HÀNH VI THẬT đang chạy (không phải hành vi mong muốn)
 ở đây fail sau này, đó là một thay đổi hành vi auth cần được XEM XÉT CÓ CHỦ Ý,
 không phải regression âm thầm.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -85,6 +86,7 @@ def test_authenticate_auto_provisioned_account_persists_across_calls(isolated_us
 def test_authenticate_never_logs_password(isolated_users_file, tmp_path, monkeypatch):
     """Không được để lộ mật khẩu vào file log kỹ thuật, kể cả khi log lỗi."""
     from dss.core import logging_config
+
     # PERF-002: logging_config không còn hằng số _LOG_DIR/_LOG_FILE mức module
     # (đã chuyển sang resolve qua get_data_root() bên trong _configure_once())
     # — buộc reconfigure với EDUDSS_DATA_ROOT trỏ vào tmp_path của chính test
@@ -130,6 +132,7 @@ def test_require_role_blocks_non_matching_role(as_role):
 def test_require_role_blocks_when_not_logged_in():
     """Không có session nào (_auth_role không tồn tại) -> phải bị chặn, không
     được coi là 'role=None nên cho qua'."""
+
     @auth_service.require_role("Admin")
     def sensitive_action():
         return "ok"
@@ -191,8 +194,14 @@ def test_logout_clears_all_session_state_except_theme(as_role):
 
     auth_service.logout()
 
-    for k in ("hub_results", "cluster_results_df", "llm_type", "reminder_done_SV001_1", "current_df",
-              "ai_chat_history_Sinh viên_SV001"):
+    for k in (
+        "hub_results",
+        "cluster_results_df",
+        "llm_type",
+        "reminder_done_SV001_1",
+        "current_df",
+        "ai_chat_history_Sinh viên_SV001",
+    ):
         assert k not in st.session_state
     assert st.session_state.get("dss_theme") == "dark"
 
@@ -210,13 +219,13 @@ def test_logout_clears_api_key_widget_state(as_role):
 
 # --------------------------------------------------------------- audit 2026-11
 def test_corrupt_users_file_is_not_overwritten(isolated_users_file):
-    isolated_users_file.write_text('{"giaovu1": {"username": "giaovu1"', encoding="utf-8")     # JSON hỏng
+    isolated_users_file.write_text('{"giaovu1": {"username": "giaovu1"', encoding="utf-8")  # JSON hỏng
     before = isolated_users_file.read_text(encoding="utf-8")
     with pytest.raises(auth_service.AccountStoreCorrupted):
         auth_service.authenticate("admin", "admin123")
     with pytest.raises(auth_service.AccountStoreCorrupted):
         auth_service._seed_default_accounts_if_missing()
-    assert isolated_users_file.read_text(encoding="utf-8") == before      # trước đây: ghi đè còn admin/giangvien
+    assert isolated_users_file.read_text(encoding="utf-8") == before  # trước đây: ghi đè còn admin/giangvien
 
 
 def test_disabled_account_loses_open_session_on_next_check(isolated_users_file, as_role, monkeypatch):
@@ -247,9 +256,9 @@ def test_unknown_username_costs_one_password_hash(isolated_users_file, monkeypat
     real = auth_service._verify_password
     monkeypatch.setattr(auth_service, "_verify_password", lambda *a: calls.append(1) or real(*a))
     assert auth_service.authenticate("khong_ton_tai", "mat-khau-bat-ky") is None
-    assert calls == [1]                                                  # cùng chi phí như sai mật khẩu
+    assert calls == [1]  # cùng chi phí như sai mật khẩu
 
 
 def test_autoprovisioned_first_password_is_case_insensitive_on_later_logins(isolated_users_file):
-    assert auth_service.authenticate("SV123", "SV123123") is not None    # lần đầu gõ hoa
-    assert auth_service.authenticate("sv123", "sv123123") is not None    # sau đó gõ thường
+    assert auth_service.authenticate("SV123", "SV123123") is not None  # lần đầu gõ hoa
+    assert auth_service.authenticate("sv123", "sv123123") is not None  # sau đó gõ thường

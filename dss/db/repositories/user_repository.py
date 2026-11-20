@@ -24,9 +24,10 @@ This guarantees the exact same hash format/iteration count is used whether
 an account is created through the local JSON path or through Postgres —
 a password created before a Postgres cutover verifies identically after.
 """
+
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from typing import Any, Optional
 
 from dss.db.models import Organization, Role, User
@@ -35,6 +36,7 @@ from dss.db.session import tenant_session_scope
 
 def _hash_password_and_salt(password: str) -> tuple[str, str]:
     from dss.services.auth_service import _hash_password  # lazy: see module docstring
+
     return _hash_password(password)
 
 
@@ -67,11 +69,7 @@ class UserRepository:
             organization = session.get(Organization, self.organization_id)
             if organization is None or not organization.is_active:
                 return None
-            row = (
-                session.query(User)
-                .filter_by(organization_id=self.organization_id, username=username)
-                .one_or_none()
-            )
+            row = session.query(User).filter_by(organization_id=self.organization_id, username=username).one_or_none()
             if row is None:
                 return None
             role = session.get(Role, row.role_id)
@@ -92,7 +90,7 @@ class UserRepository:
                 .limit(2)
                 .all()
             )
-            if len(rows) != 1:      # none, or ambiguous (two accounts share an e-mail): refuse
+            if len(rows) != 1:  # none, or ambiguous (two accounts share an e-mail): refuse
                 return None
             role = session.get(Role, rows[0].role_id)
             return _row_to_record(rows[0], role.name if role else "unknown")
@@ -156,36 +154,42 @@ class UserRepository:
 
     def touch_last_login(self, username: str) -> None:
         with tenant_session_scope(self.organization_id) as session:
-            row = (
-                session.query(User)
-                .filter_by(organization_id=self.organization_id, username=username)
-                .one_or_none()
-            )
+            row = session.query(User).filter_by(organization_id=self.organization_id, username=username).one_or_none()
             if row is not None:
-                row.last_login_at = datetime.now(timezone.utc)
+                row.last_login_at = datetime.now(UTC)
 
-    def update_user(self, username: str, *, email: Optional[str] = None, student_id: Optional[str] = None) -> dict[str, Any]:
+    def update_user(
+        self, username: str, *, email: Optional[str] = None, student_id: Optional[str] = None
+    ) -> dict[str, Any]:
         with tenant_session_scope(self.organization_id) as session:
             row = session.query(User).filter_by(organization_id=self.organization_id, username=username).one()
-            if email is not None: row.email = email
-            if student_id is not None: row.student_id = student_id
+            if email is not None:
+                row.email = email
+            if student_id is not None:
+                row.student_id = student_id
             role = session.get(Role, row.role_id)
-            session.flush(); return _row_to_record(row, role.name if role else "unknown")
+            session.flush()
+            return _row_to_record(row, role.name if role else "unknown")
 
     def set_active(self, username: str, active: bool) -> dict[str, Any]:
         with tenant_session_scope(self.organization_id) as session:
             row = session.query(User).filter_by(organization_id=self.organization_id, username=username).one()
-            row.is_active = bool(active); role = session.get(Role, row.role_id); session.flush()
+            row.is_active = bool(active)
+            role = session.get(Role, row.role_id)
+            session.flush()
             return _row_to_record(row, role.name if role else "unknown")
 
     def reset_password(self, username: str, new_password: str) -> None:
         password_hash, salt = _hash_password_and_salt(new_password)
         with tenant_session_scope(self.organization_id) as session:
             row = session.query(User).filter_by(organization_id=self.organization_id, username=username).one()
-            row.password_hash = password_hash; row.password_salt = salt
+            row.password_hash = password_hash
+            row.password_salt = salt
 
     def change_role(self, username: str, role_name: str) -> dict[str, Any]:
         with tenant_session_scope(self.organization_id) as session:
             row = session.query(User).filter_by(organization_id=self.organization_id, username=username).one()
             role = session.query(Role).filter_by(name=role_name).one()
-            row.role_id = role.id; session.flush(); return _row_to_record(row, role.name)
+            row.role_id = role.id
+            session.flush()
+            return _row_to_record(row, role.name)

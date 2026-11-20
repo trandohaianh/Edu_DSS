@@ -4,6 +4,7 @@ Covers the critical journeys named in the C1.3 acceptance brief: login page
 content, logout, theme switching, one primary journey per role, role-scoped
 navigation, the AI degraded state and a narrow-viewport overflow check.
 """
+
 from __future__ import annotations
 
 import os

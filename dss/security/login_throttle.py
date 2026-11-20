@@ -15,6 +15,7 @@ contract backed by PostgreSQL — out of scope until more than one host exists.
 If the file cannot be used at all, the store degrades to in-process memory and
 logs a warning (never disables protection).
 """
+
 from __future__ import annotations
 
 import contextlib
@@ -43,6 +44,7 @@ def _key(username: str) -> str:
 def _state_path() -> Optional[Path]:
     try:
         from dss.core.data_root import get_data_root
+
         path = get_data_root() / "security" / "login_throttle.json"
         path.parent.mkdir(parents=True, exist_ok=True)
         return path
@@ -84,6 +86,7 @@ def _locked_state():
 def _os_lock(f) -> None:
     if os.name == "nt":
         import msvcrt
+
         f.seek(0)
         while True:
             try:
@@ -93,6 +96,7 @@ def _os_lock(f) -> None:
                 time.sleep(0.05)
     else:
         import fcntl
+
         fcntl.flock(f.fileno(), fcntl.LOCK_EX)
 
 
@@ -100,10 +104,12 @@ def _os_unlock(f) -> None:
     try:
         if os.name == "nt":
             import msvcrt
+
             f.seek(0)
             msvcrt.locking(f.fileno(), msvcrt.LK_UNLCK, 1)
         else:
             import fcntl
+
             fcntl.flock(f.fileno(), fcntl.LOCK_UN)
     except OSError:
         pass
@@ -129,7 +135,7 @@ GLOBAL_WINDOW_SECONDS = 3600
 
 
 def _pair_key(username: str, client: str) -> str:
-    return hashlib.sha256(f"{username.strip().lower()}|{client}".encode("utf-8")).hexdigest()
+    return hashlib.sha256(f"{username.strip().lower()}|{client}".encode()).hexdigest()
 
 
 def _locked_left(state: dict, key: str, now: float) -> int:

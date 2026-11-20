@@ -8,6 +8,7 @@ run this tool -> review the lock diff -> run the release gate. Resolution happen
 the SAME base image the Dockerfile pins (linux/amd64, CPython 3.11.16), never on a
 developer machine, so Windows/macOS wheels cannot leak into the lock. Requires Docker.
 """
+
 from __future__ import annotations
 
 import argparse

@@ -4,6 +4,7 @@ thesis eligibility/graduation eligibility) — ALLOW/DENY/WARNING/
 INSUFFICIENT_DATA, tenant-scoped/versioned/effective-dated/auditable.
 Test bắt buộc quan trọng nhất: "LLM says ALLOW while Rule Engine says
 DENY -> final response must NOT become ALLOW"."""
+
 from __future__ import annotations
 
 from dss.services import rule_engine as re
@@ -11,9 +12,14 @@ from dss.services import rule_engine as re
 
 def _rule(**overrides):
     defaults = dict(
-        rule_id="rule_credit_limit_v1", regulation_id="QC-CNTT-K66", regulation_version=1,
-        organization_id="org-1", rule_type=re.RULE_TYPE_CREDIT_LIMIT,
-        effective_from="2024-01-01", effective_to=None, status="APPROVED",
+        rule_id="rule_credit_limit_v1",
+        regulation_id="QC-CNTT-K66",
+        regulation_version=1,
+        organization_id="org-1",
+        rule_type=re.RULE_TYPE_CREDIT_LIMIT,
+        effective_from="2024-01-01",
+        effective_to=None,
+        status="APPROVED",
         params={"max_credits": 24},
     )
     defaults.update(overrides)
@@ -21,6 +27,7 @@ def _rule(**overrides):
 
 
 # --- Credit limit -----------------------------------------------------------
+
 
 def test_credit_limit_allow_when_within_max():
     result = re.evaluate_credit_limit(_rule(), requested_credits=20)
@@ -68,6 +75,7 @@ def test_rule_not_yet_effective_returns_insufficient_data():
 
 # --- Academic warning ---------------------------------------------------
 
+
 def test_academic_warning_triggers_below_threshold():
     rule = _rule(rule_type=re.RULE_TYPE_ACADEMIC_WARNING, params={"warning_gpa_threshold": 2.0})
     result = re.evaluate_academic_warning(rule, gpa=1.5)
@@ -82,30 +90,29 @@ def test_academic_warning_allow_above_threshold():
 
 # --- Thesis eligibility --------------------------------------------------
 
+
 def test_thesis_eligibility_allow_when_both_conditions_met():
-    rule = _rule(rule_type=re.RULE_TYPE_THESIS_ELIGIBILITY,
-                 params={"min_gpa": 2.5, "min_credits_completed": 100})
+    rule = _rule(rule_type=re.RULE_TYPE_THESIS_ELIGIBILITY, params={"min_gpa": 2.5, "min_credits_completed": 100})
     result = re.evaluate_thesis_eligibility(rule, gpa=3.0, credits_completed=110)
     assert result.status == re.STATUS_ALLOW
 
 
 def test_thesis_eligibility_deny_when_gpa_too_low():
-    rule = _rule(rule_type=re.RULE_TYPE_THESIS_ELIGIBILITY,
-                 params={"min_gpa": 2.5, "min_credits_completed": 100})
+    rule = _rule(rule_type=re.RULE_TYPE_THESIS_ELIGIBILITY, params={"min_gpa": 2.5, "min_credits_completed": 100})
     result = re.evaluate_thesis_eligibility(rule, gpa=2.0, credits_completed=110)
     assert result.status == re.STATUS_DENY
     assert "GPA" in result.reason
 
 
 def test_thesis_eligibility_deny_when_credits_too_low():
-    rule = _rule(rule_type=re.RULE_TYPE_THESIS_ELIGIBILITY,
-                 params={"min_gpa": 2.5, "min_credits_completed": 100})
+    rule = _rule(rule_type=re.RULE_TYPE_THESIS_ELIGIBILITY, params={"min_gpa": 2.5, "min_credits_completed": 100})
     result = re.evaluate_thesis_eligibility(rule, gpa=3.0, credits_completed=50)
     assert result.status == re.STATUS_DENY
     assert "tín chỉ" in result.reason
 
 
 # --- Graduation eligibility -----------------------------------------------
+
 
 def test_graduation_eligibility_allow_when_all_conditions_met():
     rule = _rule(rule_type=re.RULE_TYPE_GRADUATION_ELIGIBILITY, params={"min_gpa_graduation": 2.0})
@@ -126,6 +133,7 @@ def test_graduation_eligibility_deny_when_gpa_insufficient():
 
 
 # --- CRITICAL: LLM must never override the Rule Engine's decision ---------
+
 
 def test_llm_says_allow_but_rule_engine_says_deny_final_must_stay_deny():
     """Bài test BẮT BUỘC quan trọng nhất của Phần 12: nếu LLM (do ảo giác,

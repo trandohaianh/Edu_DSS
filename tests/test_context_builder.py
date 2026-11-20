@@ -1,6 +1,7 @@
 """FINAL REMAINING-GAPS CLOSURE — Section 6: Context Builder. Written before
 `dss/services/context_builder.py` existed (TDD), per this engagement's
 established convention for genuinely new modules."""
+
 from __future__ import annotations
 
 from dss.services import context_builder
@@ -8,9 +9,16 @@ from dss.services import context_builder
 
 def test_gpa_intent_keeps_only_required_fields_drops_pii():
     raw_row = {
-        "current_gpa": 6.0, "credits_done": 20, "target_gpa": 7.5, "credits_remaining": 20,
-        "gpa_scale": 10, "name": "Nguyễn Văn A", "email": "a@example.com",
-        "phone": "0912345678", "full_transcript": [1, 2, 3], "full_chat_history": ["..."],
+        "current_gpa": 6.0,
+        "credits_done": 20,
+        "target_gpa": 7.5,
+        "credits_remaining": 20,
+        "gpa_scale": 10,
+        "name": "Nguyễn Văn A",
+        "email": "a@example.com",
+        "phone": "0912345678",
+        "full_transcript": [1, 2, 3],
+        "full_chat_history": ["..."],
     }
     result = context_builder.build_context("GPA_CALCULATION", raw_row)
     assert result.status == "ok"
@@ -33,8 +41,12 @@ def test_gpa_intent_reports_missing_required_fields_honestly():
 
 def test_learning_explanation_intent_keeps_prediction_and_shap_drops_pii():
     raw_row = {
-        "prediction": 7.2, "model_version": "v3", "relevant_features": ["diem_giua_ky"],
-        "shap_evidence": {"diem_giua_ky": 0.4}, "name": "Y", "email": "y@example.com",
+        "prediction": 7.2,
+        "model_version": "v3",
+        "relevant_features": ["diem_giua_ky"],
+        "shap_evidence": {"diem_giua_ky": 0.4},
+        "name": "Y",
+        "email": "y@example.com",
     }
     result = context_builder.build_context("LEARNING_EXPLANATION", raw_row)
     assert result.status == "ok"
@@ -52,8 +64,11 @@ def test_regulation_lookup_intent_requires_tenant_scope_fields():
 
 def test_advisor_plan_intent_allows_optional_ml_and_rag_evidence():
     raw_row = {
-        "authorized_academic_summary": "GPA 7.0, 80 tín chỉ", "goals": "tăng GPA",
-        "ml_results": {"risk": "trung bình"}, "rag_evidence": ["doc1"], "name": "Z",
+        "authorized_academic_summary": "GPA 7.0, 80 tín chỉ",
+        "goals": "tăng GPA",
+        "ml_results": {"risk": "trung bình"},
+        "rag_evidence": ["doc1"],
+        "name": "Z",
     }
     result = context_builder.build_context("ADVISOR_PLAN", raw_row)
     assert result.status == "ok"

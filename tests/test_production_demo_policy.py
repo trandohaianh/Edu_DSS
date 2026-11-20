@@ -60,8 +60,8 @@ Follow-up audit (2026-09, user-supplied verified facts pass):
   leave reachable in REAL_LMS even with honest labeling -> now hidden in
   REAL_LMS mode.
 """
-from __future__ import annotations
 
+from __future__ import annotations
 
 import pytest
 
@@ -82,17 +82,20 @@ def demo_synthetic_env(monkeypatch):
 
 def test_ai_advisor_is_production_environment_detects_real_lms(real_lms_env):
     from dss.tabs.ai_advisor import _is_production_environment
+
     assert _is_production_environment() is True
 
 
 def test_ai_advisor_is_production_environment_false_for_demo_synthetic(demo_synthetic_env):
     from dss.tabs.ai_advisor import _is_production_environment
+
     assert _is_production_environment() is False
 
 
 def test_ai_advisor_is_production_environment_defaults_to_false_when_unset(monkeypatch):
     monkeypatch.delenv("EDUDSS_MODE", raising=False)
     from dss.tabs.ai_advisor import _is_production_environment
+
     assert _is_production_environment() is False
 
 
@@ -102,6 +105,7 @@ def test_ai_advisor_source_has_exactly_3_demo_call_sites_all_now_gated():
     sau một điều kiện tham chiếu _is_production_environment() (trực tiếp hoặc
     qua state chỉ có thể được bật khi không phải production)."""
     import inspect
+
     from dss.tabs import ai_advisor
 
     source = inspect.getsource(ai_advisor)
@@ -133,6 +137,7 @@ def test_main_py_source_gates_synthetic_bootstrap_behind_real_lms_check():
 
 def test_warehouse_tab_source_gates_sample_and_sync_buttons_behind_real_lms_check():
     import inspect
+
     from dss.tabs import warehouse_tab
 
     source = inspect.getsource(warehouse_tab)
@@ -150,6 +155,7 @@ def test_knowledge_base_demo_docs_excluded_from_retrieval_in_real_lms_mode():
     lý do tab "Tri thức Mẫu (Demo)" ở knowledge_base.py được xếp loại
     INTERNAL_ONLY (chỉ Admin xem, không phải đường dẫn Demo lộ ra người dùng)."""
     import dss.config as dss_config
+
     dss_config._ensure_local_llm_libs()
     from dss.core.models import MultiAIProvider
 
@@ -170,8 +176,8 @@ def test_is_production_environment_moved_to_shared_data_helpers():
     đây (không định nghĩa lặp), tránh lệch định nghĩa "production" giữa các
     module khi audit sau này."""
     from dss.core.data_helpers import is_production_environment
-    from dss.tabs.ai_advisor import _is_production_environment as ai_advisor_ref
     from dss.tabs.advisory import _is_production_environment as advisory_ref
+    from dss.tabs.ai_advisor import _is_production_environment as ai_advisor_ref
 
     assert ai_advisor_ref is is_production_environment
     assert advisory_ref is is_production_environment
@@ -183,6 +189,7 @@ def test_advisory_career_advisor_blocked_in_real_lms_mode(real_lms_env):
     trong (chưa có kết nối LMS thật). Hiển thị dữ liệu đó như Hướng nghiệp thật
     trong REAL_LMS là 1 đường dẫn Demo ẩn (silent fallback) — phải bị chặn."""
     import inspect
+
     from dss.tabs import advisory
 
     source = inspect.getsource(advisory.student_advisory_tab)
@@ -190,7 +197,7 @@ def test_advisory_career_advisor_blocked_in_real_lms_mode(real_lms_env):
     idx_id_col = source.find('id_col = next(')
     assert idx_gate != -1 and idx_id_col != -1
     assert idx_gate < idx_id_col, "Gate REAL_LMS phải đứng TRƯỚC phần logic xử lý dữ liệu/xếp hạng nghề nghiệp"
-    assert "return" in source[idx_gate: idx_id_col]
+    assert "return" in source[idx_gate:idx_id_col]
 
 
 def test_advisory_lms_cms_badges_no_longer_leak_raw_engineering_status():
@@ -199,6 +206,7 @@ def test_advisory_lms_cms_badges_no_longer_leak_raw_engineering_status():
     chú tiến độ phát triển (dev/thesis), không phải thông tin cho người dùng
     cuối — không được xuất hiện trong mã nguồn tab nữa dưới bất kỳ hình thức nào."""
     import inspect
+
     from dss.tabs import advisory
 
     source = inspect.getsource(advisory)
@@ -216,6 +224,7 @@ def test_advisory_lms_cms_data_source_block_hidden_from_student():
     gốc dữ liệu LMS/CMS) chỉ dành Giảng viên/Admin — Sinh viên không cần thấy
     (không có giá trị hành động, chỉ có ý nghĩa vận hành/quản trị)."""
     import inspect
+
     from dss.tabs import advisory
 
     source = inspect.getsource(advisory.student_advisory_tab)
@@ -236,11 +245,13 @@ def test_llm_gateway_semaphore_timeout_honest_in_real_lms(monkeypatch, real_lms_
     gw = llm_gateway.LLMGateway()
     monkeypatch.setattr(llm_gateway._GATEWAY_SEMAPHORE, "acquire", lambda timeout=None: False)
 
-    chunks = list(gw.stream_generate(
-        prompt="Cần kế hoạch học tập môn Toán",
-        user_id="sv_test_overload",
-        role="Sinh viên",
-    ))
+    chunks = list(
+        gw.stream_generate(
+            prompt="Cần kế hoạch học tập môn Toán",
+            user_id="sv_test_overload",
+            role="Sinh viên",
+        )
+    )
     full_text = "".join(chunks)
     assert "quá tải" in full_text.lower()
     assert "Demo" not in full_text
@@ -255,14 +266,17 @@ def test_llm_gateway_provider_chain_exhausted_honest_in_real_lms(monkeypatch, re
 
     gw = llm_gateway.LLMGateway()
     monkeypatch.setattr(
-        gw, "resolve_active_provider_and_model",
+        gw,
+        "resolve_active_provider_and_model",
         lambda **kwargs: ("demo", None, None),
     )
-    chunks = list(gw.stream_generate(
-        prompt="Cần kế hoạch học tập môn Toán",
-        user_id="sv_test_no_provider",
-        role="Sinh viên",
-    ))
+    chunks = list(
+        gw.stream_generate(
+            prompt="Cần kế hoạch học tập môn Toán",
+            user_id="sv_test_no_provider",
+            role="Sinh viên",
+        )
+    )
     full_text = "".join(chunks)
     assert "chưa khả dụng" in full_text.lower()
     assert "Kế hoạch học tập khuyến nghị" not in full_text
@@ -274,12 +288,14 @@ def test_llm_gateway_demo_fallback_unchanged_in_demo_synthetic_mode(demo_synthet
     from dss.services import llm_gateway
 
     gw = llm_gateway.LLMGateway()
-    chunks = list(gw.stream_generate(
-        prompt="Cần kế hoạch học tập môn Toán",
-        user_id="sv_test_demo_ok",
-        role="Sinh viên",
-        provider="demo",
-    ))
+    chunks = list(
+        gw.stream_generate(
+            prompt="Cần kế hoạch học tập môn Toán",
+            user_id="sv_test_demo_ok",
+            role="Sinh viên",
+            provider="demo",
+        )
+    )
     full_text = "".join(chunks)
     assert "Kế hoạch học tập" in full_text or "khuyến nghị" in full_text
 
@@ -294,11 +310,13 @@ def test_llm_gateway_overload_message_does_not_claim_personalization(demo_synthe
     gw = llm_gateway.LLMGateway()
     monkeypatch.setattr(llm_gateway._GATEWAY_SEMAPHORE, "acquire", lambda timeout=None: False)
 
-    chunks = list(gw.stream_generate(
-        prompt="Cần kế hoạch học tập môn Toán",
-        user_id="sv_test_overload_demo",
-        role="Sinh viên",
-    ))
+    chunks = list(
+        gw.stream_generate(
+            prompt="Cần kế hoạch học tập môn Toán",
+            user_id="sv_test_overload_demo",
+            role="Sinh viên",
+        )
+    )
     full_text = "".join(chunks)
     assert "demo mode cá nhân hóa" not in full_text.lower()
 
@@ -311,12 +329,14 @@ def test_llm_gateway_demo_text_discloses_it_is_generic_not_personalized(demo_syn
     from dss.services import llm_gateway
 
     gw = llm_gateway.LLMGateway()
-    chunks = list(gw.stream_generate(
-        prompt="Cần kế hoạch học tập môn Toán",
-        user_id="sv_test_demo_disclosure",
-        role="Sinh viên",
-        provider="demo",
-    ))
+    chunks = list(
+        gw.stream_generate(
+            prompt="Cần kế hoạch học tập môn Toán",
+            user_id="sv_test_demo_disclosure",
+            role="Sinh viên",
+            provider="demo",
+        )
+    )
     full_text = "".join(chunks)
     assert "không có mô hình ai khả dụng" in full_text.lower()
     assert "không được tạo cho riêng bạn" in full_text.lower() or "không được tạo riêng" in full_text.lower()
@@ -328,6 +348,7 @@ def test_admin_settings_lms_cms_status_no_longer_claims_fake_live_connection():
     có kết nối LMS thật trong khi nút hành động chỉ nạp dữ liệu mô phỏng. Đây
     là claim sai sự thật ở MỌI môi trường, không chỉ REAL_LMS."""
     import inspect
+
     from dss.tabs import admin_settings
 
     source = inspect.getsource(admin_settings)
@@ -342,6 +363,7 @@ def test_warehouse_tab_lms_live_push_panel_hidden_in_real_lms_mode():
     tiếp lên dataset đang mở bằng giá trị ngẫu nhiên — không phù hợp để bật
     trong REAL_LMS dù có gắn nhãn, vì có thể làm hỏng dữ liệu lớp học thật."""
     import inspect
+
     from dss.tabs import warehouse_tab
 
     source = inspect.getsource(warehouse_tab)
@@ -354,6 +376,7 @@ def test_warehouse_tab_lms_live_push_panel_hidden_in_real_lms_mode():
 def test_synthetic_gates_close_for_env_production_not_only_real_lms(monkeypatch):
     """C1.1: the same gates must also close when production is selected via EDUDSS_ENV."""
     from dss.core.runtime_mode import synthetic_data_allowed
+
     monkeypatch.delenv("EDUDSS_MODE", raising=False)
     monkeypatch.setenv("EDUDSS_ENV", "production")
     assert synthetic_data_allowed() is False

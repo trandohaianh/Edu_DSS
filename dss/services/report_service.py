@@ -6,6 +6,7 @@ tập cá nhân hóa khi chưa cấu hình LLM thật (chế độ Demo/offline)
 Service" trong kiến trúc mục tiêu (mục 18 bản yêu cầu refactor): tổng hợp kết
 quả ML + RAG thành nội dung trình bày, KHÔNG tự vẽ UI.
 """
+
 from __future__ import annotations
 
 
@@ -63,7 +64,9 @@ def build_demo_study_plan(student_id, predicted_gpa, weaknesses, profile, retrie
             label, matched_doc = None, None
 
         if matched_doc:
-            action = f"Chủ đề **{label}** — theo hướng dẫn \"{matched_doc.get('title')}\": {matched_doc.get('content', '')}"
+            action = (
+                f"Chủ đề **{label}** — theo hướng dẫn \"{matched_doc.get('title')}\": {matched_doc.get('content', '')}"
+            )
         elif label:
             action = f"Chủ đề **{label}**: {fallback_templates[(i - 1) % len(fallback_templates)]}"
         else:
@@ -81,6 +84,7 @@ def build_demo_study_plan(student_id, predicted_gpa, weaknesses, profile, retrie
     has_velocity = False
     if l_prof and isinstance(l_prof, dict):
         from dss.services.learning_profile import observed_number
+
         trajectory = l_prof.get("trajectory") or {}
         vel = observed_number(trajectory.get("learning_velocity")) if isinstance(trajectory, dict) else None
         has_velocity = vel is not None and vel > 0

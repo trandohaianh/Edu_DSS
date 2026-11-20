@@ -4,6 +4,7 @@ Credentials come only from DATABASE_URL / RESTORE_DATABASE_URL. Docker mode
 uses the database container's local socket and requires local authentication
 to work without a password; it never passes a password to docker's argv.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -15,7 +16,7 @@ import subprocess
 import sys
 import time
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from pathlib import Path
 
 from sqlalchemy.engine import make_url
@@ -48,9 +49,16 @@ def _connection(url, docker_container: str | None):
             raise BackupError("Invalid Docker container name")
         # Local socket authentication must be configured inside the DB
         # container. Do not pass PGPASSWORD via docker exec -e / argv.
-        return ["docker", "exec", "-i", docker_container], {}, [
-            "-U", url.username, "-d", url.database,
-        ]
+        return (
+            ["docker", "exec", "-i", docker_container],
+            {},
+            [
+                "-U",
+                url.username,
+                "-d",
+                url.database,
+            ],
+        )
     env = os.environ.copy()
     env.pop("DATABASE_URL", None)
     env.pop("RESTORE_DATABASE_URL", None)
@@ -59,25 +67,29 @@ def _connection(url, docker_container: str | None):
         env["PGPASSWORD"] = url.password
     else:
         env.pop("PGPASSWORD", None)
-    address = ["-h", url.host or "localhost", "-p", str(url.port or 5432),
-               "-U", url.username, "-d", url.database]
+    address = ["-h", url.host or "localhost", "-p", str(url.port or 5432), "-U", url.username, "-d", url.database]
     return [], env, address
 
 
-def _run(program: str, url, docker_container: str | None, args: list[str],
-         *, input_file=None, output_file=None) -> str:
+def _run(program: str, url, docker_container: str | None, args: list[str], *, input_file=None, output_file=None) -> str:
     prefix, env, address = _connection(url, docker_container)
     cmd = [*prefix, program, *address, *args]
     try:
         result = subprocess.run(
-            cmd, stdin=input_file, stdout=output_file or subprocess.PIPE,
-            stderr=subprocess.PIPE, env=env or None, check=False,
+            cmd,
+            stdin=input_file,
+            stdout=output_file or subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=env or None,
+            check=False,
         )
     except (OSError, ValueError) as exc:
         raise BackupError(f"{program} could not start; check PostgreSQL client tools") from exc
     if result.returncode:
         # Client stderr can contain connection strings or private SQL values.
-        raise BackupError(f"{program} failed (exit {result.returncode}); check connection, permissions and target state")
+        raise BackupError(
+            f"{program} failed (exit {result.returncode}); check connection, permissions and target state"
+        )
     return result.stdout.decode("utf-8", errors="replace").strip() if output_file is None else ""
 
 
@@ -103,7 +115,7 @@ def backup(directory: Path, docker_container: str | None = None) -> dict:
     url = _url("DATABASE_URL")
     directory = _safe_backup_dir(directory)
     directory.mkdir(parents=True, exist_ok=True, mode=0o700)
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     name = f"{re.sub('[^A-Za-z0-9_-]', '_', url.database)}-{stamp}-{uuid.uuid4().hex[:8]}"
     archive = directory / f"{name}.dump"
     temporary = directory / f".{name}.partial"
@@ -112,23 +124,29 @@ def backup(directory: Path, docker_container: str | None = None) -> dict:
     _emit("backup_started", database=url.database, timestamp=stamp)
     try:
         with os.fdopen(os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "wb") as out:
-            _run("pg_dump", url, docker_container,
-                 ["--format=custom", "--no-owner"], output_file=out)
+            _run("pg_dump", url, docker_container, ["--format=custom", "--no-owner"], output_file=out)
         if temporary.stat().st_size == 0:
             raise BackupError("pg_dump produced an empty archive")
         digest = checksum(temporary)
         temporary.replace(archive)
         metadata = {
-            "format": "pg_dump_custom", "database": url.database,
-            "timestamp_utc": stamp, "archive": archive.name,
-            "size_bytes": archive.stat().st_size, "sha256": digest,
+            "format": "pg_dump_custom",
+            "database": url.database,
+            "timestamp_utc": stamp,
+            "archive": archive.name,
+            "size_bytes": archive.stat().st_size,
+            "sha256": digest,
         }
-        with os.fdopen(os.open(manifest, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600),
-                       "w", encoding="utf-8") as out:
+        with os.fdopen(os.open(manifest, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "w", encoding="utf-8") as out:
             json.dump(metadata, out, sort_keys=True, indent=2)
-        _emit("backup_completed", database=url.database, timestamp=stamp,
-              size_bytes=metadata["size_bytes"], sha256=digest,
-              duration_seconds=round(time.monotonic() - started, 3))
+        _emit(
+            "backup_completed",
+            database=url.database,
+            timestamp=stamp,
+            size_bytes=metadata["size_bytes"],
+            sha256=digest,
+            duration_seconds=round(time.monotonic() - started, 3),
+        )
         return metadata
     except Exception:
         temporary.unlink(missing_ok=True)
@@ -147,25 +165,27 @@ def verify(manifest_path: Path) -> tuple[dict, Path]:
     try:
         metadata = json.loads(manifest_path.read_text(encoding="utf-8"))
         archive_name = metadata["archive"]
-        if (not isinstance(archive_name, str) or
-                not re.fullmatch(r"[A-Za-z0-9_-]+\.dump", archive_name)):
+        if not isinstance(archive_name, str) or not re.fullmatch(r"[A-Za-z0-9_-]+\.dump", archive_name):
             raise BackupError("Manifest archive name is unsafe")
         archive = manifest_path.parent / archive_name
         if archive.is_symlink() or not archive.is_file():
             raise BackupError("Backup archive is missing or is a symlink")
         if metadata["format"] != "pg_dump_custom":
             raise BackupError("Unsupported backup format")
-        if (not isinstance(metadata["database"], str) or
-                not re.fullmatch(r"[A-Za-z0-9_-]+", metadata["database"]) or
-                not isinstance(metadata["sha256"], str) or
-                not re.fullmatch(r"[a-f0-9]{64}", metadata["sha256"])):
+        if (
+            not isinstance(metadata["database"], str)
+            or not re.fullmatch(r"[A-Za-z0-9_-]+", metadata["database"])
+            or not isinstance(metadata["sha256"], str)
+            or not re.fullmatch(r"[a-f0-9]{64}", metadata["sha256"])
+        ):
             raise BackupError("Backup manifest metadata is invalid")
         if archive.stat().st_size != metadata["size_bytes"] or checksum(archive) != metadata["sha256"]:
             raise BackupError("Backup checksum or size mismatch")
     except (ValueError, KeyError, TypeError, OSError) as exc:
         raise BackupError("Backup manifest is invalid") from exc
-    _emit("backup_verified", database=metadata["database"],
-          size_bytes=metadata["size_bytes"], sha256=metadata["sha256"])
+    _emit(
+        "backup_verified", database=metadata["database"], size_bytes=metadata["size_bytes"], sha256=metadata["sha256"]
+    )
     return metadata, archive
 
 
@@ -183,17 +203,34 @@ def restore(manifest_path: Path, docker_container: str | None = None) -> None:
     _emit("restore_started", database=target_url.database, source_database=source_url.database)
     # Refuse any existing user tables. The target database must already exist
     # and be empty; this command never drops or creates a database.
-    count = _run("psql", target_url, docker_container,
-                 ["-At", "-c", "SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace "
-                  "WHERE c.relkind IN ('r','p') AND n.nspname NOT IN "
-                  "('pg_catalog','information_schema') AND n.nspname NOT LIKE 'pg_toast%'"])
+    count = _run(
+        "psql",
+        target_url,
+        docker_container,
+        [
+            "-At",
+            "-c",
+            "SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace "
+            "WHERE c.relkind IN ('r','p') AND n.nspname NOT IN "
+            "('pg_catalog','information_schema') AND n.nspname NOT LIKE 'pg_toast%'",
+        ],
+    )
     if count != "0":
         raise BackupError("Restore target is not empty")
     with archive.open("rb") as source:
-        _run("pg_restore", target_url, docker_container,
-             ["--exit-on-error", "--single-transaction", "--no-owner"], input_file=source)
-    _emit("restore_completed", database=target_url.database,
-          duration_seconds=round(time.monotonic() - started, 3), sha256=metadata["sha256"])
+        _run(
+            "pg_restore",
+            target_url,
+            docker_container,
+            ["--exit-on-error", "--single-transaction", "--no-owner"],
+            input_file=source,
+        )
+    _emit(
+        "restore_completed",
+        database=target_url.database,
+        duration_seconds=round(time.monotonic() - started, 3),
+        sha256=metadata["sha256"],
+    )
 
 
 def retention(directory: Path, days: int, dry_run: bool = True) -> list[str]:

@@ -18,13 +18,14 @@ Nguyên tắc bắt buộc:
   vector_store.py, rag_namespaces.py) — không xây một vector store/ingestion
   pipeline riêng cho CMS.
 """
+
 from __future__ import annotations
 
 import json
 import os
 import threading
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -66,7 +67,9 @@ class CMSLesson:
     lecturer_id: str
     title: str
     learning_outcome: str = ""
-    difficulty: str = "Standard"  # Foundation | Standard | Advanced (độ khó GỐC do GV gắn, khác Explanation Level cá nhân hoá)
+    difficulty: str = (
+        "Standard"  # Foundation | Standard | Advanced (độ khó GỐC do GV gắn, khác Explanation Level cá nhân hoá)
+    )
     ai_enabled: bool = True
     official_source: bool = True
     current_document_id: Optional[str] = None
@@ -79,17 +82,19 @@ class CMSLesson:
     socratic_allowed: bool = True
     quiz_allowed: bool = True
     quiz_requires_approval: bool = True
-    excluded_document_ids: List[str] = field(default_factory=list)  # tài liệu bị loại khỏi retrieval dù còn trong versions
+    excluded_document_ids: List[str] = field(
+        default_factory=list
+    )  # tài liệu bị loại khỏi retrieval dù còn trong versions
     preferred_terminology: List[Dict[str, str]] = field(default_factory=list)  # [{"term":..., "preferred":...}]
-    created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
-    updated_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    created_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
+    updated_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
 
     def to_dict(self) -> Dict[str, Any]:
         d = asdict(self)
         return d
 
     @classmethod
-    def from_dict(cls, d: Dict[str, Any]) -> "CMSLesson":
+    def from_dict(cls, d: Dict[str, Any]) -> CMSLesson:
         versions = [LessonVersion(**v) for v in d.get("versions", [])]
         d = dict(d)
         d["versions"] = versions
@@ -101,7 +106,7 @@ def _load_registry() -> Dict[str, Dict[str, Any]]:
     if not registry_path.exists():
         return {}
     try:
-        with open(registry_path, "r", encoding="utf-8") as f:
+        with open(registry_path, encoding="utf-8") as f:
             return json.load(f)
     except (json.JSONDecodeError, OSError):
         return {}
@@ -118,8 +123,10 @@ def _save_registry(registry: Dict[str, Dict[str, Any]]) -> None:
 
 def get_lesson(lesson_id: str) -> Optional[CMSLesson]:
     from dss.core.persistence_config import is_postgres_enabled
+
     if is_postgres_enabled("CMS"):
         from dss.db.repositories import cms_repository
+
         raw = cms_repository.get_lesson(_current_organization_id(), lesson_id)
         return CMSLesson.from_dict(raw) if raw else None
     registry = _load_registry()
@@ -129,8 +136,10 @@ def get_lesson(lesson_id: str) -> Optional[CMSLesson]:
 
 def list_lessons(course_id: Optional[str] = None) -> List[CMSLesson]:
     from dss.core.persistence_config import is_postgres_enabled
+
     if is_postgres_enabled("CMS"):
         from dss.db.repositories import cms_repository
+
         return [CMSLesson.from_dict(x) for x in cms_repository.list_lessons(_current_organization_id(), course_id)]
     registry = _load_registry()
     lessons = [CMSLesson.from_dict(d) for d in registry.values()]
@@ -141,27 +150,39 @@ def list_lessons(course_id: Optional[str] = None) -> List[CMSLesson]:
 
 def _upsert_lesson(lesson: CMSLesson) -> None:
     from dss.core.persistence_config import is_postgres_enabled
+
     if is_postgres_enabled("CMS"):
         from dss.db.repositories import cms_repository
+
         cms_repository.upsert_lesson(_current_organization_id(), lesson.to_dict())
         return
     with _LOCK:
         registry = _load_registry()
-        lesson.updated_at = datetime.now(timezone.utc).isoformat()
+        lesson.updated_at = datetime.now(UTC).isoformat()
         registry[lesson.lesson_id] = lesson.to_dict()
         _save_registry(registry)
 
 
 def create_or_get_lesson(
-    course_id: str, lesson_id: str, topic_id: str, lecturer_id: str, title: str,
-    learning_outcome: str = "", difficulty: str = "Standard",
+    course_id: str,
+    lesson_id: str,
+    topic_id: str,
+    lecturer_id: str,
+    title: str,
+    learning_outcome: str = "",
+    difficulty: str = "Standard",
 ) -> CMSLesson:
     existing = get_lesson(lesson_id)
     if existing:
         return existing
     lesson = CMSLesson(
-        lesson_id=lesson_id, course_id=course_id, topic_id=topic_id, lecturer_id=lecturer_id,
-        title=title, learning_outcome=learning_outcome, difficulty=difficulty,
+        lesson_id=lesson_id,
+        course_id=course_id,
+        topic_id=topic_id,
+        lecturer_id=lecturer_id,
+        title=title,
+        learning_outcome=learning_outcome,
+        difficulty=difficulty,
     )
     _upsert_lesson(lesson)
     return lesson
@@ -260,6 +281,7 @@ def ingest_lecture_material(
     document_ingestion.ingest_document() + chunking_service (qua đó) +
     vector_store — không viết lại pipeline trích xuất/phân đoạn."""
     from dss.services import engine_gateway
+
     if engine_gateway.enabled():
         actor = engine_gateway.authorize_staff_course(course_id)
         existing = get_lesson(lesson_id)
@@ -294,10 +316,15 @@ def ingest_lecture_material(
     vstore = vector_store.get_vector_store(namespace=NAMESPACE_STUDENT_LEARNING)
     vstore.add_chunks(ingested.chunks)
 
-    lesson.versions.append(LessonVersion(
-        document_id=ingested.document_id, version=next_version,
-        uploaded_at=ingested.created_at, uploaded_by=lecturer_id, source_file=file_name,
-    ))
+    lesson.versions.append(
+        LessonVersion(
+            document_id=ingested.document_id,
+            version=next_version,
+            uploaded_at=ingested.created_at,
+            uploaded_by=lecturer_id,
+            source_file=file_name,
+        )
+    )
     lesson.current_document_id = ingested.document_id  # bản MỚI NHẤT luôn là "current"
     _upsert_lesson(lesson)
     engine_gateway.auto_sync_upload(course_id, lesson_id, ingested.chunks)

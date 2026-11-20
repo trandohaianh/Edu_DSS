@@ -2,6 +2,7 @@
 rag_service.retrieve_unified_context (kho tri thức thật, đã duyệt) — KHÔNG
 còn gọi rag_service.retrieve_documents (đường cũ, chỉ đọc 19 tài liệu viết
 cứng + runtime_documents, không bao giờ chạm tới vector_store thật)."""
+
 from __future__ import annotations
 
 import inspect
@@ -20,8 +21,7 @@ def test_find_docs_rag_safe_calls_unified_retrieval():
 def test_find_docs_rag_safe_no_longer_calls_legacy_retrieve_documents():
     source = inspect.getsource(ai_advisor.ai_advisor_tab)
     assert "rag_service.retrieve_documents(" not in source, (
-        "_find_docs_rag_safe vẫn gọi rag_service.retrieve_documents (đường cũ) "
-        "— 2 luồng RAG vẫn chưa thực sự hợp nhất."
+        "_find_docs_rag_safe vẫn gọi rag_service.retrieve_documents (đường cũ) — 2 luồng RAG vẫn chưa thực sự hợp nhất."
     )
 
 

@@ -1,22 +1,29 @@
 """FINAL REMAINING-GAPS CLOSURE — Section 4: the remaining 3 Agent tool
 orders (B regulation/rule, C risk explanation, D personalized plan)."""
+
 from __future__ import annotations
 
 from dss.services import agent
 from dss.services.regulation_resolver import RegulationVersion
-from dss.services.rule_engine import AcademicRule, RULE_TYPE_CREDIT_LIMIT
+from dss.services.rule_engine import RULE_TYPE_CREDIT_LIMIT, AcademicRule
 
 
 def _request(**overrides):
     defaults = dict(
-        user_id="student_A", organization_id="org-1", role=agent._ROLE_STUDENT,
-        intent="ACADEMIC_RULE_CHECK", authorized_context={}, request_text="...", correlation_id="c1",
+        user_id="student_A",
+        organization_id="org-1",
+        role=agent._ROLE_STUDENT,
+        intent="ACADEMIC_RULE_CHECK",
+        authorized_context={},
+        request_text="...",
+        correlation_id="c1",
     )
     defaults.update(overrides)
     return agent.AgentRequest(**defaults)
 
 
 # --- B. Regulation / rule check ---------------------------------------
+
 
 def test_regulation_check_insufficient_data_when_no_regulations_provided():
     request = _request(authorized_context={})
@@ -26,13 +33,23 @@ def test_regulation_check_insufficient_data_when_no_regulations_provided():
 
 def test_regulation_check_resolves_real_regulation_and_validates():
     reg = RegulationVersion(
-        regulation_id="QC-1", organization_id="org-1", program_id="cntt", cohort="k66",
-        version=1, effective_from="2024-01-01", effective_to=None, status="APPROVED",
-        approved_by="admin", source_document_id=None,
+        regulation_id="QC-1",
+        organization_id="org-1",
+        program_id="cntt",
+        cohort="k66",
+        version=1,
+        effective_from="2024-01-01",
+        effective_to=None,
+        status="APPROVED",
+        approved_by="admin",
+        source_document_id=None,
     )
     request = _request(
         authorized_context={
-            "regulations": [reg], "organization_id": "org-1", "program_id": "cntt", "cohort": "k66",
+            "regulations": [reg],
+            "organization_id": "org-1",
+            "program_id": "cntt",
+            "cohort": "k66",
         },
     )
     result = agent.run_regulation_or_rule_check(request)
@@ -44,18 +61,34 @@ def test_regulation_check_resolves_real_regulation_and_validates():
 
 def test_regulation_check_also_evaluates_rule_when_regulation_resolved():
     reg = RegulationVersion(
-        regulation_id="QC-1", organization_id="org-1", program_id="cntt", cohort="k66",
-        version=1, effective_from="2024-01-01", effective_to=None, status="APPROVED",
-        approved_by="admin", source_document_id=None,
+        regulation_id="QC-1",
+        organization_id="org-1",
+        program_id="cntt",
+        cohort="k66",
+        version=1,
+        effective_from="2024-01-01",
+        effective_to=None,
+        status="APPROVED",
+        approved_by="admin",
+        source_document_id=None,
     )
     rule = AcademicRule(
-        rule_id="r1", regulation_id="QC-1", regulation_version=1, organization_id="org-1",
-        rule_type=RULE_TYPE_CREDIT_LIMIT, effective_from="2024-01-01", effective_to=None,
-        status="APPROVED", params={"max_credits": 24},
+        rule_id="r1",
+        regulation_id="QC-1",
+        regulation_version=1,
+        organization_id="org-1",
+        rule_type=RULE_TYPE_CREDIT_LIMIT,
+        effective_from="2024-01-01",
+        effective_to=None,
+        status="APPROVED",
+        params={"max_credits": 24},
     )
     request = _request(
         authorized_context={
-            "regulations": [reg], "organization_id": "org-1", "program_id": "cntt", "cohort": "k66",
+            "regulations": [reg],
+            "organization_id": "org-1",
+            "program_id": "cntt",
+            "cohort": "k66",
             "rule": {"evaluate_fn_name": "evaluate_credit_limit", "rule": rule, "kwargs": {"requested_credits": 30}},
         },
     )
@@ -66,14 +99,17 @@ def test_regulation_check_also_evaluates_rule_when_regulation_resolved():
 
 def test_regulation_check_enforces_authorization():
     import pytest
+
     request = _request(
-        user_id="student_A", authorized_context={"subject_user_id": "student_B"},
+        user_id="student_A",
+        authorized_context={"subject_user_id": "student_B"},
     )
     with pytest.raises(agent.AuthorizationError):
         agent.run_regulation_or_rule_check(request)
 
 
 # --- C. Risk explanation ------------------------------------------------
+
 
 def test_risk_explanation_returns_precomputed_evidence():
     request = _request(
@@ -94,9 +130,16 @@ def test_risk_explanation_insufficient_data_when_missing_shap():
 
 def test_risk_explanation_enforces_authorization():
     import pytest
+
     request = _request(
-        intent="LEARNING_EXPLANATION", user_id="student_A",
-        authorized_context={"subject_user_id": "student_B", "prediction": 1, "model_version": "v1", "shap_evidence": {}},
+        intent="LEARNING_EXPLANATION",
+        user_id="student_A",
+        authorized_context={
+            "subject_user_id": "student_B",
+            "prediction": 1,
+            "model_version": "v1",
+            "shap_evidence": {},
+        },
     )
     with pytest.raises(agent.AuthorizationError):
         agent.run_risk_explanation(request)
@@ -104,17 +147,31 @@ def test_risk_explanation_enforces_authorization():
 
 # --- D. Personalized plan -----------------------------------------------
 
+
 def test_personalized_plan_combines_gpa_and_regulation_evidence():
     reg = RegulationVersion(
-        regulation_id="QC-1", organization_id="org-1", program_id="cntt", cohort="k66",
-        version=1, effective_from="2024-01-01", effective_to=None, status="APPROVED",
-        approved_by="admin", source_document_id=None,
+        regulation_id="QC-1",
+        organization_id="org-1",
+        program_id="cntt",
+        cohort="k66",
+        version=1,
+        effective_from="2024-01-01",
+        effective_to=None,
+        status="APPROVED",
+        approved_by="admin",
+        source_document_id=None,
     )
     request = _request(
         intent="ADVISOR_PLAN",
         authorized_context={
-            "current_gpa": 6.0, "credits_done": 20, "target_gpa": 7.5, "credits_remaining": 20,
-            "regulations": [reg], "organization_id": "org-1", "program_id": "cntt", "cohort": "k66",
+            "current_gpa": 6.0,
+            "credits_done": 20,
+            "target_gpa": 7.5,
+            "credits_remaining": 20,
+            "regulations": [reg],
+            "organization_id": "org-1",
+            "program_id": "cntt",
+            "cohort": "k66",
         },
     )
     result = agent.run_personalized_plan(request)
@@ -131,9 +188,17 @@ def test_personalized_plan_insufficient_data_when_nothing_available():
 
 def test_personalized_plan_enforces_authorization():
     import pytest
+
     request = _request(
-        intent="ADVISOR_PLAN", user_id="student_A",
-        authorized_context={"subject_user_id": "student_B", "current_gpa": 6.0, "credits_done": 20, "target_gpa": 7.5, "credits_remaining": 20},
+        intent="ADVISOR_PLAN",
+        user_id="student_A",
+        authorized_context={
+            "subject_user_id": "student_B",
+            "current_gpa": 6.0,
+            "credits_done": 20,
+            "target_gpa": 7.5,
+            "credits_remaining": 20,
+        },
     )
     with pytest.raises(agent.AuthorizationError):
         agent.run_personalized_plan(request)

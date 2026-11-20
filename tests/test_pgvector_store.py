@@ -8,6 +8,7 @@ distance math, not a Python-side sklearn pass over an in-memory matrix like
 LocalVectorStore), and that add/search/delete/list are tenant-scoped through
 the same RLS mechanism as every other Phase 1B repository.
 """
+
 from __future__ import annotations
 
 import uuid
@@ -25,6 +26,7 @@ pytestmark = pytest.mark.skipif(
 
 def _connection_url() -> str:
     from dss.db.session import _resolve_database_url
+
     return _resolve_database_url()
 
 
@@ -43,6 +45,7 @@ def org_id():
 @pytest.fixture()
 def store(org_id):
     from dss.services.vector_store import PgVectorStore
+
     s = PgVectorStore(_connection_url(), organization_id=org_id)
     assert s.is_available()
     return s
@@ -59,8 +62,11 @@ def _unit_vector(dim: int, hot_index: int) -> list:
 
 def _chunk(chunk_id, document_id, content, hot_index, dim=384, metadata=None):
     return DocumentChunk(
-        chunk_id=chunk_id, document_id=document_id, course_id="CS301",
-        content=content, token_count=len(content.split()),
+        chunk_id=chunk_id,
+        document_id=document_id,
+        course_id="CS301",
+        content=content,
+        token_count=len(content.split()),
         metadata=metadata or {"title": document_id, "source": "unit-test"},
         embedding=_unit_vector(dim, hot_index),
     )
@@ -87,6 +93,7 @@ def test_add_chunks_upserts_on_conflict(store):
 
     from dss.db.models import RagChunk
     from dss.db.session import session_scope
+
     with session_scope() as session:
         rows = session.query(RagChunk).filter_by(chunk_id="c1").all()
     assert len(rows) == 1
@@ -97,11 +104,13 @@ def test_search_ranks_by_real_pgvector_distance_not_python(store):
     """Three chunks: one identical direction to the query, one orthogonal-ish,
     one opposite. If ranking is real SQL `<=>` distance (not insertion order,
     not a random default), the identical one must come back first."""
-    store.add_chunks([
-        _chunk("near", "doc_a", "closest", hot_index=5),
-        _chunk("mid", "doc_a", "middle", hot_index=50),
-        _chunk("far", "doc_a", "farthest", hot_index=383),
-    ])
+    store.add_chunks(
+        [
+            _chunk("near", "doc_a", "closest", hot_index=5),
+            _chunk("mid", "doc_a", "middle", hot_index=50),
+            _chunk("far", "doc_a", "farthest", hot_index=383),
+        ]
+    )
     query = _unit_vector(384, 5)  # identical to "near"
     results = store.search(query, top_k=3)
 
@@ -129,6 +138,7 @@ def test_delete_document_cascades_to_chunks(store, org_id):
 
     from dss.db.models import RagChunk, RagDocument
     from dss.db.session import session_scope
+
     with session_scope() as session:
         assert session.query(RagDocument).filter_by(organization_id=org_id, document_id="doc_a").count() == 0
         assert session.query(RagChunk).filter_by(chunk_id="c1").count() == 0
@@ -170,6 +180,7 @@ def test_cross_tenant_isolation(org_id):
 
 def test_search_requires_organization_id():
     from dss.services.vector_store import PgVectorStore
+
     store = PgVectorStore(_connection_url(), organization_id=None)
     with pytest.raises(RuntimeError):
         store.search(_unit_vector(384, 0), top_k=5)
@@ -177,6 +188,7 @@ def test_search_requires_organization_id():
 
 def test_add_chunks_requires_organization_id():
     from dss.services.vector_store import PgVectorStore
+
     store = PgVectorStore(_connection_url(), organization_id=None)
     with pytest.raises(RuntimeError):
         store.add_chunks([_chunk("c1", "doc_a", "content", 0)])

@@ -12,6 +12,7 @@ Ma trận quyền đang mã hoá (đúng theo code hiện tại, KHÔNG phải s
     - Giảng viên + Admin: bộ chọn provider rút gọn (không xem key), So sánh AI.
     - Sinh viên: không quyền nào ở trên.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -37,19 +38,27 @@ def _expect_permission_error_or_pass(fn, should_allow):
     assert should_allow, "lẽ ra phải bị PermissionError nhưng lại chạy xong"
 
 
-@pytest.mark.parametrize("role,should_allow", [
-    ("Sinh viên", False), ("Giảng viên / CVHT", False), ("Admin", True),
-])
+@pytest.mark.parametrize(
+    "role,should_allow",
+    [
+        ("Sinh viên", False),
+        ("Giảng viên / CVHT", False),
+        ("Admin", True),
+    ],
+)
 def test_admin_provider_config_is_admin_only(as_role, role, should_allow):
     as_role(role)
-    _expect_permission_error_or_pass(
-        lambda: ai_advisor._render_admin_provider_config(None, [], {}), should_allow
-    )
+    _expect_permission_error_or_pass(lambda: ai_advisor._render_admin_provider_config(None, [], {}), should_allow)
 
 
-@pytest.mark.parametrize("role,should_allow", [
-    ("Sinh viên", False), ("Giảng viên / CVHT", False), ("Admin", True),
-])
+@pytest.mark.parametrize(
+    "role,should_allow",
+    [
+        ("Sinh viên", False),
+        ("Giảng viên / CVHT", False),
+        ("Admin", True),
+    ],
+)
 def test_connection_test_is_admin_only(as_role, role, should_allow):
     as_role(role)
     _expect_permission_error_or_pass(
@@ -58,40 +67,60 @@ def test_connection_test_is_admin_only(as_role, role, should_allow):
     )
 
 
-@pytest.mark.parametrize("role,should_allow", [
-    ("Sinh viên", False), ("Giảng viên / CVHT", True), ("Admin", True),
-])
+@pytest.mark.parametrize(
+    "role,should_allow",
+    [
+        ("Sinh viên", False),
+        ("Giảng viên / CVHT", True),
+        ("Admin", True),
+    ],
+)
 def test_teacher_provider_picker_open_to_lecturer_and_admin(as_role, role, should_allow):
     as_role(role)
-    _expect_permission_error_or_pass(
-        lambda: ai_advisor._render_teacher_provider_picker(None, {}), should_allow
-    )
+    _expect_permission_error_or_pass(lambda: ai_advisor._render_teacher_provider_picker(None, {}), should_allow)
 
 
-@pytest.mark.parametrize("role,should_allow", [
-    ("Sinh viên", False), ("Giảng viên / CVHT", True), ("Admin", True),
-])
+@pytest.mark.parametrize(
+    "role,should_allow",
+    [
+        ("Sinh viên", False),
+        ("Giảng viên / CVHT", True),
+        ("Admin", True),
+    ],
+)
 def test_compare_ai_open_to_lecturer_and_admin(as_role, role, should_allow):
     as_role(role)
-    _expect_permission_error_or_pass(
-        lambda: ai_advisor._run_compare_ai(None, [], [], 5.0, {}, []), should_allow
-    )
+    _expect_permission_error_or_pass(lambda: ai_advisor._run_compare_ai(None, [], [], 5.0, {}, []), should_allow)
 
 
-@pytest.mark.parametrize("role,should_allow", [
-    ("Sinh viên", False), ("Giảng viên / CVHT", False), ("Admin", True),
-])
-def test_admin_ai_config_set_default_provider_is_admin_only(as_role, role, should_allow, isolated_default_provider_file):
+@pytest.mark.parametrize(
+    "role,should_allow",
+    [
+        ("Sinh viên", False),
+        ("Giảng viên / CVHT", False),
+        ("Admin", True),
+    ],
+)
+def test_admin_ai_config_set_default_provider_is_admin_only(
+    as_role, role, should_allow, isolated_default_provider_file
+):
     as_role(role)
     _expect_permission_error_or_pass(
         lambda: admin_ai_config.set_default_provider("gemini", "gemini-3.6-flash"), should_allow
     )
 
 
-@pytest.mark.parametrize("role,should_allow", [
-    ("Sinh viên", False), ("Giảng viên / CVHT", False), ("Admin", True),
-])
-def test_admin_ai_config_clear_default_provider_is_admin_only(as_role, role, should_allow, isolated_default_provider_file):
+@pytest.mark.parametrize(
+    "role,should_allow",
+    [
+        ("Sinh viên", False),
+        ("Giảng viên / CVHT", False),
+        ("Admin", True),
+    ],
+)
+def test_admin_ai_config_clear_default_provider_is_admin_only(
+    as_role, role, should_allow, isolated_default_provider_file
+):
     as_role(role)
     _expect_permission_error_or_pass(lambda: admin_ai_config.clear_default_provider(), should_allow)
 
@@ -103,24 +132,30 @@ def test_admin_ai_config_get_default_provider_has_no_role_restriction(as_role, i
     assert admin_ai_config.get_default_provider() is None  # chưa set gì
 
 
-@pytest.mark.parametrize("role,should_allow", [
-    ("Sinh viên", False), ("Giảng viên / CVHT", False), ("Admin", True),
-])
+@pytest.mark.parametrize(
+    "role,should_allow",
+    [
+        ("Sinh viên", False),
+        ("Giảng viên / CVHT", False),
+        ("Admin", True),
+    ],
+)
 def test_model_registry_promote_is_admin_only(as_role, role, should_allow, warehouse):
     as_role(role)
-    _expect_permission_error_or_pass(
-        lambda: model_registry.promote(warehouse, "khong-ton-tai"), should_allow
-    )
+    _expect_permission_error_or_pass(lambda: model_registry.promote(warehouse, "khong-ton-tai"), should_allow)
 
 
-@pytest.mark.parametrize("role,should_allow", [
-    ("Sinh viên", False), ("Giảng viên / CVHT", False), ("Admin", True),
-])
+@pytest.mark.parametrize(
+    "role,should_allow",
+    [
+        ("Sinh viên", False),
+        ("Giảng viên / CVHT", False),
+        ("Admin", True),
+    ],
+)
 def test_model_registry_rollback_is_admin_only(as_role, role, should_allow, warehouse):
     as_role(role)
-    _expect_permission_error_or_pass(
-        lambda: model_registry.rollback(warehouse, "khong-ton-tai"), should_allow
-    )
+    _expect_permission_error_or_pass(lambda: model_registry.rollback(warehouse, "khong-ton-tai"), should_allow)
 
 
 def test_model_registry_read_actions_have_no_role_restriction(as_role, warehouse):

@@ -10,6 +10,7 @@ Phân bổ rõ ràng:
 Thay vì âm thầm để vượt quá giới hạn ngữ cảnh (dẫn tới bị model cắt ngang hoặc tốn chi phí),
 hệ thống chủ động cắt tỉa (trim) và tóm lược các phần ngữ cảnh theo thứ tự ưu tiên.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass

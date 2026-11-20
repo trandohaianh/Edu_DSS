@@ -3,17 +3,18 @@
 Use DATABASE_URL of the migration owner. Passwords use getpass, never argv.
 Local mode is explicitly development-only and needs a separate data root/scope.
 """
+
 from __future__ import annotations
 
 import argparse
-from contextlib import contextmanager
 import getpass
 import json
 import os
-from pathlib import Path
 import sys
 import tempfile
 import warnings
+from contextlib import contextmanager
+from pathlib import Path
 
 APP_ROOT = Path(__file__).resolve().parents[1]
 if str(APP_ROOT) not in sys.path:
@@ -26,8 +27,12 @@ class BootstrapError(ValueError):
 
 
 def _text(value, maximum, label):
-    if (not isinstance(value, str) or not value.strip() or len(value.strip()) > maximum
-            or any(ord(char) < 32 or ord(char) == 127 for char in value)):
+    if (
+        not isinstance(value, str)
+        or not value.strip()
+        or len(value.strip()) > maximum
+        or any(ord(char) < 32 or ord(char) == 127 for char in value)
+    ):
         raise BootstrapError(label + " is missing or invalid.")
     return value.strip()
 
@@ -49,13 +54,21 @@ def _validate_password(password):
 
 
 def _result(backend, organization_id, org_code, username, role):
-    return dict(ok=True, created=True, backend=backend, organization_id=organization_id,
-                org_code=org_code, username=username, role=role)
+    return dict(
+        ok=True,
+        created=True,
+        backend=backend,
+        organization_id=organization_id,
+        org_code=org_code,
+        username=username,
+        role=role,
+    )
 
 
 def provision_account(session, *, org_code, org_name, username, role, password):
     """Create only organization/catalog/account in the caller's transaction."""
     from sqlalchemy import func, select
+
     from dss.db.models import Organization, User
     from dss.db.seed import seed_roles
     from dss.services.auth_service import _hash_password
@@ -68,20 +81,29 @@ def provision_account(session, *, org_code, org_name, username, role, password):
             raise BootstrapError("The organization is inactive; no account was created.")
         if organization.name != name:
             raise BootstrapError("The organization code has a different name; use its existing name.")
-        duplicate = session.scalar(select(User.id).where(
-            User.organization_id == organization.id, func.lower(User.username) == user).limit(1))
+        duplicate = session.scalar(
+            select(User.id).where(User.organization_id == organization.id, func.lower(User.username) == user).limit(1)
+        )
         if duplicate is not None:
             raise BootstrapError("That username already exists in this organization; it was not changed.")
     else:
-        organization = Organization(org_code=code, name=name, is_active=True,
-                                    lifecycle_status="ACTIVE", deployment_mode="DEDICATED")
+        organization = Organization(
+            org_code=code, name=name, is_active=True, lifecycle_status="ACTIVE", deployment_mode="DEDICATED"
+        )
         session.add(organization)
         session.flush()
     roles = seed_roles(session)
     password_hash, salt = _hash_password(password)
-    account = User(organization_id=organization.id, username=user,
-                   password_hash=password_hash, password_salt=salt, role_id=roles[role].id,
-                   student_id=None, is_active=True, auto_provisioned=False)
+    account = User(
+        organization_id=organization.id,
+        username=user,
+        password_hash=password_hash,
+        password_salt=salt,
+        role_id=roles[role].id,
+        student_id=None,
+        is_active=True,
+        auto_provisioned=False,
+    )
     session.add(account)
     session.flush()
     return _result("postgres", organization.id, code, user, role)
@@ -89,14 +111,17 @@ def provision_account(session, *, org_code, org_name, username, role, password):
 
 def _require_owner(engine):
     from sqlalchemy import text
+
     with engine.connect() as connection:
         superuser = connection.scalar(text("SELECT rolsuper FROM pg_roles WHERE rolname = current_user"))
-        row = connection.execute(text(
-            "SELECT count(*) AS total, bool_and(pg_has_role(current_user, c.relowner, 'USAGE')) AS owns "
-            "FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace "
-            "WHERE n.nspname = 'public' AND c.relname IN ('organizations','roles','users') "
-            "AND c.relkind = 'r'"
-        )).one()
+        row = connection.execute(
+            text(
+                "SELECT count(*) AS total, bool_and(pg_has_role(current_user, c.relowner, 'USAGE')) AS owns "
+                "FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace "
+                "WHERE n.nspname = 'public' AND c.relname IN ('organizations','roles','users') "
+                "AND c.relkind = 'r'"
+            )
+        ).one()
         if row.total != 3 or not (superuser or row.owns):
             raise BootstrapError("DATABASE_URL must use the migration/table owner, not the application role.")
 
@@ -105,6 +130,7 @@ def bootstrap_postgres(*, org_code, org_name, username, role, password):
     from sqlalchemy import create_engine, text
     from sqlalchemy.engine import make_url
     from sqlalchemy.orm import Session
+
     from dss.db.schema_contract import assert_schema_matches
 
     validate_options(org_code, org_name, username, role)
@@ -129,8 +155,9 @@ def bootstrap_postgres(*, org_code, org_name, username, role, password):
             with session.begin():
                 session.execute(text("SET LOCAL row_security = off"))
                 session.execute(text("SELECT pg_advisory_xact_lock(638416906285701)"))
-                return provision_account(session, org_code=org_code, org_name=org_name,
-                    username=username, role=role, password=password)
+                return provision_account(
+                    session, org_code=org_code, org_name=org_name, username=username, role=role, password=password
+                )
     finally:
         engine.dispose()
 
@@ -151,6 +178,7 @@ def _local_lock(path):
 
 def bootstrap_local(*, org_code, org_name, username, role, password):
     from dss.core.runtime_mode import is_production
+
     if is_production():
         raise BootstrapError("Local identity bootstrap is unavailable in production.")
     if os.environ.get("EDUDSS_IDENTITY_STORE", "local").strip().lower() != "local":
@@ -160,7 +188,9 @@ def bootstrap_local(*, org_code, org_name, username, role, password):
     data_root = os.environ.get("EDUDSS_DATA_ROOT", "").strip()
     scope = os.environ.get("EDUDSS_ORGANIZATION_ID", "").strip()
     if not data_root or not scope.isdecimal() or int(scope) <= 0:
-        raise BootstrapError("Local bootstrap requires explicit EDUDSS_DATA_ROOT and a positive EDUDSS_ORGANIZATION_ID.")
+        raise BootstrapError(
+            "Local bootstrap requires explicit EDUDSS_DATA_ROOT and a positive EDUDSS_ORGANIZATION_ID."
+        )
     organization_id = int(scope)
     path = Path(data_root).expanduser().resolve() / "users.json"
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -169,24 +199,37 @@ def bootstrap_local(*, org_code, org_name, username, role, password):
             users = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
         except (ValueError, UnicodeError):
             raise BootstrapError("The existing account store is unreadable; it was not changed.") from None
-        if not isinstance(users, dict) or any(not isinstance(key, str) or not isinstance(value, dict)
-                                              for key, value in users.items()):
+        if not isinstance(users, dict) or any(
+            not isinstance(key, str) or not isinstance(value, dict) for key, value in users.items()
+        ):
             raise BootstrapError("The existing account store has an invalid structure; it was not changed.")
         if any(key.strip().lower() == user for key in users):
             raise BootstrapError("That username already exists; it was not changed.")
         for record in users.values():
-            if (record.get("organization_id") not in (None, organization_id, str(organization_id))
-                    or record.get("organization_code") not in (None, code)):
+            if record.get("organization_id") not in (None, organization_id, str(organization_id)) or record.get(
+                "organization_code"
+            ) not in (None, code):
                 raise BootstrapError("This data root is already bound to another organization.")
         from dss.services.auth_service import _hash_password
+
         password_hash, salt = _hash_password(password)
-        users[user] = dict(username=user, role=role, student_id=None, hash=password_hash,
-                           salt=salt, is_active=True, auto_provisioned=False,
-                           organization_id=organization_id, organization_code=code, organization_name=name)
+        users[user] = dict(
+            username=user,
+            role=role,
+            student_id=None,
+            hash=password_hash,
+            salt=salt,
+            is_active=True,
+            auto_provisioned=False,
+            organization_id=organization_id,
+            organization_code=code,
+            organization_name=name,
+        )
         temporary = None
         try:
-            with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=path.parent,
-                    prefix=".users-bootstrap-", suffix=".tmp", delete=False) as handle:
+            with tempfile.NamedTemporaryFile(
+                mode="w", encoding="utf-8", dir=path.parent, prefix=".users-bootstrap-", suffix=".tmp", delete=False
+            ) as handle:
                 temporary = Path(handle.name)
                 json.dump(users, handle, ensure_ascii=False, indent=2)
                 handle.flush()
@@ -221,8 +264,9 @@ def main(argv=None):
         if password != confirmation:
             raise BootstrapError("Password confirmation does not match.")
         operation = bootstrap_local if args.local else bootstrap_postgres
-        result = operation(org_code=args.org_code, org_name=args.org_name,
-                           username=args.username, role=args.role, password=password)
+        result = operation(
+            org_code=args.org_code, org_name=args.org_name, username=args.username, role=args.role, password=password
+        )
         print(json.dumps(result, ensure_ascii=True))
         return 0
     except BootstrapError as error:
@@ -235,7 +279,10 @@ def main(argv=None):
         print("Bootstrap cancelled.", file=sys.stderr)
         return 130
     except Exception:
-        print("Bootstrap failed. Check database availability, migrations, owner permissions or local-store access.", file=sys.stderr)
+        print(
+            "Bootstrap failed. Check database availability, migrations, owner permissions or local-store access.",
+            file=sys.stderr,
+        )
         return 1
 
 

@@ -5,6 +5,7 @@ pointed to 2 tabs ("Huấn luyện mô hình", "Kho dữ liệu") that do not ex
 that role at all (main.py sets tab_train_ml=None for Sinh viên, and Sinh
 viên has no "Kho dữ liệu" sidebar entry), leaving the student with an
 unfollowable instruction whenever no target/model was configured yet."""
+
 from __future__ import annotations
 
 import inspect
@@ -50,5 +51,5 @@ def test_personal_prediction_student_form_no_target_message_is_role_aware():
     source = inspect.getsource(ml_hub._personal_prediction_student_form)
     idx_target_check = source.find("if not target_col:")
     assert idx_target_check != -1
-    window = source[idx_target_check: idx_target_check + 600]
+    window = source[idx_target_check : idx_target_check + 600]
     assert 'role == "Sinh viên"' in window

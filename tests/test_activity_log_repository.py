@@ -2,6 +2,7 @@
 wiring for the user-facing activity feed (Phase 1C, priority item 9).
 Skipped (not faked) without a configured database.
 """
+
 from __future__ import annotations
 
 import uuid
@@ -31,6 +32,7 @@ def org_id():
 @pytest.fixture()
 def warehouse(tmp_path):
     from dss.core.warehouse import DataWarehouse
+
     return DataWarehouse(base_path=str(tmp_path / "data_warehouse"))
 
 
@@ -46,8 +48,8 @@ def test_record_and_get_recent_activities(org_id):
 
 def test_cross_tenant_isolation(org_id):
     from dss.db.models import Organization
-    from dss.db.session import session_scope
     from dss.db.repositories import activity_log_repository as repo
+    from dss.db.session import session_scope
 
     with session_scope() as session:
         other = Organization(org_code=f"ACTLOG_OTHER_{uuid.uuid4().hex[:8]}", name="Other Org")
@@ -67,6 +69,7 @@ def test_warehouse_log_activity_writes_to_postgres_when_enabled(warehouse, org_i
     warehouse.log_activity("Huấn luyện", "Huấn luyện mô hình mới", {"model": "Ridge"})
 
     from dss.db.repositories import activity_log_repository as repo
+
     activities = repo.get_recent_activities(org_id)
     assert len(activities) == 1
     assert activities[0]["action"] == "Huấn luyện"
@@ -78,7 +81,9 @@ def test_warehouse_log_activity_does_not_dual_write_to_local_json(warehouse, org
 
     warehouse.log_activity("Test", "no dual write")
 
-    import json, os
+    import json
+    import os
+
     path = os.path.join(warehouse.history_path, "activity_history.json")
     if os.path.exists(path):
         with open(path, encoding="utf-8") as f:
@@ -111,6 +116,7 @@ def test_import_activity_history_is_idempotent(warehouse, org_id, monkeypatch):
     warehouse.log_activity("Import2", "second")
 
     from dss.db.repositories import activity_log_repository as repo
+
     first = repo.import_from_local_history(org_id, warehouse=warehouse)
     assert first["imported"] == 2
     second = repo.import_from_local_history(org_id, warehouse=warehouse)

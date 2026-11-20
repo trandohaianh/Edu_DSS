@@ -1,4 +1,5 @@
 """Login hydrates approved artifacts without training or process-wide UI mutation."""
+
 from types import SimpleNamespace
 from unittest.mock import Mock
 
@@ -12,13 +13,19 @@ from dss.services import clustering_service
 
 @pytest.fixture
 def context(monkeypatch):
-    monkeypatch.setattr(bootstrap_service, "_detect_default_training_config", lambda _df: {
-        "target_col": "diem_ky_sau", "selected_features": ["diem_ky_nay"],
-        "problem_type": "Hồi quy (Regression)",
-    })
+    monkeypatch.setattr(
+        bootstrap_service,
+        "_detect_default_training_config",
+        lambda _df: {
+            "target_col": "diem_ky_sau",
+            "selected_features": ["diem_ky_nay"],
+            "problem_type": "Hồi quy (Regression)",
+        },
+    )
     st.session_state["current_dataset_id"] = "pilot"
     return SimpleNamespace(
-        role="Sinh viên", df=pd.DataFrame({"diem_ky_nay": [5, 6, 7], "diem_ky_sau": [6, 7, 8]}),
+        role="Sinh viên",
+        df=pd.DataFrame({"diem_ky_nay": [5, 6, 7], "diem_ky_sau": [6, 7, 8]}),
         warehouse=SimpleNamespace(get_production_model=Mock(return_value=(None, None))),
         clf=SimpleNamespace(train_and_evaluate=Mock()),
         reg=SimpleNamespace(train_and_evaluate=Mock()),
@@ -27,7 +34,12 @@ def context(monkeypatch):
 
 def initialize(context, callback=None):
     bootstrap_service.initialize_workspace(
-        context.role, context.df, context.warehouse, context.clf, context.reg, callback,
+        context.role,
+        context.df,
+        context.warehouse,
+        context.clf,
+        context.reg,
+        callback,
     )
 
 
@@ -57,7 +69,7 @@ def test_artifact_hydration_never_monkeypatches_streamlit(context):
     def load(*_args):
         for name in names:
             assert getattr(st, name) is originals[name]
-        return pipeline, {"model_name": "Approved", "metrics": {"mae": .4}, "feature_cols": ["diem_ky_nay"]}
+        return pipeline, {"model_name": "Approved", "metrics": {"mae": 0.4}, "feature_cols": ["diem_ky_nay"]}
 
     context.warehouse.get_production_model.side_effect = load
     initialize(context)
@@ -92,12 +104,13 @@ def test_empty_dataset_is_ready_without_artifact_access(context):
 
 def test_large_silhouette_uses_deterministic_bounded_sample(monkeypatch):
     import numpy as np
+
     values = np.zeros((3000, 2))
     labels = np.arange(3000) % 2
-    score = Mock(return_value=.4)
+    score = Mock(return_value=0.4)
     monkeypatch.setattr(clustering_service, "silhouette_score", score)
     metrics = clustering_service.compute_cluster_quality_metrics(values, labels)
-    assert metrics["silhouette"] == .4
+    assert metrics["silhouette"] == 0.4
     assert metrics["silhouette_sample_size"] == 2000
     assert score.call_args.kwargs["sample_size"] == 2000
     assert score.call_args.kwargs["random_state"] == 42

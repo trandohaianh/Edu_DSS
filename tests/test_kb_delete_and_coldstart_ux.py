@@ -21,6 +21,7 @@ Và PHẦN B: `ui_kit.cold_start_aware_message` — helper hiển thị cảnh b
 đầu có thể chậm" đúng lúc mô hình embedding CHƯA được nạp, không phải lúc nào
 cũng thêm cảnh báo một cách vô nghĩa (đã nạp rồi thì spinner phải gọn như cũ).
 """
+
 from __future__ import annotations
 
 import pytest
@@ -60,12 +61,8 @@ def local_store(tmp_path, monkeypatch):
     """1 LocalVectorStore cô lập trong tmp_path, và trỏ get_vector_store() của
     module knowledge_base_admin về đúng store này (không chạm data_warehouse
     thật của repo)."""
-    store = vector_store.LocalVectorStore(
-        base_dir=str(tmp_path), namespace=rag_namespaces.NAMESPACE_STUDENT_LEARNING
-    )
-    monkeypatch.setattr(
-        knowledge_base_admin.vector_store_module, "get_vector_store", lambda namespace=None: store
-    )
+    store = vector_store.LocalVectorStore(base_dir=str(tmp_path), namespace=rag_namespaces.NAMESPACE_STUDENT_LEARNING)
+    monkeypatch.setattr(knowledge_base_admin.vector_store_module, "get_vector_store", lambda namespace=None: store)
     return store
 
 

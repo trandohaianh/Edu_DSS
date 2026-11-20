@@ -18,6 +18,7 @@ một câu hỏi khác hẳn (Y) mà họ chưa từng hỏi — lỗi CORRECTNE
 Test dưới đây đi qua PUBLIC API `LLMGateway.stream_generate()`, dùng fake
 provider ghi lại CHÍNH XÁC những gì nó nhận được, để chứng minh prompt thật
 có tới nơi hay không — không kiểm tra qua mock nội bộ dễ bị "giả xanh"."""
+
 from __future__ import annotations
 
 from dss.services.llm_gateway import LLMGateway
@@ -37,8 +38,9 @@ class _RecordingLLMIntegration:
         self.call_ai_provider_prompts.append(prompt)
         yield f"ECHO::{prompt}"
 
-    def generate_personalized_advice(self, student_weaknesses, predicted_gpa, provider,
-                                      model_name=None, api_key=None, **kwargs):
+    def generate_personalized_advice(
+        self, student_weaknesses, predicted_gpa, provider, model_name=None, api_key=None, **kwargs
+    ):
         self.generate_personalized_advice_calls.append((tuple(student_weaknesses or []), predicted_gpa))
         yield "GENERIC_STUDY_PLAN_TEXT_KHONG_LIEN_QUAN_TOI_CAU_HOI_THAT"
 
@@ -53,14 +55,16 @@ def test_advisor_chat_prompt_reaches_provider_verbatim():
     fake = _RecordingLLMIntegration()
     gateway = LLMGateway(llm_integration=fake)
 
-    chunks = list(gateway.stream_generate(
-        prompt="CÂU HỎI THỬ XYZ",
-        user_id="sv_test",
-        role="Sinh viên",
-        request_type="advisor_chat",
-        provider="ollama",
-        model="llama3",
-    ))
+    chunks = list(
+        gateway.stream_generate(
+            prompt="CÂU HỎI THỬ XYZ",
+            user_id="sv_test",
+            role="Sinh viên",
+            request_type="advisor_chat",
+            provider="ollama",
+            model="llama3",
+        )
+    )
     full_answer = "".join(chunks)
 
     assert fake.call_ai_provider_prompts, (
@@ -80,16 +84,26 @@ def test_two_different_chat_prompts_reach_provider_as_two_different_prompts():
     fake = _RecordingLLMIntegration()
     gateway = LLMGateway(llm_integration=fake)
 
-    answer_1 = "".join(gateway.stream_generate(
-        prompt="Làm sao để cải thiện điểm Toán?",
-        user_id="sv_test", role="Sinh viên", request_type="advisor_chat",
-        provider="ollama", model="llama3",
-    ))
-    answer_2 = "".join(gateway.stream_generate(
-        prompt="Kỳ sau tôi nên đăng ký môn gì?",
-        user_id="sv_test", role="Sinh viên", request_type="advisor_chat",
-        provider="ollama", model="llama3",
-    ))
+    answer_1 = "".join(
+        gateway.stream_generate(
+            prompt="Làm sao để cải thiện điểm Toán?",
+            user_id="sv_test",
+            role="Sinh viên",
+            request_type="advisor_chat",
+            provider="ollama",
+            model="llama3",
+        )
+    )
+    answer_2 = "".join(
+        gateway.stream_generate(
+            prompt="Kỳ sau tôi nên đăng ký môn gì?",
+            user_id="sv_test",
+            role="Sinh viên",
+            request_type="advisor_chat",
+            provider="ollama",
+            model="llama3",
+        )
+    )
 
     assert answer_1 != answer_2
     assert "Làm sao để cải thiện điểm Toán?" in answer_1
@@ -107,15 +121,20 @@ def test_advisor_plan_still_uses_personalized_planning_path():
     fake = _RecordingLLMIntegration()
     gateway = LLMGateway(llm_integration=fake)
 
-    chunks = list(gateway.stream_generate(
-        prompt="ngữ cảnh ước lượng token (không phải prompt thật gửi LLM cho đường này)",
-        user_id="sv_test", role="Sinh viên", request_type="advisor_plan",
-        provider="ollama", model="llama3",
-        student_weaknesses=["toán", "lập trình"],
-        predicted_gpa=6.5,
-        use_rag=True,
-        student_profile={"risk_level": "trung bình"},
-    ))
+    chunks = list(
+        gateway.stream_generate(
+            prompt="ngữ cảnh ước lượng token (không phải prompt thật gửi LLM cho đường này)",
+            user_id="sv_test",
+            role="Sinh viên",
+            request_type="advisor_plan",
+            provider="ollama",
+            model="llama3",
+            student_weaknesses=["toán", "lập trình"],
+            predicted_gpa=6.5,
+            use_rag=True,
+            student_profile={"risk_level": "trung bình"},
+        )
+    )
     assert "".join(chunks) == "GENERIC_STUDY_PLAN_TEXT_KHONG_LIEN_QUAN_TOI_CAU_HOI_THAT"
     assert fake.generate_personalized_advice_calls == [(("toán", "lập trình"), 6.5)]
     assert not fake.call_ai_provider_prompts
@@ -129,11 +148,16 @@ def test_learning_explainer_prompt_reaches_provider_verbatim():
     fake = _RecordingLLMIntegration()
     gateway = LLMGateway(llm_integration=fake)
 
-    chunks = list(gateway.stream_generate(
-        prompt="Giải thích khái niệm đệ quy trong bài giảng Lập trình 1",
-        user_id="sv_test", role="Sinh viên", request_type="learning_explainer",
-        provider="ollama", model="llama3",
-    ))
+    chunks = list(
+        gateway.stream_generate(
+            prompt="Giải thích khái niệm đệ quy trong bài giảng Lập trình 1",
+            user_id="sv_test",
+            role="Sinh viên",
+            request_type="learning_explainer",
+            provider="ollama",
+            model="llama3",
+        )
+    )
     assert "Giải thích khái niệm đệ quy" in "".join(chunks)
     assert fake.call_ai_provider_prompts
     assert not fake.generate_personalized_advice_calls
@@ -144,11 +168,16 @@ def test_home_quick_chat_prompt_reaches_provider_verbatim():
     fake = _RecordingLLMIntegration()
     gateway = LLMGateway(llm_integration=fake)
 
-    chunks = list(gateway.stream_generate(
-        prompt="Tôi có nên học thêm buổi tối không?",
-        user_id="sv_test", role="Sinh viên", request_type="home_quick_chat",
-        provider="ollama", model="llama3",
-    ))
+    chunks = list(
+        gateway.stream_generate(
+            prompt="Tôi có nên học thêm buổi tối không?",
+            user_id="sv_test",
+            role="Sinh viên",
+            request_type="home_quick_chat",
+            provider="ollama",
+            model="llama3",
+        )
+    )
     assert "Tôi có nên học thêm buổi tối không?" in "".join(chunks)
     assert fake.call_ai_provider_prompts
     assert not fake.generate_personalized_advice_calls

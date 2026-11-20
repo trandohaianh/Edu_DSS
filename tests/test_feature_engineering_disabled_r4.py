@@ -4,6 +4,7 @@ vào feature_cols đã lưu, nhưng lúc dự đoán (form nhập tay/Production
 bước nào tự tính lại từ input thô, nên pipeline.predict() luôn lỗi "columns
 are missing". Không có UI nào bật cờ này — khóa cứng tại nguồn để không ai vô
 tình bật lại cho tới khi feature engineering được đưa vào Pipeline đúng chuẩn."""
+
 from __future__ import annotations
 
 import warnings

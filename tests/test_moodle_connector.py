@@ -1,4 +1,5 @@
 """Connector Moodle Web Services chạy với máy chủ Moodle giả lập (tests/fixtures/fake_moodle.py)."""
+
 import pytest
 
 from dss.services.moodle_connector import MoodleClient, MoodleError, MoodleLMSRepository, _flatten, to_ten
@@ -19,7 +20,7 @@ def test_requires_https_except_local_test_server():
     with pytest.raises(ValueError):
         MoodleClient("http://lms.truong.edu.vn", "t")
     with pytest.raises(ValueError):
-        MoodleClient("http://lms.truong.edu.vn", "t", allow_insecure=True)   # chỉ localhost
+        MoodleClient("http://lms.truong.edu.vn", "t", allow_insecure=True)  # chỉ localhost
     with pytest.raises(ValueError):
         MoodleClient("https://lms.truong.edu.vn", "")
 
@@ -54,9 +55,9 @@ def test_summary_maps_grades_progress_and_subjects(moodle):
     assert s.course_grades == {"Cấu trúc dữ liệu": 8.75, "Xác suất thống kê": 3.8}
     assert s.strong_subjects == ["Cấu trúc dữ liệu"] and s.weak_subjects == ["Xác suất thống kê"]
     assert s.gpa == round((8.75 + 3.8) / 2, 2)
-    assert s.average_progress == round((60.0 + 100.0) / 2, 1)          # 3/5 hoạt động và 3/3
+    assert s.average_progress == round((60.0 + 100.0) / 2, 1)  # 3/5 hoạt động và 3/3
     scores = {r.title: r.score for r in s.assessment_history}
-    assert scores["Quiz 1"] == 9.0 and scores["Bài tập lớn"] == 8.5     # 18/20, 85/100 -> thang 10
+    assert scores["Quiz 1"] == 9.0 and scores["Bài tập lớn"] == 8.5  # 18/20, 85/100 -> thang 10
     types = {r.title: r.assessment_type for r in s.assessment_history}
     assert types["Kiểm tra giữa kỳ"] == "midterm" and types["Thi cuối kỳ"] == "final"
 
@@ -64,7 +65,7 @@ def test_summary_maps_grades_progress_and_subjects(moodle):
 def test_falls_back_to_username_when_idnumber_empty(moodle):
     s = MoodleLMSRepository(client(moodle)).get_student_learning_summary("sv002")
     assert s.course_grades == {"Cấu trúc dữ liệu": 4.0}
-    assert [r.title for r in s.assessment_history] == ["Quiz 1"]        # bài chưa chấm (graderaw null) bị bỏ
+    assert [r.title for r in s.assessment_history] == ["Quiz 1"]  # bài chưa chấm (graderaw null) bị bỏ
 
 
 def test_unknown_student(moodle):
@@ -74,7 +75,7 @@ def test_unknown_student(moodle):
 
 def test_roster_only_students(moodle):
     rows = MoodleLMSRepository(client(moodle)).course_roster_grades(101)
-    assert {r["student_id"] for r in rows} == {"SV001", "sv002"}         # giảng viên bị loại
+    assert {r["student_id"] for r in rows} == {"SV001", "sv002"}  # giảng viên bị loại
     assert {r["student_id"]: r["course_total"] for r in rows} == {"SV001": 8.75, "sv002": 4.0}
 
 
@@ -85,5 +86,10 @@ def test_read_only(moodle):
 
 def test_helpers():
     assert _flatten({"field": "idnumber", "values": ["A", "B"], "criteria": [{"key": "k", "value": 1}]}) == {
-        "field": "idnumber", "values[0]": "A", "values[1]": "B", "criteria[0][key]": "k", "criteria[0][value]": 1}
+        "field": "idnumber",
+        "values[0]": "A",
+        "values[1]": "B",
+        "criteria[0][key]": "k",
+        "criteria[0][value]": 1,
+    }
     assert to_ten(15, 0, 20) == 7.5 and to_ten(None, 0, 10) is None and to_ten(5, 10, 10) is None

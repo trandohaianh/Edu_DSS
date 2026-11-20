@@ -17,6 +17,7 @@ nhập SV001, xác nhận không thấy dữ liệu SV002 trên UI) nằm ở
 tests/e2e/test_role_flows.py — cần trình duyệt thật, không hợp lý kiểm ở tầng
 unit vì ai_advisor_tab/clustering_hybrid_tab render trực tiếp qua st.*.
 """
+
 from __future__ import annotations
 
 import re
@@ -102,7 +103,7 @@ def test_two_students_in_sequence_do_not_share_state(as_role):
     biến cache nào giữ giá trị cũ của SV001 lẫn vào response của SV002."""
     as_role("Sinh viên", username="sv001", student_id="SV001")
     st.session_state["current_student_id"] = "SV001"
-    st.session_state[f"reminder_done_SV001_1"] = True
+    st.session_state["reminder_done_SV001_1"] = True
 
     # SV002 đăng nhập (main.py sẽ ghi đè current_student_id ngay khi login thành công).
     as_role("Sinh viên", username="sv002", student_id="SV002")
@@ -114,5 +115,6 @@ def test_two_students_in_sequence_do_not_share_state(as_role):
 
 def auth_service_current_student_id_matches_auth():
     from dss.services import auth_service
+
     user = auth_service.current_user()
     return st.session_state.get("current_student_id") == user["student_id"]

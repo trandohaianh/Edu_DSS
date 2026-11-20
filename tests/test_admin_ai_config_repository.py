@@ -2,6 +2,7 @@
 Postgres wiring (Phase 1C, priority item 11 — admin AI configuration).
 Skipped (not faked) without a configured database.
 """
+
 from __future__ import annotations
 
 import uuid
@@ -61,8 +62,8 @@ def test_clear_config(org_id):
 
 def test_cross_tenant_isolation(org_id):
     from dss.db.models import Organization
-    from dss.db.session import session_scope
     from dss.db.repositories import admin_ai_config_repository as repo
+    from dss.db.session import session_scope
 
     with session_scope() as session:
         other = Organization(org_code=f"AICFG_OTHER_{uuid.uuid4().hex[:8]}", name="Other Org")
@@ -90,9 +91,11 @@ def test_service_get_default_provider_reads_postgres_when_enabled(org_id, monkey
     monkeypatch.setenv("EDUDSS_DATA_ROOT", str(tmp_path))
 
     from dss.db.repositories import admin_ai_config_repository as repo
+
     repo.set_config(org_id, "gemini", "gemini-2.0-flash")
 
     from dss.services import admin_ai_config
+
     assert admin_ai_config.get_default_provider() == {"provider_key": "gemini", "model_name": "gemini-2.0-flash"}
 
 
@@ -124,6 +127,7 @@ def test_service_does_not_dual_write_to_local_json(org_id, monkeypatch, tmp_path
     st.session_state["_auth_role"] = "Admin"
 
     from dss.services import admin_ai_config
+
     admin_ai_config.set_default_provider("gemini", "gemini-2.0-flash")
 
     config_path = tmp_path / "ai_default_provider.json"
@@ -139,6 +143,7 @@ def test_service_local_mode_unaffected_by_default(monkeypatch, tmp_path):
     st.session_state["_auth_role"] = "Admin"
 
     from dss.services import admin_ai_config
+
     admin_ai_config.set_default_provider("ollama", "llama3")
     assert admin_ai_config.get_default_provider() == {"provider_key": "ollama", "model_name": "llama3"}
     del st.session_state["_auth_role"]

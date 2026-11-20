@@ -7,6 +7,7 @@ file. Nguyên tắc "1 nguồn sự thật duy nhất" (single source of truth):
 (dataset_id, target_col) chỉ có ĐÚNG 1 bản Production tại 1 thời điểm — version
 khác vẫn được giữ lại đầy đủ để xem lịch sử hoặc rollback, không bị xoá.
 """
+
 from __future__ import annotations
 
 import os
@@ -199,14 +200,21 @@ def evaluate_drift(
     _logger.info("drift evaluation started: training_id=%s", training_id)
     data_drift = ml_provenance.evaluate_data_drift(baseline_df, current_df)
     performance_drift = ml_provenance.evaluate_performance_drift(
-        task_type, y_true_baseline, y_pred_baseline, y_true_current, y_pred_current,
+        task_type,
+        y_true_baseline,
+        y_pred_baseline,
+        y_true_current,
+        y_pred_current,
     )
     action = ml_provenance.recommend_action(data_drift["overall_status"], performance_drift["overall_status"])
 
     result = {"data_drift": data_drift, "performance_drift": performance_drift, "recommended_action": action}
     _logger.info(
         "drift evaluation completed: training_id=%s data_drift=%s performance_drift=%s recommended_action=%s",
-        training_id, data_drift["overall_status"], performance_drift["overall_status"], action,
+        training_id,
+        data_drift["overall_status"],
+        performance_drift["overall_status"],
+        action,
     )
     if action == "RETRAIN_RECOMMENDED":
         _logger.warning("retraining recommended: training_id=%s", training_id)
@@ -227,9 +235,14 @@ def evaluate_drift(
                 model_version_id = mv["model_version"]["id"]
                 for kind, payload in (("data_drift", data_drift), ("performance_drift", performance_drift)):
                     repo.record_drift_evaluation(
-                        organization_id=org_id, model_version_id=model_version_id, evaluation_type=kind,
-                        overall_status=payload["overall_status"], recommended_action=action,
-                        details=payload, thresholds_used=payload.get("thresholds", {}), evaluated_by=evaluated_by,
+                        organization_id=org_id,
+                        model_version_id=model_version_id,
+                        evaluation_type=kind,
+                        overall_status=payload["overall_status"],
+                        recommended_action=action,
+                        details=payload,
+                        thresholds_used=payload.get("thresholds", {}),
+                        evaluated_by=evaluated_by,
                     )
         except Exception:
             pass  # Best-effort persistence only — result above is always returned regardless.

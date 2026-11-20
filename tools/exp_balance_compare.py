@@ -13,6 +13,7 @@ toàn dải ngưỡng nên không nhảy theo từng mẫu như F1 tại một n
 
 Chạy:  python3 -I tools/exp_balance_compare.py
 """
+
 from __future__ import annotations
 
 import warnings
@@ -34,9 +35,16 @@ TARGET = "pass_fail"
 # Đặc trưng dự báo hợp lệ: KHÔNG lấy final_score / exam_score / A1..A3 / GPA / grade
 # vì chúng suy ra trực tiếp từ mục tiêu.
 FEATURES = [
-    "prior_gpa", "attendance", "assignment_rate", "practice_score",
-    "study_hours_per_day", "lms_time_spent", "lms_clicks",
-    "sleep_hours", "mental_health_rating", "social_media_hours",
+    "prior_gpa",
+    "attendance",
+    "assignment_rate",
+    "practice_score",
+    "study_hours_per_day",
+    "lms_time_spent",
+    "lms_clicks",
+    "sleep_hours",
+    "mental_health_rating",
+    "social_media_hours",
 ]
 MINORITY_SIZES = [2, 5, 10, 25, 50, 100, 160]
 SEEDS = [0, 1, 2, 3, 4]
@@ -51,11 +59,13 @@ def build(arm: str, k_neighbors: int, seed: int):
         return SkPipeline([("sc", StandardScaler()), ("clf", rf)])
     if arm == "smote":
         # cùng quy tắc k_neighbors như trong dss/core/trainers.py
-        return ImbPipeline([
-            ("sc", StandardScaler()),
-            ("smote", SMOTE(random_state=42, k_neighbors=k_neighbors)),
-            ("clf", rf),
-        ])
+        return ImbPipeline(
+            [
+                ("sc", StandardScaler()),
+                ("smote", SMOTE(random_state=42, k_neighbors=k_neighbors)),
+                ("clf", rf),
+            ]
+        )
     return SkPipeline([("sc", StandardScaler()), ("clf", rf)])
 
 
@@ -84,7 +94,8 @@ def main() -> None:
     print(f"Đặc trưng ({len(FEATURES)}): {', '.join(FEATURES)}\n")
 
     header = f"{'n thiểu số':>11} | {'không cân bằng':>15} | {'SMOTE':>15} | {'class_weight':>15} | thắng"
-    print(header); print("-" * len(header))
+    print(header)
+    print("-" * len(header))
 
     rows = []
     for n_min in MINORITY_SIZES:
@@ -108,13 +119,17 @@ def main() -> None:
         gap = ""
         if len(usable) == 2:
             a, b = usable["smote"][0], usable["class_weight"][0]
-            gap = f"  (chênh {abs(a-b):+.4f})"
-        print(f"{n_min:>11} | {fmt(res['none']):>15} | {fmt(res['smote']):>15} | "
-              f"{fmt(res['class_weight']):>15} | {win}{gap}")
+            gap = f"  (chênh {abs(a - b):+.4f})"
+        print(
+            f"{n_min:>11} | {fmt(res['none']):>15} | {fmt(res['smote']):>15} | "
+            f"{fmt(res['class_weight']):>15} | {win}{gap}"
+        )
         rows.append((n_min, res, win))
 
-    print("\nChỉ số: PR-AUC (average precision) của lớp thiểu số, trung bình "
-          f"{N_SPLITS} fold × {len(SEEDS)} seed. ± là độ lệch chuẩn giữa các seed.")
+    print(
+        "\nChỉ số: PR-AUC (average precision) của lớp thiểu số, trung bình "
+        f"{N_SPLITS} fold × {len(SEEDS)} seed. ± là độ lệch chuẩn giữa các seed."
+    )
 
     wins_cw = [n for n, _, w in rows if w == "class_weight"]
     wins_sm = [n for n, _, w in rows if w == "smote"]

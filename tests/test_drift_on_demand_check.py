@@ -4,6 +4,7 @@ an isolated, never-invoked function. Confirms
 `model_registry.run_on_demand_drift_check()` genuinely loads a model's real
 persisted train/test split and returns a real, honest result — including
 its window-limitation disclosure."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -33,11 +34,18 @@ def _fit_and_save_classifier(wh):
     pipeline.fit(X_train, y_train)
 
     training_id, _metadata = wh.save_model_training(
-        dataset_id="ds1", model_pipeline=pipeline, model_name="LogisticRegression",
-        feature_cols=["f1", "f2"], target_col="target",
-        metrics={"Accuracy": 0.9}, X_train=X_train, y_train=y_train,
-        X_test=X_test, y_test=y_test,
-        class_labels=[0, 1], auto_promote=True,
+        dataset_id="ds1",
+        model_pipeline=pipeline,
+        model_name="LogisticRegression",
+        feature_cols=["f1", "f2"],
+        target_col="target",
+        metrics={"Accuracy": 0.9},
+        X_train=X_train,
+        y_train=y_train,
+        X_test=X_test,
+        y_test=y_test,
+        class_labels=[0, 1],
+        auto_promote=True,
     )
     return training_id
 
@@ -64,6 +72,7 @@ def test_on_demand_drift_check_never_claims_continuous_monitoring():
     """Xác nhận docstring/kết quả không bao giờ dùng cụm từ ngụ ý giám sát tự
     động liên tục — đây LÀ điều đề bài cảnh báo rõ không được tuyên bố sai."""
     import inspect
+
     source = inspect.getsource(model_registry.run_on_demand_drift_check)
     assert "giám sát liên tục" not in source.lower()
     assert "continuous" not in source.lower() or "không" in source.lower()

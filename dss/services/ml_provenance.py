@@ -31,6 +31,7 @@ Scope and design decisions (read before extending):
   with a p-value; small samples are refused via INSUFFICIENT_DATA rather
   than given a falsely confident status.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -53,7 +54,7 @@ _logger = get_logger(__name__)
 # across ML observability tooling).
 DEFAULT_PSI_WARNING_THRESHOLD = 0.10
 DEFAULT_PSI_DRIFT_THRESHOLD = 0.25
-DEFAULT_MIN_SAMPLES = 20          # drift hiệu năng (performance drift)
+DEFAULT_MIN_SAMPLES = 20  # drift hiệu năng (performance drift)
 # Drift dữ liệu (PSI): dưới 100 mẫu ở mỗi phía, nhiễu lấy mẫu của PSI cỡ ~(bins-1)·(1/n1+1/n2)
 # đã vượt ngưỡng 0.10/0.25 -> trả INSUFFICIENT_DATA thay vì một kết luận drift giả.
 DEFAULT_DATA_DRIFT_MIN_SAMPLES = 100
@@ -92,6 +93,7 @@ _STATUS_SEVERITY = {
 # ---------------------------------------------------------------------------
 # Deterministic fingerprints (§4, §5)
 # ---------------------------------------------------------------------------
+
 
 def _canonical_json(obj: Any) -> str:
     """Stable, deterministic serialization: sorted keys where order is not
@@ -206,7 +208,7 @@ def compute_dataset_fingerprint(
     return {
         "schema_fingerprint": schema_fingerprint,
         "dataset_fingerprint": dataset_fingerprint,
-        "row_count": int(len(df)),
+        "row_count": len(df),
         "column_count": len(columns),
         "feature_list": columns,
         "null_stats": null_stats,
@@ -217,6 +219,7 @@ def compute_dataset_fingerprint(
 # ---------------------------------------------------------------------------
 # Data drift (§6)
 # ---------------------------------------------------------------------------
+
 
 def _psi_from_proportions(baseline_props: list[float], current_props: list[float]) -> float:
     """Population Stability Index between two discrete probability
@@ -271,7 +274,12 @@ def _psi_status(psi: float, warning_threshold: float, drift_threshold: float) ->
 
 
 def _evaluate_numeric_feature_drift(
-    baseline, current, *, bins: int, warning_threshold: Optional[float], drift_threshold: Optional[float],
+    baseline,
+    current,
+    *,
+    bins: int,
+    warning_threshold: Optional[float],
+    drift_threshold: Optional[float],
     min_samples: int,
 ) -> dict[str, Any]:
     import numpy as np
@@ -284,8 +292,8 @@ def _evaluate_numeric_feature_drift(
     if len(baseline) < min_samples or len(current) < min_samples:
         return {
             "feature_type": "numeric",
-            "baseline_stats": {"count": int(len(baseline))},
-            "current_stats": {"count": int(len(current))},
+            "baseline_stats": {"count": len(baseline)},
+            "current_stats": {"count": len(current)},
             "drift_metric": None,
             "threshold": {"warning": warning_threshold, "drift": drift_threshold},
             "status": STATUS_INSUFFICIENT_DATA,
@@ -307,7 +315,9 @@ def _evaluate_numeric_feature_drift(
     baseline_props = (baseline_counts / baseline_counts.sum()).tolist()
     current_props = (current_counts / current_counts.sum()).tolist()
     psi = _psi_from_proportions(baseline_props, current_props)
-    thr = _effective_psi_thresholds(warning_threshold, drift_threshold, len(baseline_props), len(baseline), len(current))
+    thr = _effective_psi_thresholds(
+        warning_threshold, drift_threshold, len(baseline_props), len(baseline), len(current)
+    )
 
     ks_statistic = ks_pvalue = None
     try:
@@ -321,18 +331,24 @@ def _evaluate_numeric_feature_drift(
     return {
         "feature_type": "numeric",
         "baseline_stats": {
-            "count": int(len(baseline)), "mean": round(float(baseline.mean()), 6),
-            "std": round(float(baseline.std()), 6), "min": round(float(baseline.min()), 6),
+            "count": len(baseline),
+            "mean": round(float(baseline.mean()), 6),
+            "std": round(float(baseline.std()), 6),
+            "min": round(float(baseline.min()), 6),
             "max": round(float(baseline.max()), 6),
         },
         "current_stats": {
-            "count": int(len(current)), "mean": round(float(current.mean()), 6),
-            "std": round(float(current.std()), 6), "min": round(float(current.min()), 6),
+            "count": len(current),
+            "mean": round(float(current.mean()), 6),
+            "std": round(float(current.std()), 6),
+            "min": round(float(current.min()), 6),
             "max": round(float(current.max()), 6),
         },
         "drift_metric": round(psi, 6),
         "drift_metric_name": "PSI",
-        "secondary_metric": {"ks_statistic": ks_statistic, "ks_pvalue": ks_pvalue} if ks_statistic is not None else None,
+        "secondary_metric": {"ks_statistic": ks_statistic, "ks_pvalue": ks_pvalue}
+        if ks_statistic is not None
+        else None,
         "threshold": {"warning": thr["warning"], "drift": thr["drift"], "bins": len(baseline_props)},
         "status": _psi_status(psi, thr["warning"], thr["drift"]),
     }
@@ -349,8 +365,8 @@ def _evaluate_categorical_feature_drift(
     if len(baseline) < min_samples or len(current) < min_samples:
         return {
             "feature_type": "categorical",
-            "baseline_stats": {"count": int(len(baseline))},
-            "current_stats": {"count": int(len(current))},
+            "baseline_stats": {"count": len(baseline)},
+            "current_stats": {"count": len(current)},
             "drift_metric": None,
             "threshold": {"warning": warning_threshold, "drift": drift_threshold},
             "status": STATUS_INSUFFICIENT_DATA,
@@ -366,8 +382,14 @@ def _evaluate_categorical_feature_drift(
 
     return {
         "feature_type": "categorical",
-        "baseline_stats": {"count": int(len(baseline)), "distribution": {c: round(p, 6) for c, p in zip(categories, baseline_props)}},
-        "current_stats": {"count": int(len(current)), "distribution": {c: round(p, 6) for c, p in zip(categories, current_props)}},
+        "baseline_stats": {
+            "count": len(baseline),
+            "distribution": {c: round(p, 6) for c, p in zip(categories, baseline_props)},
+        },
+        "current_stats": {
+            "count": len(current),
+            "distribution": {c: round(p, 6) for c, p in zip(categories, current_props)},
+        },
         "drift_metric": round(psi, 6),
         "drift_metric_name": "PSI",
         "secondary_metric": None,
@@ -407,13 +429,20 @@ def evaluate_data_drift(
         role = roles.get(col, "categorical")
         if role == "numeric":
             per_feature[col] = _evaluate_numeric_feature_drift(
-                baseline_df[col], current_df[col], bins=numeric_bins,
-                warning_threshold=warning_threshold, drift_threshold=drift_threshold, min_samples=min_samples,
+                baseline_df[col],
+                current_df[col],
+                bins=numeric_bins,
+                warning_threshold=warning_threshold,
+                drift_threshold=drift_threshold,
+                min_samples=min_samples,
             )
         else:
             per_feature[col] = _evaluate_categorical_feature_drift(
-                baseline_df[col], current_df[col],
-                warning_threshold=warning_threshold, drift_threshold=drift_threshold, min_samples=min_samples,
+                baseline_df[col],
+                current_df[col],
+                warning_threshold=warning_threshold,
+                drift_threshold=drift_threshold,
+                min_samples=min_samples,
             )
 
     evaluable_statuses = [f["status"] for f in per_feature.values() if f["status"] != STATUS_INSUFFICIENT_DATA]
@@ -435,7 +464,8 @@ def evaluate_data_drift(
             "warning": DEFAULT_PSI_WARNING_THRESHOLD if warning_threshold is None else warning_threshold,
             "drift": DEFAULT_PSI_DRIFT_THRESHOLD if drift_threshold is None else drift_threshold,
             "noise_adjusted": warning_threshold is None or drift_threshold is None,
-            "min_samples": min_samples, "numeric_bins": numeric_bins,
+            "min_samples": min_samples,
+            "numeric_bins": numeric_bins,
         },
     }
 
@@ -443,6 +473,7 @@ def evaluate_data_drift(
 # ---------------------------------------------------------------------------
 # Performance / model drift (§7) — requires real ground truth, never fabricated
 # ---------------------------------------------------------------------------
+
 
 def evaluate_performance_drift(
     task_type: str,
@@ -513,9 +544,19 @@ def evaluate_performance_drift(
         # DECREASE. Normalize to "relative_drop = how much worse, as a
         # fraction of the baseline magnitude" so one threshold works for all.
         if name in ("rmse", "mae"):
-            relative_drop = (current_value - baseline_value) / abs(baseline_value) if baseline_value else float("inf") if current_value else 0.0
+            relative_drop = (
+                (current_value - baseline_value) / abs(baseline_value)
+                if baseline_value
+                else float("inf")
+                if current_value
+                else 0.0
+            )
         else:
-            relative_drop = (baseline_value - current_value) / abs(baseline_value) if baseline_value else (0.0 if current_value >= baseline_value else float("inf"))
+            relative_drop = (
+                (baseline_value - current_value) / abs(baseline_value)
+                if baseline_value
+                else (0.0 if current_value >= baseline_value else float("inf"))
+            )
         if relative_drop >= drift_relative_drop:
             status = STATUS_DRIFT_DETECTED
         elif relative_drop >= warning_relative_drop:
@@ -523,8 +564,10 @@ def evaluate_performance_drift(
         else:
             status = STATUS_NO_DRIFT
         metrics[name] = {
-            "baseline": round(baseline_value, 6), "current": round(current_value, 6),
-            "relative_drop": round(relative_drop, 6), "status": status,
+            "baseline": round(baseline_value, 6),
+            "current": round(current_value, 6),
+            "relative_drop": round(relative_drop, 6),
+            "status": status,
         }
         if _STATUS_SEVERITY.get(status, 0) > _STATUS_SEVERITY.get(worst_status, 0):
             worst_status = status
@@ -542,6 +585,7 @@ def evaluate_performance_drift(
 # ---------------------------------------------------------------------------
 # Retraining decision boundary (§10) — a recommendation, never an action
 # ---------------------------------------------------------------------------
+
 
 def recommend_action(data_drift_status: Optional[str], performance_drift_status: Optional[str]) -> str:
     """Pure decision-boundary function. Returns a RECOMMENDATION only —
@@ -579,7 +623,10 @@ def get_code_commit() -> Optional[str]:
         return env_commit
     try:
         result = subprocess.run(
-            ["git", "rev-parse", "HEAD"], capture_output=True, text=True, timeout=2,
+            ["git", "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+            timeout=2,
             cwd=os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
         )
         if result.returncode == 0:
@@ -661,8 +708,8 @@ def record_training_provenance(
         library_versions = get_library_versions()
 
         dataset_provenance_id = None
-        feature_dtypes: dict[str, str] = {c: "unknown" for c in feature_cols}
-        feature_roles: dict[str, str] = {c: "unknown" for c in feature_cols}
+        feature_dtypes: dict[str, str] = dict.fromkeys(feature_cols, "unknown")
+        feature_roles: dict[str, str] = dict.fromkeys(feature_cols, "unknown")
         if X_train is not None:
             fingerprint_info = compute_dataset_fingerprint(X_train, target_col=target_col, feature_names=feature_cols)
             feature_roles = infer_feature_roles(X_train, feature_cols)
@@ -682,24 +729,44 @@ def record_training_provenance(
             )
 
         schema_fingerprint = compute_feature_schema_fingerprint(
-            feature_names=feature_cols, feature_dtypes=feature_dtypes, feature_roles=feature_roles,
-            target_definition=target_col, model_task_type=model_task_type,
+            feature_names=feature_cols,
+            feature_dtypes=feature_dtypes,
+            feature_roles=feature_roles,
+            target_definition=target_col,
+            model_task_type=model_task_type,
             preprocessing_expectations=preprocessing_expectations,
         )
         feature_schema_provenance_id = repo.record_feature_schema_provenance(
-            organization_id=organization_id, fingerprint=schema_fingerprint, feature_names=feature_cols,
-            feature_dtypes=feature_dtypes, feature_roles=feature_roles, model_task_type=model_task_type,
-            target_definition=target_col, preprocessing_expectations=preprocessing_expectations,
+            organization_id=organization_id,
+            fingerprint=schema_fingerprint,
+            feature_names=feature_cols,
+            feature_dtypes=feature_dtypes,
+            feature_roles=feature_roles,
+            model_task_type=model_task_type,
+            target_definition=target_col,
+            preprocessing_expectations=preprocessing_expectations,
         )
 
         model_version_id = repo.record_model_version(
-            organization_id=organization_id, training_id=training_id, model_key=f"{dataset_id}::{target_col}",
-            dataset_id=dataset_id, target_col=target_col, model_name=model_name, status=status,
-            algorithm=algorithm, dataset_version=dataset_version, owner=owner,
-            feature_schema={"feature_cols": feature_cols}, artifact_path=model_path,
-            artifact_checksum_sha256=model_sha256, dataset_provenance_id=dataset_provenance_id,
-            feature_schema_provenance_id=feature_schema_provenance_id, hyperparameters=hyperparameters,
-            code_commit=code_commit, python_version=python_version, library_versions=library_versions,
+            organization_id=organization_id,
+            training_id=training_id,
+            model_key=f"{dataset_id}::{target_col}",
+            dataset_id=dataset_id,
+            target_col=target_col,
+            model_name=model_name,
+            status=status,
+            algorithm=algorithm,
+            dataset_version=dataset_version,
+            owner=owner,
+            feature_schema={"feature_cols": feature_cols},
+            artifact_path=model_path,
+            artifact_checksum_sha256=model_sha256,
+            dataset_provenance_id=dataset_provenance_id,
+            feature_schema_provenance_id=feature_schema_provenance_id,
+            hyperparameters=hyperparameters,
+            code_commit=code_commit,
+            python_version=python_version,
+            library_versions=library_versions,
             created_by=created_by,
         )
         numeric_metrics = {k: v for k, v in (metrics or {}).items() if isinstance(v, (int, float))}
@@ -707,7 +774,10 @@ def record_training_provenance(
 
         _logger.info(
             "model registered: training_id=%s model_key=%s algorithm=%s status=%s",
-            training_id, f"{dataset_id}::{target_col}", algorithm, status,
+            training_id,
+            f"{dataset_id}::{target_col}",
+            algorithm,
+            status,
         )
         return {
             "model_version_id": model_version_id,

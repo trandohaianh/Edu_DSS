@@ -21,6 +21,7 @@ this test would not have caught the bug) and DATABASE_APP_ROLE_URL (a
 genuine non-superuser role — this is the connection the fix must work
 through).
 """
+
 from __future__ import annotations
 
 import os
@@ -45,8 +46,10 @@ def _organization_id():
     with owner.begin() as conn:
         org_code = f"modelreg002-{uuid.uuid4().hex[:8]}"
         org_id = conn.execute(
-            text("INSERT INTO organizations (org_code, name, is_active, created_at, updated_at) "
-                 "VALUES (:c, :n, true, now(), now()) RETURNING id"),
+            text(
+                "INSERT INTO organizations (org_code, name, is_active, created_at, updated_at) "
+                "VALUES (:c, :n, true, now(), now()) RETURNING id"
+            ),
             {"c": org_code, "n": "MODELREG-002 regression"},
         ).scalar_one()
     owner.dispose()
@@ -60,6 +63,7 @@ def test_promote_audit_write_succeeds_through_the_real_app_role(_organization_id
     monkeypatch.setenv("DATABASE_URL", _APP_ROLE_URL)
     monkeypatch.setenv("EDUDSS_ORGANIZATION_ID", str(_organization_id))
     from dss.db.session import reset_engine_for_tests
+
     reset_engine_for_tests()
     try:
         from dss.db.repositories import audit_log_repository
@@ -69,9 +73,13 @@ def test_promote_audit_write_succeeds_through_the_real_app_role(_organization_id
         assert resolved == _organization_id
 
         ok = audit_log_repository.record(
-            action="model.promoted", target_type="model_version", target_id="regression-test-training-id",
-            actor_username="modelreg002-test", organization_id=resolved,
-            before={}, after={"note": "MODELREG-002 regression"},
+            action="model.promoted",
+            target_type="model_version",
+            target_id="regression-test-training-id",
+            actor_username="modelreg002-test",
+            organization_id=resolved,
+            before={},
+            after={"note": "MODELREG-002 regression"},
         )
         assert ok is True, "audit_log_repository.record() must succeed through the app role once organization_id is set"
     finally:
@@ -80,8 +88,10 @@ def test_promote_audit_write_succeeds_through_the_real_app_role(_organization_id
     owner_direct = create_engine(owner_url)
     with owner_direct.connect() as conn:
         row = conn.execute(
-            text("SELECT organization_id, action, target_id FROM audit_logs "
-                 "WHERE organization_id=:o AND action='model.promoted' AND target_id='regression-test-training-id'"),
+            text(
+                "SELECT organization_id, action, target_id FROM audit_logs "
+                "WHERE organization_id=:o AND action='model.promoted' AND target_id='regression-test-training-id'"
+            ),
             {"o": _organization_id},
         ).one()
     owner_direct.dispose()
@@ -95,4 +105,5 @@ def test_promote_without_organization_id_still_does_not_raise(monkeypatch):
     gracefully rather than crash the caller."""
     monkeypatch.delenv("EDUDSS_ORGANIZATION_ID", raising=False)
     from dss.services.model_registry import _resolve_organization_id_best_effort
+
     assert _resolve_organization_id_best_effort() is None

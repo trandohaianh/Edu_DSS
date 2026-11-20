@@ -15,9 +15,10 @@ training time, once later from prediction_repository's pre-existing
 placeholder-creation path — updates the SAME row rather than creating a
 second one; whichever call has real data "wins" over a placeholder.
 """
+
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from typing import Any, Optional
 
 from dss.db.models import DatasetProvenance, DriftEvaluation, FeatureSchemaProvenance, ModelMetric, ModelVersion
@@ -174,15 +175,15 @@ def record_model_metrics(organization_id: int, model_version_id: int, metrics: d
     with tenant_session_scope(organization_id) as session:
         session.query(ModelMetric).filter(
             ModelMetric.model_version_id == model_version_id,
-            ModelMetric.model_version_id.in_(
-                session.query(ModelVersion.id).filter_by(organization_id=organization_id)
-            ),
+            ModelMetric.model_version_id.in_(session.query(ModelVersion.id).filter_by(organization_id=organization_id)),
         ).delete(synchronize_session=False)
         count = 0
         for name, value in (metrics or {}).items():
             if not isinstance(value, (int, float)):
                 continue
-            session.add(ModelMetric(model_version_id=model_version_id, metric_name=str(name), metric_value=float(value)))
+            session.add(
+                ModelMetric(model_version_id=model_version_id, metric_name=str(name), metric_value=float(value))
+            )
             count += 1
         session.flush()
         return count
@@ -212,7 +213,7 @@ def record_drift_evaluation(
             overall_status=overall_status,
             recommended_action=recommended_action,
             details=details,
-            evaluated_at=evaluated_at or datetime.now(timezone.utc),
+            evaluated_at=evaluated_at or datetime.now(UTC),
             evaluated_by=evaluated_by,
         )
         session.add(row)
@@ -234,7 +235,8 @@ def get_model_provenance(organization_id: int, training_id: str) -> Optional[dic
         dataset = session.get(DatasetProvenance, mv.dataset_provenance_id) if mv.dataset_provenance_id else None
         feature_schema_prov = (
             session.get(FeatureSchemaProvenance, mv.feature_schema_provenance_id)
-            if mv.feature_schema_provenance_id else None
+            if mv.feature_schema_provenance_id
+            else None
         )
         metrics = {m.metric_name: m.metric_value for m in mv.metrics}
         drift_history = (
@@ -245,36 +247,57 @@ def get_model_provenance(organization_id: int, training_id: str) -> Optional[dic
         )
         return {
             "model_version": {
-                "id": mv.id, "training_id": mv.training_id, "model_key": mv.model_key,
-                "dataset_id": mv.dataset_id, "target_col": mv.target_col, "model_name": mv.model_name,
-                "algorithm": mv.algorithm, "status": mv.status, "artifact_path": mv.artifact_path,
-                "artifact_checksum_sha256": mv.artifact_checksum_sha256, "hyperparameters": mv.hyperparameters,
-                "code_commit": mv.code_commit, "python_version": mv.python_version,
-                "library_versions": mv.library_versions, "created_by": mv.created_by,
+                "id": mv.id,
+                "training_id": mv.training_id,
+                "model_key": mv.model_key,
+                "dataset_id": mv.dataset_id,
+                "target_col": mv.target_col,
+                "model_name": mv.model_name,
+                "algorithm": mv.algorithm,
+                "status": mv.status,
+                "artifact_path": mv.artifact_path,
+                "artifact_checksum_sha256": mv.artifact_checksum_sha256,
+                "hyperparameters": mv.hyperparameters,
+                "code_commit": mv.code_commit,
+                "python_version": mv.python_version,
+                "library_versions": mv.library_versions,
+                "created_by": mv.created_by,
                 "trained_at": mv.trained_at.isoformat() if mv.trained_at else None,
             },
             "dataset_provenance": (
                 {
-                    "id": dataset.id, "dataset_id": dataset.dataset_id, "row_count": dataset.row_count,
-                    "column_count": dataset.column_count, "schema_fingerprint": dataset.schema_fingerprint,
-                    "dataset_fingerprint": dataset.dataset_fingerprint, "feature_list": dataset.feature_list,
+                    "id": dataset.id,
+                    "dataset_id": dataset.dataset_id,
+                    "row_count": dataset.row_count,
+                    "column_count": dataset.column_count,
+                    "schema_fingerprint": dataset.schema_fingerprint,
+                    "dataset_fingerprint": dataset.dataset_fingerprint,
+                    "feature_list": dataset.feature_list,
                 }
-                if dataset else None
+                if dataset
+                else None
             ),
             "feature_schema_provenance": (
                 {
-                    "id": feature_schema_prov.id, "fingerprint": feature_schema_prov.fingerprint,
-                    "feature_names": feature_schema_prov.feature_names, "feature_dtypes": feature_schema_prov.feature_dtypes,
-                    "feature_roles": feature_schema_prov.feature_roles, "model_task_type": feature_schema_prov.model_task_type,
+                    "id": feature_schema_prov.id,
+                    "fingerprint": feature_schema_prov.fingerprint,
+                    "feature_names": feature_schema_prov.feature_names,
+                    "feature_dtypes": feature_schema_prov.feature_dtypes,
+                    "feature_roles": feature_schema_prov.feature_roles,
+                    "model_task_type": feature_schema_prov.model_task_type,
                     "preprocessing_expectations": feature_schema_prov.preprocessing_expectations,
                 }
-                if feature_schema_prov else None
+                if feature_schema_prov
+                else None
             ),
             "metrics": metrics,
             "drift_history": [
                 {
-                    "id": d.id, "evaluation_type": d.evaluation_type, "overall_status": d.overall_status,
-                    "recommended_action": d.recommended_action, "evaluated_at": d.evaluated_at.isoformat(),
+                    "id": d.id,
+                    "evaluation_type": d.evaluation_type,
+                    "overall_status": d.overall_status,
+                    "recommended_action": d.recommended_action,
+                    "evaluated_at": d.evaluated_at.isoformat(),
                 }
                 for d in drift_history
             ],
@@ -292,9 +315,13 @@ def list_drift_history(organization_id: int, model_version_id: int, limit: int =
         )
         return [
             {
-                "id": d.id, "evaluation_type": d.evaluation_type, "overall_status": d.overall_status,
-                "recommended_action": d.recommended_action, "details": d.details,
-                "thresholds_used": d.thresholds_used, "evaluated_at": d.evaluated_at.isoformat(),
+                "id": d.id,
+                "evaluation_type": d.evaluation_type,
+                "overall_status": d.overall_status,
+                "recommended_action": d.recommended_action,
+                "details": d.details,
+                "thresholds_used": d.thresholds_used,
+                "evaluated_at": d.evaluated_at.isoformat(),
                 "evaluated_by": d.evaluated_by,
             }
             for d in rows

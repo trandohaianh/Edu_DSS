@@ -27,6 +27,7 @@ infrastructure for either mode; both modes run the identical Docker
 image and codebase, differing only in how many organizations one running
 instance happens to serve.
 """
+
 from __future__ import annotations
 
 import os
@@ -48,8 +49,17 @@ _logger = get_logger(__name__)
 SIMULATED_EXTERNAL_ORGS = ("org-a", "org-b")
 
 CANONICAL_RESOURCES = (
-    "users", "students", "lecturers", "courses", "enrollments",
-    "assignments", "submissions", "grades", "attendance", "activities", "content",
+    "users",
+    "students",
+    "lecturers",
+    "courses",
+    "enrollments",
+    "assignments",
+    "submissions",
+    "grades",
+    "attendance",
+    "activities",
+    "content",
 )
 
 
@@ -71,7 +81,9 @@ def _resolve_credential(credential_reference: Optional[str]) -> Optional[str]:
 
 @require_role("Platform Admin")
 def provision_university(
-    org_code: str, name: str, domain: Optional[str] = None,
+    org_code: str,
+    name: str,
+    domain: Optional[str] = None,
     deployment_mode: str = "MULTI_TENANT_SAAS",
 ) -> int:
     """Step 1 of onboarding: create the tenant row, status SETUP. Creates
@@ -119,13 +131,23 @@ def configure_connector(
             "never a raw token/secret."
         )
     connector_id = repo.upsert_connector_config(
-        organization_id=organization_id, connector_type=connector_type, base_url=base_url,
-        auth_mode=auth_mode, credential_reference=credential_reference,
-        external_organization_id=external_organization_id, timeout_seconds=timeout_seconds,
-        retry_policy=retry_policy or {"max_attempts": 3}, enabled_resources=list(enabled_resources or CANONICAL_RESOURCES),
+        organization_id=organization_id,
+        connector_type=connector_type,
+        base_url=base_url,
+        auth_mode=auth_mode,
+        credential_reference=credential_reference,
+        external_organization_id=external_organization_id,
+        timeout_seconds=timeout_seconds,
+        retry_policy=retry_policy or {"max_attempts": 3},
+        enabled_resources=list(enabled_resources or CANONICAL_RESOURCES),
         sync_mode=sync_mode,
     )
-    _logger.info("connector configured: org_id=%s connector_type=%s external_org=%s", organization_id, connector_type, external_organization_id)
+    _logger.info(
+        "connector configured: org_id=%s connector_type=%s external_org=%s",
+        organization_id,
+        connector_type,
+        external_organization_id,
+    )
     return connector_id
 
 
@@ -146,8 +168,11 @@ def _build_connector(config: dict[str, Any]):
             "(environment variable not set) — cannot build a connector without a real credential."
         )
     return LMSCMSConnector(
-        config["base_url"], token, config["external_organization_id"],
-        timeout=config["timeout_seconds"], max_attempts=3,
+        config["base_url"],
+        token,
+        config["external_organization_id"],
+        timeout=config["timeout_seconds"],
+        max_attempts=3,
     )
 
 
@@ -180,7 +205,13 @@ def test_connection(organization_id: int, scenario: Optional[str] = None) -> dic
     except IntegrationError as exc:
         detail = f"{exc.code}: {exc}" if not exc.status else f"HTTP {exc.status} ({exc.code}): {exc}"
         repo.record_connection_test_result(organization_id, "FAILED", detail)
-        return {"status": "FAILED", "detail": detail, "http_status": exc.status, "code": exc.code, "retryable": exc.retryable}
+        return {
+            "status": "FAILED",
+            "detail": detail,
+            "http_status": exc.status,
+            "code": exc.code,
+            "retryable": exc.retryable,
+        }
 
 
 @require_role("Platform Admin")
@@ -205,7 +236,7 @@ def validate_mapping(organization_id: int) -> dict[str, Any]:
 
     resource_mappings: dict[str, Any] = {}
     overall_valid = True
-    for resource in (config["enabled_resources"] or CANONICAL_RESOURCES):
+    for resource in config["enabled_resources"] or CANONICAL_RESOURCES:
         required_field = ID_FIELDS.get(resource)
         if required_field is None:
             resource_mappings[resource] = {"status": "invalid", "reason": f"unknown canonical resource: {resource}"}
@@ -220,7 +251,11 @@ def validate_mapping(organization_id: int) -> dict[str, Any]:
         records = sample.get("data") if isinstance(sample, dict) else sample
         records = records if isinstance(records, list) else []
         if not records:
-            resource_mappings[resource] = {"status": "invalid", "reason": "no sample records returned", "required_fields": [required_field]}
+            resource_mappings[resource] = {
+                "status": "invalid",
+                "reason": "no sample records returned",
+                "required_fields": [required_field],
+            }
             overall_valid = False
             continue
         present = required_field in records[0]
@@ -232,7 +267,9 @@ def validate_mapping(organization_id: int) -> dict[str, Any]:
         overall_valid = overall_valid and present
 
     status = "VALID" if overall_valid else "INVALID"
-    mapping_profile_id = repo.save_mapping_profile(organization_id, name="default", resource_mappings=resource_mappings, validation_status=status)
+    mapping_profile_id = repo.save_mapping_profile(
+        organization_id, name="default", resource_mappings=resource_mappings, validation_status=status
+    )
     repo.set_mapping_profile(organization_id, mapping_profile_id)
     return {"status": status, "resource_mappings": resource_mappings, "mapping_profile_id": mapping_profile_id}
 

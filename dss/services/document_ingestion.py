@@ -11,19 +11,21 @@ Metadata chuẩn hóa:
 - document_id, course_id, semester, title, source, version, permission_scope, uploaded_by, created_at, updated_at
 - Bộ tài liệu mẫu 19 bài được lưu giữ dưới dạng DEMO knowledge.
 """
+
 from __future__ import annotations
 
 import io
 import json
 import uuid
-import zipfile
 import xml.etree.ElementTree as ET
+import zipfile
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
-from dss.core.observability import observed
 
+from dss.core.observability import observed
+from dss.services import document_governance
 from dss.services.chunking_service import DocumentChunk, SemanticChunker
 from dss.services.rag_namespaces import (
     NAMESPACE_ADMIN_OPERATIONS,
@@ -31,7 +33,6 @@ from dss.services.rag_namespaces import (
     NAMESPACE_STUDENT_LEARNING,
     validate_student_profile_not_in_knowledge,
 )
-from dss.services import document_governance
 
 
 @dataclass
@@ -62,6 +63,7 @@ def extract_text_from_docx(file_bytes: bytes) -> str:
     """Đọc văn bản từ file DOCX."""
     try:
         import docx
+
         doc = docx.Document(io.BytesIO(file_bytes))
         paragraphs = [p.text for p in doc.paragraphs if p.text.strip()]
         # Đọc thêm dữ liệu trong bảng
@@ -88,6 +90,7 @@ def extract_text_from_pptx(file_bytes: bytes) -> str:
     try:
         # Thử import pptx
         from pptx import Presentation
+
         prs = Presentation(io.BytesIO(file_bytes))
         slides_text = []
         for idx, slide in enumerate(prs.slides, 1):
@@ -103,7 +106,9 @@ def extract_text_from_pptx(file_bytes: bytes) -> str:
         try:
             with zipfile.ZipFile(io.BytesIO(file_bytes)) as z:
                 slide_texts = []
-                slide_files = sorted([f for f in z.namelist() if f.startswith("ppt/slides/slide") and f.endswith(".xml")])
+                slide_files = sorted(
+                    [f for f in z.namelist() if f.startswith("ppt/slides/slide") and f.endswith(".xml")]
+                )
                 for idx, sfile in enumerate(slide_files, 1):
                     xml_content = z.read(sfile)
                     tree = ET.fromstring(xml_content)
@@ -119,6 +124,7 @@ def extract_text_from_pdf(file_bytes: bytes) -> str:
     """Đọc văn bản từ file PDF."""
     try:
         import pypdf
+
         reader = pypdf.PdfReader(io.BytesIO(file_bytes))
         pages_text = []
         for idx, page in enumerate(reader.pages, 1):
@@ -131,6 +137,7 @@ def extract_text_from_pdf(file_bytes: bytes) -> str:
         try:
             raw = file_bytes.decode("latin-1", errors="ignore")
             import re
+
             # Lấy các khối text dạng (Hello world) Tj
             matches = re.findall(r"\((.*?)\)\s*Tj", raw)
             if matches:
@@ -186,7 +193,7 @@ def ingest_document(
 ) -> IngestedDocument:
     """Hàm chính tiếp nhận, kiểm tra bảo mật, bóc tách và phân đoạn tài liệu."""
     doc_id = f"doc_{uuid.uuid4().hex[:10]}"
-    now_iso = datetime.now(timezone.utc).isoformat()
+    now_iso = datetime.now(UTC).isoformat()
 
     # Kiểm tra an toàn: Tuyệt đối không cho phép nạp hồ sơ sinh viên vào Vector Store
     validate_student_profile_not_in_knowledge({"title": title, "id": doc_id})
@@ -231,14 +238,16 @@ def ingest_document(
     # đường nào (kể cả qua **extra_metadata ở trên) để tự "duyệt" ngay lúc tải lên.
     # Áp dụng SAU extra_metadata.update() để ép đè bất kỳ giá trị status/approved_*
     # nào người gọi cố truyền vào.
-    base_meta.update(document_governance.default_governance_metadata(
-        doc_type=doc_type,
-        issuer=issuer,
-        official_ref=official_ref,
-        content_hash=document_governance.compute_content_hash(raw_text),
-        effective_from=effective_from,
-        expires_at=expires_at,
-    ))
+    base_meta.update(
+        document_governance.default_governance_metadata(
+            doc_type=doc_type,
+            issuer=issuer,
+            official_ref=official_ref,
+            content_hash=document_governance.compute_content_hash(raw_text),
+            effective_from=effective_from,
+            expires_at=expires_at,
+        )
+    )
     chunks = chunker.chunk_text(
         text=raw_text,
         document_id=doc_id,

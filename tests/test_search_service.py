@@ -4,6 +4,7 @@ Phủ đúng yêu cầu Part A/A2/A6/A9 của lượt "UI/RAG consistency pass �
 khớp chính xác, khớp một phần, trạng thái rỗng trung thực, và quan trọng nhất
 — RBAC phải chặn TRƯỚC khi trả kết quả (Sinh viên không được cấp quyền tìm
 kiếm sinh viên khác, bất kể query khớp gì)."""
+
 from __future__ import annotations
 
 import pandas as pd
@@ -31,7 +32,7 @@ def test_exact_match_returns_single_result(sample_df):
 
 
 def test_exact_match_ranked_before_partial_match(sample_df):
-    """"SV01" khớp một phần với SV001 và SV010 — nhưng nếu người dùng gõ đúng
+    """ "SV01" khớp một phần với SV001 và SV010 — nhưng nếu người dùng gõ đúng
     "SV001", kết quả khớp CHÍNH XÁC phải đứng đầu danh sách."""
     results = search_service.search_students(sample_df, "SV001", role="Admin")
     assert results[0].student_id == "SV001"

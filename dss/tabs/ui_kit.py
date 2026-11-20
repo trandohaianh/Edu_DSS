@@ -6,6 +6,7 @@ không còn mã màu hex rải rác trong style inline, nên cùng một compone
 đúng ở cả giao diện Sáng lẫn Tối. Chữ ký hàm giữ nguyên để không phải sửa các
 nơi gọi hiện có.
 """
+
 import html as _html
 import re
 
@@ -16,45 +17,58 @@ import streamlit as st
 _ICON_SVG = {
     "home": "<path d='M3 9.5L12 3l9 6.5'/><path d='M5 9.5V20a1 1 0 0 0 1 1h3v-6h6v6h3a1 1 0 0 0 1-1V9.5'/>",
     "users": "<path d='M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2'/><circle cx='9' cy='7' r='4'/>"
-             "<path d='M23 21v-2a4 4 0 0 0-3-3.87'/><path d='M16 3.13a4 4 0 0 1 0 7.75'/>",
+    "<path d='M23 21v-2a4 4 0 0 0-3-3.87'/><path d='M16 3.13a4 4 0 0 1 0 7.75'/>",
     "cap": "<path d='M22 10L12 5 2 10l10 5 10-5z'/><path d='M6 12v5c0 1.5 2.7 3 6 3s6-1.5 6-3v-5'/>",
     "alert": "<path d='M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z'/>"
-             "<line x1='12' y1='9' x2='12' y2='13'/><line x1='12' y1='17' x2='12.01' y2='17'/>",
+    "<line x1='12' y1='9' x2='12' y2='13'/><line x1='12' y1='17' x2='12.01' y2='17'/>",
     "target": "<circle cx='12' cy='12' r='10'/><circle cx='12' cy='12' r='6'/><circle cx='12' cy='12' r='2'/>",
     "chart": "<line x1='18' y1='20' x2='18' y2='10'/><line x1='12' y1='20' x2='12' y2='4'/>"
-             "<line x1='6' y1='20' x2='6' y2='14'/>",
+    "<line x1='6' y1='20' x2='6' y2='14'/>",
     "layers": "<polygon points='12 2 2 7 12 12 22 7 12 2'/><polyline points='2 17 12 22 22 17'/>"
-              "<polyline points='2 12 12 17 22 12'/>",
+    "<polyline points='2 12 12 17 22 12'/>",
     "clock": "<circle cx='12' cy='12' r='10'/><polyline points='12 6 12 12 16 14'/>",
     "edit": "<path d='M12 20h9'/><path d='M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z'/>",
     "search": "<circle cx='11' cy='11' r='8'/><line x1='21' y1='21' x2='16.65' y2='16.65'/>",
     "award": "<circle cx='12' cy='8' r='7'/><polyline points='8.21 13.89 7 23 12 20 17 23 15.79 13.88'/>",
     "chat": "<path d='M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7"
-            "a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z'/>",
+    "a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z'/>",
     "database": "<ellipse cx='12' cy='5' rx='9' ry='3'/><path d='M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5'/>"
-                "<path d='M3 12c0 1.66 4 3 9 3s9-1.34 9-3'/>",
+    "<path d='M3 12c0 1.66 4 3 9 3s9-1.34 9-3'/>",
     "file": "<path d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z'/><polyline points='14 2 14 8 20 8'/>",
     "book": "<path d='M4 19.5A2.5 2.5 0 0 1 6.5 17H20'/><path d='M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z'/>",
     "settings": "<circle cx='12' cy='12' r='3'/><path d='M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 "
-                "2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 "
-                "9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 "
-                "1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 "
-                "0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 "
-                "1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0 "
-                "-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z'/>",
+    "2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 "
+    "9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 "
+    "1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 "
+    "0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 "
+    "1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0 "
+    "-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z'/>",
 }
 _EMOJI_TO_ICON_KEY = {
-    "🏠": "home", "👥": "users", "🎓": "cap", "⚠️": "alert", "🎯": "target",
-    "📊": "chart", "🧩": "layers", "🕐": "clock", "✏️": "edit", "🔍": "search",
-    "🏆": "award", "🤖": "chat", "💬": "chat", "🗄️": "database", "📁": "database",
-    "📄": "file", "📚": "book", "⚙️": "settings", "🔧": "settings",
+    "🏠": "home",
+    "👥": "users",
+    "🎓": "cap",
+    "⚠️": "alert",
+    "🎯": "target",
+    "📊": "chart",
+    "🧩": "layers",
+    "🕐": "clock",
+    "✏️": "edit",
+    "🔍": "search",
+    "🏆": "award",
+    "🤖": "chat",
+    "💬": "chat",
+    "🗄️": "database",
+    "📁": "database",
+    "📄": "file",
+    "📚": "book",
+    "⚙️": "settings",
+    "🔧": "settings",
 }
 _LEADING_EMOJI_RE = re.compile(r"^(\S+)\s+")
 # Ký tự trang trí đầu chuỗi (emoji/biểu tượng) — trạng thái giờ dùng chấm màu +
 # chữ, nên bỏ biểu tượng lặp lại ở đầu nhãn (vd. "✅ Đã lưu" -> "Đã lưu").
-_DECORATIVE_PREFIX_RE = re.compile(
-    r"^(?:[☀-➿\U0001F000-\U0001FAFF⬀-⯿️‍]+\s*)+"
-)
+_DECORATIVE_PREFIX_RE = re.compile(r"^(?:[☀-➿\U0001F000-\U0001FAFF⬀-⯿️‍]+\s*)+")
 
 
 def _icon_svg_span(icon, size=18, color="currentColor"):
@@ -78,12 +92,19 @@ def strip_decoration(text) -> str:
 
 # Ánh xạ kind cũ -> biến thể trạng thái trong design system.
 _STATUS_KINDS = {
-    "success": "success", "verified": "success", "ready": "success",
+    "success": "success",
+    "verified": "success",
+    "ready": "success",
     "warning": "warning",
-    "danger": "danger", "error": "danger", "failed": "danger",
+    "danger": "danger",
+    "error": "danger",
+    "failed": "danger",
     "info": "info",
-    "neutral": "neutral", "violet": "neutral", "purple": "neutral",
-    "pending": "pending", "unavailable": "neutral",
+    "neutral": "neutral",
+    "violet": "neutral",
+    "purple": "neutral",
+    "pending": "pending",
+    "unavailable": "neutral",
 }
 
 # Nhãn chuẩn cho các trạng thái hệ thống — màu KHÔNG bao giờ là tín hiệu duy
@@ -143,8 +164,7 @@ def section_header(title, subtitle=None, icon=None):
     trong ứng dụng. `icon` giữ trong chữ ký để tương thích ngược — không render."""
     subtitle_html = f"<p class='dss-page-subtitle'>{subtitle}</p>" if subtitle else ""
     st.markdown(
-        f"<div class='dss-page-header'><h1 class='dss-page-title'>{strip_decoration(title)}</h1>"
-        f"{subtitle_html}</div>",
+        f"<div class='dss-page-header'><h1 class='dss-page-title'>{strip_decoration(title)}</h1>{subtitle_html}</div>",
         unsafe_allow_html=True,
     )
 
@@ -243,6 +263,7 @@ def render_synthetic_data_banner(df):
     hiển thị ở đầu mọi trang phân tích/dự đoán đọc dữ liệu đó để không ai nhầm
     số liệu giả là số liệu sinh viên thật."""
     from dss.core.data_helpers import is_synthetic_data
+
     if is_synthetic_data(df):
         data_strip(
             "Dữ liệu mô phỏng (demo)",
@@ -336,12 +357,21 @@ def recommendation_card(
     source: str = None,
 ):
     """Thẻ khuyến nghị học tập có cấu trúc (vấn đề / bằng chứng / hành động)."""
-    priority_kind = "danger" if priority in ("Cao", "Khẩn cấp", "HIGH") else ("warning" if priority in ("Trung bình", "MEDIUM") else "info")
-    priority_label = "Ưu tiên cao" if priority_kind == "danger" else ("Ưu tiên trung bình" if priority_kind == "warning" else "Ưu tiên thông thường")
+    priority_kind = (
+        "danger"
+        if priority in ("Cao", "Khẩn cấp", "HIGH")
+        else ("warning" if priority in ("Trung bình", "MEDIUM") else "info")
+    )
+    priority_label = (
+        "Ưu tiên cao"
+        if priority_kind == "danger"
+        else ("Ưu tiên trung bình" if priority_kind == "warning" else "Ưu tiên thông thường")
+    )
 
     recheck_html = (
         f"<div class='dss-recommendation-action'><b>Đánh giá lại:</b> {recheck_condition}</div>"
-        if recheck_condition else ""
+        if recheck_condition
+        else ""
     )
     source_html = f"<div class='dss-recommendation-meta'>Cơ sở dữ liệu: {source}</div>" if source else ""
 
@@ -385,8 +415,7 @@ def diagnosis_card(
             f"<ul style='margin:4px 0 0;padding-left:20px;'>{c_items}</ul></div>"
         )
     rec_html = (
-        f"<div class='dss-recommendation-action'><b>Khuyến nghị:</b> {recommendation}</div>"
-        if recommendation else ""
+        f"<div class='dss-recommendation-action'><b>Khuyến nghị:</b> {recommendation}</div>" if recommendation else ""
     )
     summary_html = f"<div class='dss-diagnosis-desc'>{summary}</div>" if summary else ""
     st.markdown(

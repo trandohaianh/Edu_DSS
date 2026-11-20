@@ -1,4 +1,5 @@
 """Unit checks for the portable backup entry point; real restore is separate."""
+
 from __future__ import annotations
 
 import json
@@ -41,10 +42,12 @@ def test_docker_command_does_not_pass_credentials(monkeypatch):
 
 def test_backup_checksum_and_manifest(tmp_path, monkeypatch):
     monkeypatch.setenv("DATABASE_URL", "postgresql://alice:private@localhost/example")
+
     def fake_run(program, url, docker_container, args, **kwargs):
         assert program == "pg_dump"
         kwargs["output_file"].write(b"custom postgres archive")
         return ""
+
     monkeypatch.setattr(br, "_run", fake_run)
     metadata = br.backup(tmp_path)
     assert metadata["size_bytes"] == 23
@@ -60,10 +63,17 @@ def test_corrupt_archive_rejected_before_restore(tmp_path, monkeypatch):
     archive = tmp_path / "fixture.dump"
     archive.write_bytes(b"archive")
     manifest = tmp_path / "fixture.backup.json"
-    manifest.write_text(json.dumps({
-        "format": "pg_dump_custom", "database": "source",
-        "archive": archive.name, "size_bytes": 7, "sha256": br.checksum(archive),
-    }))
+    manifest.write_text(
+        json.dumps(
+            {
+                "format": "pg_dump_custom",
+                "database": "source",
+                "archive": archive.name,
+                "size_bytes": 7,
+                "sha256": br.checksum(archive),
+            }
+        )
+    )
     archive.write_bytes(b"corrupt")
     with patch.object(br, "_run") as run:
         with pytest.raises(br.BackupError, match="checksum or size mismatch"):
@@ -80,10 +90,17 @@ def test_restore_refuses_source_and_nonempty_target(tmp_path, monkeypatch):
     archive = tmp_path / "fixture.dump"
     archive.write_bytes(b"archive")
     manifest = tmp_path / "fixture.backup.json"
-    manifest.write_text(json.dumps({
-        "format": "pg_dump_custom", "database": "source",
-        "archive": archive.name, "size_bytes": 7, "sha256": br.checksum(archive),
-    }))
+    manifest.write_text(
+        json.dumps(
+            {
+                "format": "pg_dump_custom",
+                "database": "source",
+                "archive": archive.name,
+                "size_bytes": 7,
+                "sha256": br.checksum(archive),
+            }
+        )
+    )
     with patch.object(br, "_run", return_value="1") as run:
         with pytest.raises(br.BackupError, match="not empty"):
             br.restore(manifest)
@@ -94,10 +111,17 @@ def test_missing_manifest_and_path_traversal_rejected(tmp_path):
     with pytest.raises(br.BackupError, match="missing"):
         br.verify(tmp_path / "missing.backup.json")
     manifest = tmp_path / "bad.backup.json"
-    manifest.write_text(json.dumps({
-        "format": "pg_dump_custom", "database": "source",
-        "archive": "../outside.dump", "size_bytes": 1, "sha256": "x",
-    }))
+    manifest.write_text(
+        json.dumps(
+            {
+                "format": "pg_dump_custom",
+                "database": "source",
+                "archive": "../outside.dump",
+                "size_bytes": 1,
+                "sha256": "x",
+            }
+        )
+    )
     with pytest.raises(br.BackupError, match="unsafe"):
         br.verify(manifest)
 
@@ -106,10 +130,17 @@ def test_retention_dry_run_then_delete_only_verified_pairs(tmp_path, monkeypatch
     archive = tmp_path / "old.dump"
     archive.write_bytes(b"archive")
     manifest = tmp_path / "old.backup.json"
-    manifest.write_text(json.dumps({
-        "format": "pg_dump_custom", "database": "source",
-        "archive": archive.name, "size_bytes": 7, "sha256": br.checksum(archive),
-    }))
+    manifest.write_text(
+        json.dumps(
+            {
+                "format": "pg_dump_custom",
+                "database": "source",
+                "archive": archive.name,
+                "size_bytes": 7,
+                "sha256": br.checksum(archive),
+            }
+        )
+    )
     old = 1000000000
     os.utime(archive, (old, old))
     os.utime(manifest, (old, old))
@@ -125,9 +156,11 @@ def test_retention_dry_run_then_delete_only_verified_pairs(tmp_path, monkeypatch
 
 def test_subprocess_failure_hides_stderr_secret(monkeypatch):
     monkeypatch.setenv("DATABASE_URL", "postgresql://alice:private@localhost/example")
-    monkeypatch.setattr(br.subprocess, "run", lambda *a, **k: br.subprocess.CompletedProcess(
-        a[0], 1, stdout=b"", stderr=b"connection failed private"
-    ))
+    monkeypatch.setattr(
+        br.subprocess,
+        "run",
+        lambda *a, **k: br.subprocess.CompletedProcess(a[0], 1, stdout=b"", stderr=b"connection failed private"),
+    )
     with pytest.raises(br.BackupError) as error:
         br._run("pg_dump", br._url("DATABASE_URL"), None, ["--format=custom"])
     assert "private" not in str(error.value)

@@ -11,6 +11,7 @@ và được kiểm tra không trùng câu nào với tập đánh giá.
 - Đây vẫn là mô hình nhỏ học từ dữ liệu tự viết. Khách hàng cần độ phủ cao hơn có thể bật thêm lớp
   LLM-judge (``EDUDSS_SAFETY_LLM_JUDGE=1``) hoặc thay bằng mô hình đa ngôn ngữ đã tinh chỉnh.
 """
+
 from __future__ import annotations
 
 import json
@@ -21,7 +22,7 @@ from pathlib import Path
 TRAIN_PATH = Path(__file__).resolve().parents[1] / "resources" / "safety_train_v1.json"
 MAX_FALSE_POSITIVE_RATE = 0.05
 _lock = threading.Lock()
-_models: dict[str, "_Model"] = {}
+_models: dict[str, _Model] = {}
 
 
 @dataclass
@@ -48,16 +49,32 @@ def _build(task: str) -> _Model:
     labels = np.array([c["label"] for c in data])
 
     def make():
-        features = FeatureUnion([
-            ("char", TfidfVectorizer(analyzer="char_wb", ngram_range=(2, 5), lowercase=True, sublinear_tf=True, min_df=1)),
-            ("word", TfidfVectorizer(analyzer="word", ngram_range=(1, 2), lowercase=True, sublinear_tf=True,
-                                     token_pattern=r"(?u)\b\w+\b")),
-        ])
+        features = FeatureUnion(
+            [
+                (
+                    "char",
+                    TfidfVectorizer(
+                        analyzer="char_wb", ngram_range=(2, 5), lowercase=True, sublinear_tf=True, min_df=1
+                    ),
+                ),
+                (
+                    "word",
+                    TfidfVectorizer(
+                        analyzer="word",
+                        ngram_range=(1, 2),
+                        lowercase=True,
+                        sublinear_tf=True,
+                        token_pattern=r"(?u)\b\w+\b",
+                    ),
+                ),
+            ]
+        )
         return make_pipeline(features, LogisticRegression(C=8.0, max_iter=2000, class_weight="balanced"))
 
     pipe = make()
-    oof = cross_val_predict(make(), texts, labels, cv=StratifiedKFold(5, shuffle=True, random_state=0),
-                            method="predict_proba")
+    oof = cross_val_predict(
+        make(), texts, labels, cv=StratifiedKFold(5, shuffle=True, random_state=0), method="predict_proba"
+    )
     pipe.fit(texts, labels)
     p_pos = oof[:, list(pipe.classes_).index(positive)]
     neg_scores = np.sort(p_pos[labels != positive])

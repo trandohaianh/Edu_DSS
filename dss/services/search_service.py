@@ -16,6 +16,7 @@ mọi tab khác trong ứng dụng, xem `LMS_CMS_RAG_PRODUCT_VERIFICATION.md`):
 - Sinh viên: KHÔNG được cấp quyền tìm kiếm sinh viên khác — hàm này trả về
   danh sách rỗng ngay lập tức cho vai trò Sinh viên, bất kể query là gì.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -77,8 +78,7 @@ def search_students(
     )
 
     numeric_cols = [
-        c for c in df.select_dtypes(include="number").columns
-        if str(c).lower() not in _EXCLUDED_METRIC_COLUMNS
+        c for c in df.select_dtypes(include="number").columns if str(c).lower() not in _EXCLUDED_METRIC_COLUMNS
     ][:_MAX_METRIC_FIELDS]
 
     results: List[StudentSearchResult] = []

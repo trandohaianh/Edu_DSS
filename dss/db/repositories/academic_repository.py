@@ -23,6 +23,7 @@ idempotent ETL path that takes the CURRENT in-memory dataset (whatever
 as real, tenant-scoped, RLS-protected relational rows. This is new capability,
 not a cutover of an existing read path.
 """
+
 from __future__ import annotations
 
 from typing import Any, Optional
@@ -34,7 +35,11 @@ from dss.db.session import tenant_session_scope
 # to one academic_records row each, keyed by their real column name (used as
 # record_type so the source column is always traceable from the DB row).
 _SCORE_COLUMNS = [
-    "diem_giua_ky", "diem_ky_nay", "diem_du_an", "diem_ky_sau", "ty_le_diem_danh",
+    "diem_giua_ky",
+    "diem_ky_nay",
+    "diem_du_an",
+    "diem_ky_sau",
+    "ty_le_diem_danh",
 ]
 
 
@@ -43,9 +48,7 @@ def upsert_student(organization_id: int, student_code: str, full_name: Optional[
     constraint in the schema. Returns the row id."""
     with tenant_session_scope(organization_id) as session:
         existing = (
-            session.query(Student)
-            .filter_by(organization_id=organization_id, student_code=student_code)
-            .one_or_none()
+            session.query(Student).filter_by(organization_id=organization_id, student_code=student_code).one_or_none()
         )
         if existing:
             if full_name and existing.full_name != full_name:
@@ -81,7 +84,10 @@ def upsert_lecturer(organization_id: int, lecturer_code: str, full_name: Optiona
 
 
 def upsert_course(
-    organization_id: int, course_code: str, title: str, semester: Optional[str] = None,
+    organization_id: int,
+    course_code: str,
+    title: str,
+    semester: Optional[str] = None,
     lecturer_id: Optional[int] = None,
 ) -> int:
     with tenant_session_scope(organization_id) as session:
@@ -93,8 +99,11 @@ def upsert_course(
         if existing:
             return existing.id
         course = Course(
-            organization_id=organization_id, course_code=course_code, title=title,
-            semester=semester, lecturer_id=lecturer_id,
+            organization_id=organization_id,
+            course_code=course_code,
+            title=title,
+            semester=semester,
+            lecturer_id=lecturer_id,
         )
         session.add(course)
         session.flush()
@@ -117,8 +126,12 @@ def upsert_enrollment(organization_id: int, student_id: int, course_id: int) -> 
 
 
 def record_academic_record(
-    organization_id: int, student_id: int, course_id: Optional[int], record_type: str,
-    value: Optional[float], source: str = "import",
+    organization_id: int,
+    student_id: int,
+    course_id: Optional[int],
+    record_type: str,
+    value: Optional[float],
+    source: str = "import",
 ) -> int:
     """NOT idempotent by design — an academic_records row is a point-in-time
     fact (matches the LMS sync model: each sync appends new rows, it does not
@@ -126,8 +139,12 @@ def record_academic_record(
     at the DataFrame level (see import_dataframe's `replace_existing`)."""
     with tenant_session_scope(organization_id) as session:
         record = AcademicRecord(
-            organization_id=organization_id, student_id=student_id, course_id=course_id,
-            record_type=record_type, value=value, source=source,
+            organization_id=organization_id,
+            student_id=student_id,
+            course_id=course_id,
+            record_type=record_type,
+            value=value,
+            source=source,
         )
         session.add(record)
         session.flush()
@@ -153,8 +170,13 @@ def count_students(organization_id: int) -> int:
 
 
 def import_dataframe(
-    organization_id: int, df, course_code: str, course_title: str, term: Optional[str] = None,
-    student_id_column: str = "student_id", replace_existing: bool = False,
+    organization_id: int,
+    df,
+    course_code: str,
+    course_title: str,
+    term: Optional[str] = None,
+    student_id_column: str = "student_id",
+    replace_existing: bool = False,
 ) -> dict[str, int]:
     """Real, idempotent (for students/enrollments — see docstring on
     record_academic_record for why academic_records rows themselves are
@@ -176,9 +198,7 @@ def import_dataframe(
 
     if replace_existing:
         with tenant_session_scope(organization_id) as session:
-            session.query(AcademicRecord).filter_by(
-                organization_id=organization_id, course_id=course_id
-            ).delete()
+            session.query(AcademicRecord).filter_by(organization_id=organization_id, course_id=course_id).delete()
 
     students_imported = 0
     enrollments_imported = 0
@@ -200,7 +220,9 @@ def import_dataframe(
                 value = float(value)
             except (TypeError, ValueError):
                 continue
-            record_academic_record(organization_id, student_id, course_id, record_type=col, value=value, source="import")
+            record_academic_record(
+                organization_id, student_id, course_id, record_type=col, value=value, source="import"
+            )
             records_imported += 1
 
     return {

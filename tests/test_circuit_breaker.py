@@ -2,6 +2,7 @@
 Hoàn thiện chuỗi resilience AI: Timeout → Retry → Circuit Breaker → Failover
 → Safe Fallback → UI Error State. Trạng thái CLOSED/OPEN/HALF_OPEN, theo dõi
 RIÊNG từng provider (1 provider lỗi không được tắt AI toàn hệ thống)."""
+
 from __future__ import annotations
 
 import pytest

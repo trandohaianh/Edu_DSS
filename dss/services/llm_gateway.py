@@ -17,23 +17,24 @@ Chịu trách nhiệm toàn bộ các cuộc gọi AI:
 8. Quản lý Thời gian chờ (Timeout)
 9. Chuẩn hóa Lỗi (Error Normalization)
 """
+
 from __future__ import annotations
 
 import hashlib
 import logging
 import os
 import threading
-import uuid
 import time
+import uuid
 from typing import Any, Dict, Generator, List, Optional, Tuple
 
 import streamlit as st
 
 import dss.config as dss_config
 from dss.core.data_helpers import is_production_environment
+from dss.core.observability import observed, record_operation
 from dss.services import admin_ai_config, circuit_breaker, token_tracker
 from dss.services.context_budget import approximate_token_count
-from dss.core.observability import observed, record_operation
 
 _logger = logging.getLogger(__name__)
 
@@ -72,6 +73,7 @@ def _is_friendly_provider_error(text: str) -> bool:
     thành công."""
     return isinstance(text, str) and text.startswith(_PROVIDER_FRIENDLY_ERROR_PREFIXES)
 
+
 # Giới hạn số cuộc gọi AI đồng thời toàn hệ thống
 _GATEWAY_SEMAPHORE = threading.Semaphore(dss_config.MAX_CONCURRENT_REQUESTS)
 
@@ -83,6 +85,7 @@ _MAX_RPM = 60  # Tối đa 60 requests/phút
 
 class GatewayError(Exception):
     """Lớp ngoại lệ chuẩn hóa của LLM Gateway."""
+
     def __init__(self, message: str, provider: str = "unknown", error_code: str = "GATEWAY_ERROR"):
         super().__init__(message)
         self.message = message
@@ -168,7 +171,17 @@ def classify_provider_error(exc: BaseException) -> str:
         return HEALTH_AUTH_ERROR
     if any(k in msg for k in ("403", "permission", "blocked", "consumer")):
         return HEALTH_AUTH_ERROR
-    if any(k in msg for k in ("429", "quota exceeded", "resource_exhausted", "resource exhausted", "rate limit", "too many requests")):
+    if any(
+        k in msg
+        for k in (
+            "429",
+            "quota exceeded",
+            "resource_exhausted",
+            "resource exhausted",
+            "rate limit",
+            "too many requests",
+        )
+    ):
         return HEALTH_QUOTA_EXCEEDED
     if any(k in msg for k in ("404", "not found", "does not exist", "decommissioned", "deprecated")):
         return HEALTH_MODEL_NOT_FOUND
@@ -210,7 +223,9 @@ class ProviderHealth:
         }
 
 
-def check_provider_health(provider_key: str, model_name: Optional[str] = None, gateway: Optional["LLMGateway"] = None) -> ProviderHealth:
+def check_provider_health(
+    provider_key: str, model_name: Optional[str] = None, gateway: Optional[LLMGateway] = None
+) -> ProviderHealth:
     """Thăm dò sức khoẻ THẬT của 1 provider và GHI LẠI kết quả vào cache TTL
     (dùng cho is_known_unhealthy() ở lựa chọn tự động, Mục 9)."""
     result = _probe_provider_health(provider_key, model_name, gateway)
@@ -218,7 +233,9 @@ def check_provider_health(provider_key: str, model_name: Optional[str] = None, g
     return result
 
 
-def _probe_provider_health(provider_key: str, model_name: Optional[str] = None, gateway: Optional["LLMGateway"] = None) -> ProviderHealth:
+def _probe_provider_health(
+    provider_key: str, model_name: Optional[str] = None, gateway: Optional[LLMGateway] = None
+) -> ProviderHealth:
     """Thăm dò sức khoẻ THẬT của 1 provider bằng 1 lệnh gọi tối thiểu qua đúng
     SDK thật (KHÔNG qua call_ai_provider — hàm đó vốn đã swallow exception
     thành text thân thiện nên không đủ chi tiết để phân loại chính xác).
@@ -228,47 +245,92 @@ def _probe_provider_health(provider_key: str, model_name: Optional[str] = None, 
 
     if provider_key == "ollama":
         from dss.core.models import _check_ollama_running, list_ollama_models, ollama_base_url, resolve_ollama_model
+
         base_url = ollama_base_url()
         ready = _check_ollama_running(base_url)
         if ready and not list_ollama_models(base_url):
-            return ProviderHealth(provider_key, True, True, model="", category=HEALTH_CONFIG_ERROR,
-                                   detail="Ollama đang chạy nhưng chưa có model nào — chạy `ollama pull qwen2.5:7b`.")
-        return ProviderHealth(provider_key, True, True, model=resolve_ollama_model(model_name, base_url) if ready else "ollama_local",
-                               category=HEALTH_READY if ready else HEALTH_NETWORK_ERROR,
-                               detail="" if ready else f"Ollama không phản hồi tại {base_url}.")
+            return ProviderHealth(
+                provider_key,
+                True,
+                True,
+                model="",
+                category=HEALTH_CONFIG_ERROR,
+                detail="Ollama đang chạy nhưng chưa có model nào — chạy `ollama pull qwen2.5:7b`.",
+            )
+        return ProviderHealth(
+            provider_key,
+            True,
+            True,
+            model=resolve_ollama_model(model_name, base_url) if ready else "ollama_local",
+            category=HEALTH_READY if ready else HEALTH_NETWORK_ERROR,
+            detail="" if ready else f"Ollama không phản hồi tại {base_url}.",
+        )
 
     if not key:
-        return ProviderHealth(provider_key, False, False, model=model_name, category=HEALTH_NOT_CONFIGURED,
-                               detail="Chưa tìm thấy API key qua secrets/env.")
+        return ProviderHealth(
+            provider_key,
+            False,
+            False,
+            model=model_name,
+            category=HEALTH_NOT_CONFIGURED,
+            detail="Chưa tìm thấy API key qua secrets/env.",
+        )
 
     from dss.core.models import AI_MODEL_CATALOG
-    resolved_model = model_name or (AI_MODEL_CATALOG.get(provider_key, [""])[0] if provider_key in AI_MODEL_CATALOG else "")
+
+    resolved_model = model_name or (
+        AI_MODEL_CATALOG.get(provider_key, [""])[0] if provider_key in AI_MODEL_CATALOG else ""
+    )
 
     try:
         if provider_key == "gemini":
             import google.genai as genai
+
             from dss.core.models import _resolve_gemini_thinking_level
+
             client = genai.Client(api_key=key, http_options=genai.types.HttpOptions(timeout=20000))
             gen_kwargs = {"max_output_tokens": 10}
             thinking_level = _resolve_gemini_thinking_level(resolved_model)
             if thinking_level:
                 gen_kwargs["thinking_config"] = genai.types.ThinkingConfig(thinking_level=thinking_level)
-            client.models.generate_content(model=resolved_model, contents="Say OK", config=genai.types.GenerateContentConfig(**gen_kwargs))
+            client.models.generate_content(
+                model=resolved_model, contents="Say OK", config=genai.types.GenerateContentConfig(**gen_kwargs)
+            )
         elif provider_key == "groq":
             from groq import Groq
-            Groq(api_key=key, timeout=20, max_retries=0).chat.completions.create(model=resolved_model, messages=[{"role": "user", "content": "Say OK"}], max_tokens=5)
+
+            Groq(api_key=key, timeout=20, max_retries=0).chat.completions.create(
+                model=resolved_model, messages=[{"role": "user", "content": "Say OK"}], max_tokens=5
+            )
         elif provider_key == "openai":
             import openai
-            openai.OpenAI(api_key=key, timeout=20, max_retries=0).chat.completions.create(model=resolved_model, messages=[{"role": "user", "content": "Say OK"}], max_tokens=5)
+
+            openai.OpenAI(api_key=key, timeout=20, max_retries=0).chat.completions.create(
+                model=resolved_model, messages=[{"role": "user", "content": "Say OK"}], max_tokens=5
+            )
         else:
-            return ProviderHealth(provider_key, True, True, model=resolved_model, category=HEALTH_CONFIG_ERROR,
-                                   detail=f"Chưa hỗ trợ kiểm tra sức khoẻ cho provider '{provider_key}'.")
+            return ProviderHealth(
+                provider_key,
+                True,
+                True,
+                model=resolved_model,
+                category=HEALTH_CONFIG_ERROR,
+                detail=f"Chưa hỗ trợ kiểm tra sức khoẻ cho provider '{provider_key}'.",
+            )
         return ProviderHealth(provider_key, True, True, model=resolved_model, category=HEALTH_READY, detail="")
     except Exception as e:
         category = classify_provider_error(e)
-        _logger.exception("check_provider_health: %s that bai (model=%s, category=%s)", provider_key, resolved_model, category)
-        return ProviderHealth(provider_key, True, True, model=resolved_model, category=category,
-                               detail=PROVIDER_HEALTH_FRIENDLY_LABEL.get(category, "Lỗi không xác định"))
+        _logger.exception(
+            "check_provider_health: %s that bai (model=%s, category=%s)", provider_key, resolved_model, category
+        )
+        return ProviderHealth(
+            provider_key,
+            True,
+            True,
+            model=resolved_model,
+            category=category,
+            detail=PROVIDER_HEALTH_FRIENDLY_LABEL.get(category, "Lỗi không xác định"),
+        )
 
 
 # Mục 9 (audit 2026-09-14) — bộ nhớ đệm TTL cho kết quả health-check, dùng để
@@ -276,12 +338,12 @@ def _probe_provider_health(provider_key: str, model_name: Optional[str] = None, 
 # cho mỗi tin nhắn của Sinh viên). Provider CHƯA từng được kiểm tra vẫn được
 # coi là "có thể thử" (không chặn oan) — chỉ provider đã XÁC NHẬN không khoẻ
 # (vd. BILLING_REQUIRED) trong TTL gần nhất mới bị loại khỏi lựa chọn tự động.
-_HEALTH_CACHE: Dict[str, Tuple[float, "ProviderHealth"]] = {}
+_HEALTH_CACHE: Dict[str, Tuple[float, ProviderHealth]] = {}
 _HEALTH_CACHE_TTL_SECONDS = 300
 _HEALTH_CACHE_LOCK = threading.Lock()
 
 
-def get_cached_provider_health(provider_key: str) -> Optional["ProviderHealth"]:
+def get_cached_provider_health(provider_key: str) -> Optional[ProviderHealth]:
     """Trả về ProviderHealth gần nhất còn trong hạn TTL, hoặc None nếu chưa
     từng kiểm tra/đã hết hạn — KHÔNG tự động gọi request thật ở đây."""
     with _HEALTH_CACHE_LOCK:
@@ -294,7 +356,7 @@ def get_cached_provider_health(provider_key: str) -> Optional["ProviderHealth"]:
     return health
 
 
-def record_provider_health(provider_key: str, health: "ProviderHealth") -> None:
+def record_provider_health(provider_key: str, health: ProviderHealth) -> None:
     """Ghi lại 1 kết quả health-check thật vào cache (Admin bấm 'Kiểm tra kết
     nối', hoặc 1 lượt gọi thật trong luồng chat vừa thất bại) để lựa chọn tự
     động sau đó tránh lặp lại provider đã biết là không dùng được."""
@@ -406,7 +468,11 @@ class LLMGateway:
         # tự ý dùng nếu lần kiểm tra sức khoẻ gần nhất đã XÁC NHẬN provider đó
         # không dùng được (vd. BILLING_REQUIRED), rơi xuống auto-detect (Mục 9).
         default_cfg = admin_ai_config.get_default_provider()
-        if default_cfg and (role == "Sinh viên" or not requested_provider) and not is_known_unhealthy(default_cfg["provider_key"]):
+        if (
+            default_cfg
+            and (role == "Sinh viên" or not requested_provider)
+            and not is_known_unhealthy(default_cfg["provider_key"])
+        ):
             p_key = default_cfg["provider_key"]
             m_name = default_cfg["model_name"]
             api_k = explicit_api_key or self.resolve_api_key(p_key)
@@ -418,8 +484,13 @@ class LLMGateway:
         # đã thấy trạng thái sức khoẻ trên UI Cấu hình AI trước khi chọn).
         if requested_provider:
             from dss.core.models import AI_MODEL_CATALOG
+
             p_key = requested_provider
-            m_name = requested_model or os.environ.get(f"{p_key.upper()}_MODEL") or (AI_MODEL_CATALOG.get(p_key, [""])[0] if p_key in AI_MODEL_CATALOG else "")
+            m_name = (
+                requested_model
+                or os.environ.get(f"{p_key.upper()}_MODEL")
+                or (AI_MODEL_CATALOG.get(p_key, [""])[0] if p_key in AI_MODEL_CATALOG else "")
+            )
             api_k = explicit_api_key or self.resolve_api_key(p_key)
             return p_key, m_name, api_k
 
@@ -432,7 +503,10 @@ class LLMGateway:
             cand_key = explicit_api_key or self.resolve_api_key(cand)
             if cand_key:
                 from dss.core.models import AI_MODEL_CATALOG
-                cand_model = os.environ.get(f"{cand.upper()}_MODEL") or (AI_MODEL_CATALOG.get(cand, [""])[0] if cand in AI_MODEL_CATALOG else "")
+
+                cand_model = os.environ.get(f"{cand.upper()}_MODEL") or (
+                    AI_MODEL_CATALOG.get(cand, [""])[0] if cand in AI_MODEL_CATALOG else ""
+                )
                 return cand, cand_model, cand_key
 
         return "demo", "rule_based_fallback", None
@@ -445,12 +519,19 @@ class LLMGateway:
             # Giữ lại các timestamp trong 60 giây gần nhất
             _REQUEST_TIMESTAMPS = [t for t in _REQUEST_TIMESTAMPS if now - t < 60.0]
             if len(_REQUEST_TIMESTAMPS) >= _MAX_RPM:
-                raise RateLimitError("Hệ sinh thái AI đang xử lý lượng yêu cầu tối đa (RPM). Vui lòng thử lại sau ít giây.")
+                raise RateLimitError(
+                    "Hệ sinh thái AI đang xử lý lượng yêu cầu tối đa (RPM). Vui lòng thử lại sau ít giây."
+                )
             _REQUEST_TIMESTAMPS.append(now)
 
-    @observed("ai.gateway", metadata=lambda *args, **kwargs: {
-        "provider": kwargs.get("provider") or "auto", "model": kwargs.get("model") or "auto",
-        "input_tokens": approximate_token_count(args[1] if len(args) > 1 else kwargs.get("prompt", ""))})
+    @observed(
+        "ai.gateway",
+        metadata=lambda *args, **kwargs: {
+            "provider": kwargs.get("provider") or "auto",
+            "model": kwargs.get("model") or "auto",
+            "input_tokens": approximate_token_count(args[1] if len(args) > 1 else kwargs.get("prompt", "")),
+        },
+    )
     def stream_generate(
         self,
         prompt: str,
@@ -463,9 +544,9 @@ class LLMGateway:
         **kwargs,
     ) -> Generator[str, None, None]:
         """Phương thức chính trả về luồng streaming của câu trả lời từ LLM."""
-        from dss.services.semantic_cache import layered_cache, CACHE_CLASS_GLOBAL
-        from dss.services.subscription_service import consume_ai_request_quota
         from dss.db.repositories.quota_repository import QuotaExceededError
+        from dss.services.semantic_cache import CACHE_CLASS_GLOBAL, layered_cache
+        from dss.services.subscription_service import consume_ai_request_quota
 
         # FINAL PRODUCTION GAP CLOSURE (Phần 3/4): Correlation ID — mã ngắn gắn
         # với ĐÚNG 1 lượt gọi stream_generate() này, đưa vào MỌI log kỹ thuật
@@ -495,8 +576,11 @@ class LLMGateway:
             yield cached_response
             # Ghi nhận lượt dùng cache
             token_tracker.record_usage(
-                user_id=user_id, role=role, request_type=request_type,
-                provider=provider or "cache", model=model or "cache_hit",
+                user_id=user_id,
+                role=role,
+                request_type=request_type,
+                provider=provider or "cache",
+                model=model or "cache_hit",
                 input_tokens=approximate_token_count(prompt),
                 output_tokens=approximate_token_count(cached_response),
                 cache_hit=True,
@@ -557,7 +641,10 @@ class LLMGateway:
                 # đầu danh sách. Chỉ áp cho đúng provider được yêu cầu.
                 requested_m = (model or kwargs.get("model_name")) if p_candidate == provider else None
                 p_key, p_model, p_api_key = self.resolve_active_provider_and_model(
-                    requested_provider=p_candidate, requested_model=requested_m, role=role, explicit_api_key=explicit_k,
+                    requested_provider=p_candidate,
+                    requested_model=requested_m,
+                    role=role,
+                    explicit_api_key=explicit_k,
                 )
 
                 # Circuit Breaker (Phần 16, hoàn thiện chuỗi resilience sau H-3):
@@ -573,10 +660,18 @@ class LLMGateway:
                 if p_key != "demo" and not circuit_breaker.allow_request(p_key):
                     _logger.warning(
                         "LLMGateway [%s]: mach Circuit Breaker dang OPEN cho provider '%s' "
-                        "- bo qua, thu provider ke tiep.", correlation_id, p_key,
+                        "- bo qua, thu provider ke tiep.",
+                        correlation_id,
+                        p_key,
                     )
-                    record_operation("ai.provider_attempt", time.perf_counter(), success=False,
-                                     provider=p_key, model=p_model or "default", fallback="circuit_open")
+                    record_operation(
+                        "ai.provider_attempt",
+                        time.perf_counter(),
+                        success=False,
+                        provider=p_key,
+                        model=p_model or "default",
+                        fallback="circuit_open",
+                    )
                     continue
 
                 if p_key == "demo" or (not p_api_key and p_key in ("gemini", "groq", "openai")):
@@ -588,7 +683,10 @@ class LLMGateway:
                         # thái trung thực để Sinh viên/Giảng viên biết cần liên hệ
                         # Admin, thay vì nhận một kế hoạch học tập không có thật.
                         if is_production_environment():
-                            _logger.warning("LLMGateway [%s]: het chuoi fallback, khong con provider nao cau hinh hop le.", correlation_id)
+                            _logger.warning(
+                                "LLMGateway [%s]: het chuoi fallback, khong con provider nao cau hinh hop le.",
+                                correlation_id,
+                            )
                             yield f"🔒 Trợ lý AI hiện chưa khả dụng (chưa có provider AI nào được cấu hình hợp lệ). Vui lòng liên hệ quản trị viên.\n\nMã sự cố: AI-{correlation_id}"
                             return
                         # E-2: ghi rõ NGAY ĐẦU câu trả lời rằng đây KHÔNG phải nội dung
@@ -619,7 +717,9 @@ class LLMGateway:
                         rest_kwargs.pop("api_key", None)
                         rest_kwargs.pop("provider", None)
                         rest_kwargs.pop("model_name", None)
-                        if request_type in _PLANNING_REQUEST_TYPES and hasattr(self.llm_integration, "generate_personalized_advice"):
+                        if request_type in _PLANNING_REQUEST_TYPES and hasattr(
+                            self.llm_integration, "generate_personalized_advice"
+                        ):
                             student_weaknesses = rest_kwargs.pop("student_weaknesses", [])
                             predicted_gpa = rest_kwargs.pop("predicted_gpa", 0.0)
                             stream = self.llm_integration.generate_personalized_advice(
@@ -649,6 +749,7 @@ class LLMGateway:
                     if stream:
                         chunk_list = []
                         from dss.services import llm_usage
+
                         llm_usage.begin()
                         stream_iter = iter(stream)
                         if is_raw_provider_call:
@@ -664,13 +765,20 @@ class LLMGateway:
                             if first_chunk is not None and _is_friendly_provider_error(first_chunk):
                                 _logger.warning(
                                     "LLMGateway [%s]: provider '%s' tra ve loi than thien (khong raise) "
-                                    "- chuyen sang provider ke tiep trong fallback chain.", correlation_id, p_key,
+                                    "- chuyen sang provider ke tiep trong fallback chain.",
+                                    correlation_id,
+                                    p_key,
                                 )
                                 if p_key != "demo":
                                     circuit_breaker.record_failure(p_key)
-                                record_operation("ai.provider_attempt", provider_started, success=False,
-                                                 provider=p_key, model=p_model or "default",
-                                                 fallback="next_friendly_error" if fallback_allowed else "blocked")
+                                record_operation(
+                                    "ai.provider_attempt",
+                                    provider_started,
+                                    success=False,
+                                    provider=p_key,
+                                    model=p_model or "default",
+                                    fallback="next_friendly_error" if fallback_allowed else "blocked",
+                                )
                                 if not fallback_allowed:
                                     yield first_chunk
                                     return
@@ -695,15 +803,26 @@ class LLMGateway:
                             used_model = p_model or "default"
                             used_in, used_out = input_tokens, approximate_token_count(final_answer)
                             used_thinking, usage_source = 0, "estimated"
-                        record_operation("ai.provider_attempt", provider_started, success=True,
-                                         provider=p_key, model=used_model,
-                                         input_tokens=used_in, output_tokens=used_out)
+                        record_operation(
+                            "ai.provider_attempt",
+                            provider_started,
+                            success=True,
+                            provider=p_key,
+                            model=used_model,
+                            input_tokens=used_in,
+                            output_tokens=used_out,
+                        )
                         # Ghi nhận token thành công
                         token_tracker.record_usage(
-                            user_id=user_id, role=role, request_type=request_type,
-                            provider=p_key, model=used_model,
-                            input_tokens=used_in, output_tokens=used_out,
-                            usage_source=usage_source, thinking_tokens=used_thinking,
+                            user_id=user_id,
+                            role=role,
+                            request_type=request_type,
+                            provider=p_key,
+                            model=used_model,
+                            input_tokens=used_in,
+                            output_tokens=used_out,
+                            usage_source=usage_source,
+                            thinking_tokens=used_thinking,
                         )
                         # Lưu vào đệm — dimensions PHẢI gồm "student_pseudonym" (=user_id):
                         # trước fix này, dimensions chỉ có {"role": role} nên
@@ -712,26 +831,46 @@ class LLMGateway:
                         # đường này — cache cá nhân hóa không bao giờ bị hủy khi điểm/dữ
                         # liệu sinh viên thay đổi, chỉ hết hạn theo TTL (tới 1 giờ).
                         layered_cache.exact_cache.set(
-                            cache_key, final_answer, CACHE_CLASS_GLOBAL,
+                            cache_key,
+                            final_answer,
+                            CACHE_CLASS_GLOBAL,
                             {"role": role, "student_pseudonym": user_id, "request_type": request_type},
                         )
                         break
                 except Exception as call_err:
                     err_lower = str(call_err).lower()
                     # MỤC 18: TUYỆT ĐỐI KHÔNG fallback khi lỗi là Authorization (401/403) hoặc Vi phạm PII/Bảo mật
-                    is_auth = any(t in err_lower for t in ["401", "403", "unauthorized", "permission", "forbidden", "invalid api key"])
+                    is_auth = any(
+                        t in err_lower
+                        for t in ["401", "403", "unauthorized", "permission", "forbidden", "invalid api key"]
+                    )
                     is_security = any(t in err_lower for t in ["pii", "injection", "security policy", "blocked prompt"])
                     if p_key != "demo":
                         circuit_breaker.record_failure(p_key)
-                    record_operation("ai.provider_attempt", provider_started, success=False,
-                                     provider=p_key, model=p_model or "default",
-                                     fallback="blocked" if is_auth or is_security else "next")
+                    record_operation(
+                        "ai.provider_attempt",
+                        provider_started,
+                        success=False,
+                        provider=p_key,
+                        model=p_model or "default",
+                        fallback="blocked" if is_auth or is_security else "next",
+                    )
                     if is_auth or is_security:
-                        _logger.error("LLMGateway [%s]: Chặn failover do vi phạm xác thực/bảo mật (provider=%s): error_type=%s", correlation_id, p_key, type(call_err).__name__)
+                        _logger.error(
+                            "LLMGateway [%s]: Chặn failover do vi phạm xác thực/bảo mật (provider=%s): error_type=%s",
+                            correlation_id,
+                            p_key,
+                            type(call_err).__name__,
+                        )
                         yield f"\n⚠️ Lỗi bảo mật/ủy quyền ({p_key}): Yêu cầu bị từ chối và không được phép chuyển tiếp.\n\nMã sự cố: AI-{correlation_id}"
                         return
 
-                    _logger.warning("LLMGateway [%s]: Provider %s thất bại (error_type=%s), thử fallback tiếp theo...", correlation_id, p_key, type(call_err).__name__)
+                    _logger.warning(
+                        "LLMGateway [%s]: Provider %s thất bại (error_type=%s), thử fallback tiếp theo...",
+                        correlation_id,
+                        p_key,
+                        type(call_err).__name__,
+                    )
                     if not fallback_allowed:
                         yield f"\n⚠️ Lỗi từ provider {p_key}: không thể hoàn tất yêu cầu.\n\nMã sự cố: AI-{correlation_id}"
                         return
@@ -739,4 +878,3 @@ class LLMGateway:
         finally:
             if acquired:
                 _GATEWAY_SEMAPHORE.release()
-

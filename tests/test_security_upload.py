@@ -55,4 +55,6 @@ def test_row_limit_and_duplicate_columns_rejected(monkeypatch):
 
 def test_unexpected_spreadsheet_bytes_rejected():
     with pytest.raises(UploadValidationError):
-        parse_tabular_upload(Upload("fake.xlsx", b"not a workbook", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+        parse_tabular_upload(
+            Upload("fake.xlsx", b"not a workbook", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        )

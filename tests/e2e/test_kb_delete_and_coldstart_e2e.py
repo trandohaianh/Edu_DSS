@@ -9,6 +9,7 @@ lần `get_vector_store()` được gọi, nên đây vẫn là một luồng th
 UI, chỉ tránh đúng 1 điểm dễ vỡ (widget `st.file_uploader` của Playwright) để
 không cộng dồn 2 nguồn flaky (upload widget + cold-start ~60s) vào 1 test.
 """
+
 from __future__ import annotations
 
 import sys
@@ -47,7 +48,10 @@ def seeded_kb_document(e2e_test_data_root):
         course_id="CS101",
         content="Tài liệu kiểm thử E2E cho chức năng xóa Knowledge Base.",
         token_count=12,
-        metadata={"title": "Tài liệu kiểm thử E2E xóa KB", "permission_scope": rag_namespaces.NAMESPACE_STUDENT_LEARNING},
+        metadata={
+            "title": "Tài liệu kiểm thử E2E xóa KB",
+            "permission_scope": rag_namespaces.NAMESPACE_STUDENT_LEARNING,
+        },
         embedding=[0.3] * 384,
     )
     store.add_chunks([chunk])
@@ -56,7 +60,9 @@ def seeded_kb_document(e2e_test_data_root):
 
 
 def _open_knowledge_base_tab(page):
-    page.locator("[data-testid='stSidebar']").get_by_role("button", name="Tài liệu", exact=False).first.click(timeout=30000)
+    page.locator("[data-testid='stSidebar']").get_by_role("button", name="Tài liệu", exact=False).first.click(
+        timeout=30000
+    )
     page.get_by_text("Không Gian Tri Thức", exact=False).first.wait_for(state="visible", timeout=30000)
     page.get_by_role("tab", name="Không Gian Tri Thức", exact=False).first.click(timeout=15000)
     page.wait_for_timeout(1200)
@@ -141,7 +147,9 @@ def test_student_cannot_reach_knowledge_base_tab_at_all(login):
 # sau khi thêm message cảnh báo tải lần đầu (không đổi luồng điều hướng).
 # ---------------------------------------------------------------------------
 def _open_learning_explainer_as(page, wait_ready, tab_label: str):
-    page.locator("[data-testid='stSidebar']").get_by_role("button", name="Trợ lý AI", exact=False).first.click(timeout=30000)
+    page.locator("[data-testid='stSidebar']").get_by_role("button", name="Trợ lý AI", exact=False).first.click(
+        timeout=30000
+    )
     wait_ready(page, timeout=25)
     page.get_by_text(tab_label, exact=False).first.click(timeout=15000)
     page.wait_for_timeout(1500)

@@ -17,6 +17,7 @@ tested repository, but not wired into the live advisory chat loop this pass.
 resolves/creates the student row via academic_repository.upsert_student —
 the same student-identity resolution already used by the academic domains.
 """
+
 from __future__ import annotations
 
 from typing import Any, Optional
@@ -27,7 +28,10 @@ from dss.db.session import tenant_session_scope
 
 
 def save_recommendation(
-    organization_id: int, student_code: str, recommendation_type: str, content: str,
+    organization_id: int,
+    student_code: str,
+    recommendation_type: str,
+    content: str,
     generated_by: Optional[str] = None,
 ) -> int:
     """Not idempotent by design — a recommendation is a point-in-time
@@ -37,8 +41,11 @@ def save_recommendation(
     student_id = upsert_student(organization_id, student_code)
     with tenant_session_scope(organization_id) as session:
         row = Recommendation(
-            organization_id=organization_id, student_id=student_id,
-            recommendation_type=recommendation_type, content=content, generated_by=generated_by,
+            organization_id=organization_id,
+            student_id=student_id,
+            recommendation_type=recommendation_type,
+            content=content,
+            generated_by=generated_by,
         )
         session.add(row)
         session.flush()
@@ -46,7 +53,10 @@ def save_recommendation(
 
 
 def list_recommendations(
-    organization_id: int, student_code: Optional[str] = None, limit: int = 100, offset: int = 0,
+    organization_id: int,
+    student_code: Optional[str] = None,
+    limit: int = 100,
+    offset: int = 0,
 ) -> list[dict[str, Any]]:
     from dss.db.models import Student
 
@@ -61,8 +71,11 @@ def list_recommendations(
         rows = q.order_by(Recommendation.created_at.desc()).limit(limit).offset(offset).all()
         return [
             {
-                "id": r.id, "student_code": code, "recommendation_type": r.recommendation_type,
-                "content": r.content, "generated_by": r.generated_by,
+                "id": r.id,
+                "student_code": code,
+                "recommendation_type": r.recommendation_type,
+                "content": r.content,
+                "generated_by": r.generated_by,
                 "created_at": r.created_at.isoformat() if r.created_at else None,
             }
             for r, code in rows

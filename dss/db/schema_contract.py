@@ -12,6 +12,7 @@ Both come from the same checkout that is being deployed, so a new migration upda
 the expectation automatically — and a model/migration mismatch is detected instead
 of silently accepted.
 """
+
 from __future__ import annotations
 
 from functools import lru_cache
@@ -45,9 +46,8 @@ def expected_head() -> str:
 
 @lru_cache(maxsize=1)
 def expected_tables() -> frozenset[str]:
-    from dss.db.base import Base
     import dss.db.models  # noqa: F401  (registers every mapped table)
-
+    from dss.db.base import Base
     from dss.platform.models import PlatformBase
 
     return frozenset(set(Base.metadata.tables) | set(PlatformBase.metadata.tables) | {ALEMBIC_VERSION_TABLE})

@@ -28,6 +28,7 @@ change, so records keyed by the old pseudonym (token usage, learning-explainer
 interactions, misconception records) must be re-keyed with a one-off job that computes
 old->new while both keys are available — see C1_1_SECURITY_PRIVACY_HARDENING.md.
 """
+
 from __future__ import annotations
 
 import base64
@@ -75,6 +76,7 @@ def _dev_key() -> bytes:
             return _dev_key_cache
         try:
             from dss.core.data_root import get_data_root
+
             path = get_data_root() / "security" / "pseudonym_dev.key"
             path.parent.mkdir(parents=True, exist_ok=True)
             if not path.exists():
@@ -92,9 +94,11 @@ def _master_key() -> bytes:
     if raw.strip():
         return _decode_key(raw)
     from dss.core.runtime_mode import is_production
+
     if is_production():
         raise PseudonymKeyMissing(
-            "EDUDSS_PSEUDONYM_KEY is not configured; pseudonymization is unavailable in production.")
+            "EDUDSS_PSEUDONYM_KEY is not configured; pseudonymization is unavailable in production."
+        )
     return _dev_key()
 
 
@@ -118,7 +122,7 @@ def pseudonymize(student_id: str, organization_id: Optional[int] = None) -> str:
         return f"{PREFIX}Learner"
     tenant_key = hmac.new(
         _master_key(),
-        f"edudss/pseudonym/v{key_version()}/org/{_organization_id(organization_id)}".encode("utf-8"),
+        f"edudss/pseudonym/v{key_version()}/org/{_organization_id(organization_id)}".encode(),
         hashlib.sha256,
     ).digest()
     digest = hmac.new(tenant_key, str(student_id).strip().upper().encode("utf-8"), hashlib.sha256).digest()

@@ -21,6 +21,7 @@ lỗi ở first-chunk và tự "chữa lành" bằng kế hoạch demo) — nhá
 `call_ai_provider` thô hầu như không bao giờ chạy tới. Sau H-1 (routing
 theo request_type), nhánh `call_ai_provider` chạy thật cho advisor_chat/
 learning_explainer/home_quick_chat — làm lộ gap failover này."""
+
 from __future__ import annotations
 
 from dss.services.llm_gateway import LLMGateway
@@ -70,15 +71,18 @@ def test_friendly_error_from_primary_provider_does_not_stop_failover(monkeypatch
     fake = _FriendlyErrorThenSuccessIntegration()
     gateway = _patch_gateway_for_two_provider_chain(monkeypatch, fake)
 
-    chunks = list(gateway.stream_generate(
-        prompt="Kế hoạch học tập của tôi thế nào?",
-        user_id="sv_test", role="Sinh viên", request_type="advisor_chat",
-    ))
+    chunks = list(
+        gateway.stream_generate(
+            prompt="Kế hoạch học tập của tôi thế nào?",
+            user_id="sv_test",
+            role="Sinh viên",
+            request_type="advisor_chat",
+        )
+    )
     full_answer = "".join(chunks)
 
     assert fake.attempts == ["gemini", "groq"], (
-        f"Fallback chain phải thử 'groq' SAU KHI 'gemini' trả lỗi thân thiện — "
-        f"thực tế chỉ thử: {fake.attempts}"
+        f"Fallback chain phải thử 'groq' SAU KHI 'gemini' trả lỗi thân thiện — thực tế chỉ thử: {fake.attempts}"
     )
     assert "câu trả lời thật từ Groq" in full_answer, (
         "Người dùng phải nhận câu trả lời THẬT từ provider dự phòng (groq), "

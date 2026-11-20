@@ -12,6 +12,7 @@ Every test resets module-global state (`_CONFIGURED`, the "dss" logger's
 handlers) since `logging_config` intentionally uses process-wide singletons —
 without resetting, an earlier test's handler would leak into a later one.
 """
+
 from __future__ import annotations
 
 import logging
@@ -99,9 +100,7 @@ def test_configure_once_does_not_attach_duplicate_handlers(tmp_path):
     dss_logger = logging.getLogger("dss")
 
     app_handlers = [
-        handler
-        for handler in dss_logger.handlers
-        if isinstance(handler, logging.handlers.RotatingFileHandler)
+        handler for handler in dss_logger.handlers if isinstance(handler, logging.handlers.RotatingFileHandler)
     ]
 
     assert len(app_handlers) == 1

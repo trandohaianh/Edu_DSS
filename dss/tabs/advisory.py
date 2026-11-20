@@ -13,6 +13,7 @@ trả lời trọn vẹn 9 câu hỏi cốt lõi của người học:
 8. Tôi có thể chuyển từ nghề A sang nghề B như thế nào? (Transition: Shared & Missing skills, Feasibility)
 9. Nếu mục tiêu hoặc điều kiện thay đổi thì khuyến nghị thay đổi ra sao? (What-if simulation & Feedback loop)
 """
+
 from __future__ import annotations
 
 import pandas as pd
@@ -20,21 +21,11 @@ import streamlit as st
 
 from dss.config import *  # noqa: F403
 from dss.core.data_helpers import is_production_environment as _is_production_environment
-from dss.tabs import ui_kit
-
-from dss.services.career_profile import (
-    ALL_SKILL_CATALOG,
-    EXPERIENCE_TYPES,
-    INTEREST_AXES,
-    SKILL_LEVELS,
-    WORK_STYLE_AXES,
-    ExperienceItem,
-    StudentCareerProfile,
-)
-from dss.services.career_knowledge_base import get_role, list_roles
-from dss.services.career_scoring import (
-    detect_capability_vs_constraint_conflicts,
-    rank_careers,
+from dss.core.target_utils import is_id_like
+from dss.services.career_ai_advisor import (
+    build_career_ai_context,
+    generate_offline_grounded_answer,
+    get_system_prompt,
 )
 from dss.services.career_gap_analysis import (
     PRIORITY_CRITICAL,
@@ -47,32 +38,7 @@ from dss.services.career_gap_analysis import (
     compute_gap_analysis,
     group_gap_by_status,
 )
-from dss.services.career_roadmap import (
-    _BUCKET_1M,
-    _BUCKET_3M,
-    _BUCKET_6M,
-    compute_transition,
-    suggest_alternative_paths,
-)
-from dss.services.career_whatif import (
-    apply_constraint_change,
-    apply_skill_change,
-    compare_scenarios,
-    rank_roles_for_timeframe,
-)
-from dss.services.career_ai_advisor import (
-    build_career_ai_context,
-    generate_offline_grounded_answer,
-    get_system_prompt,
-)
-from dss.services.lms_connector import (
-    BaseLMSRepository,
-    get_lms_repository,
-)
-from dss.services.cms_repository import (
-    BaseCMSRepository,
-    get_cms_repository,
-)
+from dss.services.career_knowledge_base import get_role, list_roles
 from dss.services.career_lms_cms_pipeline import (
     TracedGapItem,
     compute_traced_gap_analysis,
@@ -80,7 +46,41 @@ from dss.services.career_lms_cms_pipeline import (
     execute_closed_loop_action,
     generate_traced_roadmap,
 )
-from dss.core.target_utils import is_id_like
+from dss.services.career_profile import (
+    ALL_SKILL_CATALOG,
+    EXPERIENCE_TYPES,
+    INTEREST_AXES,
+    SKILL_LEVELS,
+    WORK_STYLE_AXES,
+    ExperienceItem,
+    StudentCareerProfile,
+)
+from dss.services.career_roadmap import (
+    _BUCKET_1M,
+    _BUCKET_3M,
+    _BUCKET_6M,
+    compute_transition,
+    suggest_alternative_paths,
+)
+from dss.services.career_scoring import (
+    detect_capability_vs_constraint_conflicts,
+    rank_careers,
+)
+from dss.services.career_whatif import (
+    apply_constraint_change,
+    apply_skill_change,
+    compare_scenarios,
+    rank_roles_for_timeframe,
+)
+from dss.services.cms_repository import (
+    BaseCMSRepository,
+    get_cms_repository,
+)
+from dss.services.lms_connector import (
+    BaseLMSRepository,
+    get_lms_repository,
+)
+from dss.tabs import ui_kit
 
 _STATUS_ICON = {STATUS_HAVE: "✅", STATUS_STRENGTHEN: "🔶", STATUS_MISSING: "✕"}
 _PRIORITY_BADGE_KIND = {
@@ -92,7 +92,9 @@ _PRIORITY_BADGE_KIND = {
 
 
 def _gap_size_label(gaps) -> str:
-    critical_or_high = sum(1 for g in gaps if g.priority in (PRIORITY_CRITICAL, PRIORITY_HIGH) and g.status != STATUS_HAVE)
+    critical_or_high = sum(
+        1 for g in gaps if g.priority in (PRIORITY_CRITICAL, PRIORITY_HIGH) and g.status != STATUS_HAVE
+    )
     if critical_or_high == 0:
         return "Nhỏ"
     if critical_or_high <= 2:
@@ -128,7 +130,9 @@ def _render_profile_section(profile: StudentCareerProfile) -> None:
     with c_comp:
         completeness = profile.profile_completeness()
         n_filled = sum(1 for v in completeness.values() if v)
-        st.progress(n_filled / len(completeness), text=f"Mức độ hoàn thiện hồ sơ: {n_filled}/{len(completeness)} mảng dữ liệu")
+        st.progress(
+            n_filled / len(completeness), text=f"Mức độ hoàn thiện hồ sơ: {n_filled}/{len(completeness)} mảng dữ liệu"
+        )
 
     # 1.1 Dữ liệu gắn kết & Năng lực thực tế từ LMS
     lms = get_lms_repository()
@@ -144,7 +148,9 @@ def _render_profile_section(profile: StudentCareerProfile) -> None:
     with lm4:
         st.metric("Xu hướng phong độ", lms_summary.performance_trend)
 
-    with st.expander(f"📋 Bằng chứng học tập xác thực từ LMS ({len(lms_summary.evidences)} sự kiện ghi nhận)", expanded=False):
+    with st.expander(
+        f"📋 Bằng chứng học tập xác thực từ LMS ({len(lms_summary.evidences)} sự kiện ghi nhận)", expanded=False
+    ):
         for ev in lms_summary.evidences:
             st.markdown(f"- `{ev}`")
 
@@ -152,7 +158,9 @@ def _render_profile_section(profile: StudentCareerProfile) -> None:
 
     # 2. Hồ sơ học thuật
     st.markdown("#### 1. Hồ sơ học thuật (Tự động từ điểm chuyên đề)")
-    st.caption("Điểm số được ánh xạ sang các miền năng lực (Competency Domains) — không dùng GPA tổng một cách máy móc.")
+    st.caption(
+        "Điểm số được ánh xạ sang các miền năng lực (Competency Domains) — không dùng GPA tổng một cách máy móc."
+    )
     if profile.academic.domain_scores:
         cols = st.columns(len(profile.academic.domain_scores) + 1)
         with cols[0]:
@@ -242,17 +250,22 @@ def _render_profile_section(profile: StudentCareerProfile) -> None:
             exp_desc = st.text_area("Mô tả ngắn gọn kết quả / công nghệ sử dụng", key="exp_desc_input")
 
         if st.form_submit_button("Lưu hoạt động vào hồ sơ") and exp_title:
-            profile.experience.items.append(ExperienceItem(
-                exp_type=exp_type,
-                title=exp_title,
-                related_skills=related_skills,
-                description=exp_desc,
-                artifact_url=artifact_url,
-            ))
+            profile.experience.items.append(
+                ExperienceItem(
+                    exp_type=exp_type,
+                    title=exp_title,
+                    related_skills=related_skills,
+                    description=exp_desc,
+                    artifact_url=artifact_url,
+                )
+            )
             for skill_name in related_skills:
                 cat = next((c for c, sk in ALL_SKILL_CATALOG.items() if skill_name in sk), "technical")
                 profile.skills.add_evidence_from_experience(
-                    skill_name, cat, f"{exp_type.capitalize()}: {exp_title}", min_level="Basic",
+                    skill_name,
+                    cat,
+                    f"{exp_type.capitalize()}: {exp_title}",
+                    min_level="Basic",
                 )
             st.success(f"Đã cập nhật '{exp_title}' và nâng độ tin cậy cho các kỹ năng liên quan!")
             st.rerun()
@@ -261,7 +274,9 @@ def _render_profile_section(profile: StudentCareerProfile) -> None:
         st.markdown("###### Các hoạt động đã ghi nhận:")
         for idx, it in enumerate(profile.experience.items):
             url_part = f" — 🔗 [Xem liên kết]({it.artifact_url})" if it.artifact_url else ""
-            st.caption(f"• **[{it.exp_type.upper()}]** {it.title}{url_part} (Kỹ năng: {', '.join(it.related_skills) if it.related_skills else 'Không gắn'})")
+            st.caption(
+                f"• **[{it.exp_type.upper()}]** {it.title}{url_part} (Kỹ năng: {', '.join(it.related_skills) if it.related_skills else 'Không gắn'})"
+            )
     else:
         st.caption("Chưa có mục kinh nghiệm nào trong hồ sơ.")
 
@@ -286,7 +301,11 @@ def _render_profile_section(profile: StudentCareerProfile) -> None:
         with cols_ws[i % 2]:
             cur_ws = profile.work_style.preferences.get(axis_key, 3)
             profile.work_style.preferences[axis_key] = st.slider(
-                f"{left_l}  ↔  {right_l}", 1, 5, cur_ws, key=f"ws_sl_{axis_key}",
+                f"{left_l}  ↔  {right_l}",
+                1,
+                5,
+                cur_ws,
+                key=f"ws_sl_{axis_key}",
             )
 
     st.markdown("---")
@@ -295,8 +314,14 @@ def _render_profile_section(profile: StudentCareerProfile) -> None:
     st.markdown("#### 6. Ràng buộc cá nhân & Mục tiêu nghề nghiệp")
     c1, c2, c3 = st.columns(3)
     with c1:
-        profile.constraints.desired_location = st.text_input("Địa điểm làm việc mong muốn", value=profile.constraints.desired_location, key="con_loc")
-        profile.constraints.willing_to_relocate = st.checkbox("Sẵn sàng chuyển nơi sinh sống nếu có cơ hội tốt", value=profile.constraints.willing_to_relocate, key="con_reloc")
+        profile.constraints.desired_location = st.text_input(
+            "Địa điểm làm việc mong muốn", value=profile.constraints.desired_location, key="con_loc"
+        )
+        profile.constraints.willing_to_relocate = st.checkbox(
+            "Sẵn sàng chuyển nơi sinh sống nếu có cơ hội tốt",
+            value=profile.constraints.willing_to_relocate,
+            key="con_reloc",
+        )
         profile.constraints.preferred_hours = st.radio(
             "Giờ làm việc ưu tiên",
             ["office_hours", "shift_ok"],
@@ -304,13 +329,19 @@ def _render_profile_section(profile: StudentCareerProfile) -> None:
             format_func=lambda x: "Giờ hành chính cố định" if x == "office_hours" else "Linh hoạt ca kíp",
             key="con_hours",
         )
-        profile.constraints.shift_acceptance = st.checkbox("Chấp nhận làm ca kíp / trực đêm", value=profile.constraints.shift_acceptance, key="con_shift")
+        profile.constraints.shift_acceptance = st.checkbox(
+            "Chấp nhận làm ca kíp / trực đêm", value=profile.constraints.shift_acceptance, key="con_shift"
+        )
     with c2:
         profile.constraints.remote_preference = st.selectbox(
             "Hình thức làm việc mong muốn",
             ["flexible", "remote", "on_site"],
             index=["flexible", "remote", "on_site"].index(profile.constraints.remote_preference),
-            format_func=lambda x: {"flexible": "Linh hoạt (Hybrid)", "remote": "Từ xa hoàn toàn (Remote)", "on_site": "Tại văn phòng (On-site)"}[x],
+            format_func=lambda x: {
+                "flexible": "Linh hoạt (Hybrid)",
+                "remote": "Từ xa hoàn toàn (Remote)",
+                "on_site": "Tại văn phòng (On-site)",
+            }[x],
             key="con_remote",
         )
         profile.constraints.english_level = st.selectbox(
@@ -319,18 +350,28 @@ def _render_profile_section(profile: StudentCareerProfile) -> None:
             index=["Beginner", "Intermediate", "Advanced", "Fluent"].index(profile.constraints.english_level),
             key="con_eng",
         )
-        profile.constraints.expected_salary_band = st.text_input("Mức lương kỳ vọng", value=profile.constraints.expected_salary_band, key="con_salary")
+        profile.constraints.expected_salary_band = st.text_input(
+            "Mức lương kỳ vọng", value=profile.constraints.expected_salary_band, key="con_salary"
+        )
     with c3:
         profile.constraints.learning_hours_per_week = st.number_input(
-            "Thời gian học thêm mỗi tuần (giờ)", min_value=0.0, max_value=50.0, value=float(profile.constraints.learning_hours_per_week), key="con_learn_h",
+            "Thời gian học thêm mỗi tuần (giờ)",
+            min_value=0.0,
+            max_value=50.0,
+            value=float(profile.constraints.learning_hours_per_week),
+            key="con_learn_h",
         )
         profile.goal.goal_type = st.selectbox(
             "Loại mục tiêu ứng tuyển",
             ["Internship", "Fresher job", "Junior role", "Career switching", "Long-term career"],
-            index=["Internship", "Fresher job", "Junior role", "Career switching", "Long-term career"].index(profile.goal.goal_type),
+            index=["Internship", "Fresher job", "Junior role", "Career switching", "Long-term career"].index(
+                profile.goal.goal_type
+            ),
             key="goal_type_sel",
         )
-        profile.goal.target_timeframe_months = st.slider("Thời gian mong muốn đạt mục tiêu (tháng)", 1, 24, profile.goal.target_timeframe_months, key="goal_time_sl")
+        profile.goal.target_timeframe_months = st.slider(
+            "Thời gian mong muốn đạt mục tiêu (tháng)", 1, 24, profile.goal.target_timeframe_months, key="goal_time_sl"
+        )
 
 
 # ============================================================================
@@ -361,9 +402,13 @@ def _render_matching_section(profile: StudentCareerProfile, ranked) -> None:
     conflicts = detect_capability_vs_constraint_conflicts(profile, list_roles())
     if conflicts:
         with st.expander("⚠️ Nghề phù hợp năng lực nhưng vướng ràng buộc cá nhân (Câu hỏi 5)", expanded=True):
-            st.markdown("Các nghề sau đây bạn có **năng lực học thuật & kỹ năng tốt** (>= 60%), nhưng đang bị vướng các điều kiện cá nhân (ca kíp / địa điểm / tiếng Anh):")
+            st.markdown(
+                "Các nghề sau đây bạn có **năng lực học thuật & kỹ năng tốt** (>= 60%), nhưng đang bị vướng các điều kiện cá nhân (ca kíp / địa điểm / tiếng Anh):"
+            )
             for c_item in conflicts:
-                st.markdown(f"- **{c_item.role_name}**: Năng lực **{c_item.capability_score:.1f}%**, nhưng Ràng buộc chỉ đạt **{c_item.constraint_score:.1f}%**")
+                st.markdown(
+                    f"- **{c_item.role_name}**: Năng lực **{c_item.capability_score:.1f}%**, nhưng Ràng buộc chỉ đạt **{c_item.constraint_score:.1f}%**"
+                )
                 for r_reason in c_item.conflict_reasons:
                     st.caption(f"  • {r_reason}")
 
@@ -379,6 +424,7 @@ def _render_matching_section(profile: StudentCareerProfile, ranked) -> None:
                     _top_strengths.extend(dim_res.evidence[:2])
             try:
                 from dss.services.pdf_certificate_service import generate_career_passport_pdf
+
                 _gaps_top = compute_gap_analysis(profile, get_role(top_fit.role_id))
                 pdf_data = generate_career_passport_pdf(
                     student_id=str(profile.student_pseudonym or "SV2025"),
@@ -410,7 +456,9 @@ def _render_matching_section(profile: StudentCareerProfile, ranked) -> None:
                 st.markdown(f"### {rank_idx}. {fit.role_name}")
                 st.caption(role.description)
             with r_head2:
-                ui_kit.render_badge(f"Khoảng cách kỹ năng: {gap_size}", kind="neutral" if gap_size == "Nhỏ" else "warning")
+                ui_kit.render_badge(
+                    f"Khoảng cách kỹ năng: {gap_size}", kind="neutral" if gap_size == "Nhỏ" else "warning"
+                )
 
             m1, m2, m3 = st.columns(3)
             m1.metric(
@@ -463,7 +511,7 @@ def _render_comparison_section(profile: StudentCareerProfile, ranked) -> None:
     chosen = st.multiselect(
         "Chọn tối đa 3 nghề nghiệp để so sánh đối đầu:",
         role_names,
-        default=role_names[:min(3, len(role_names))],
+        default=role_names[: min(3, len(role_names))],
         max_selections=3,
         key="career_compare_pick_v2",
     )
@@ -483,9 +531,18 @@ def _render_comparison_section(profile: StudentCareerProfile, ranked) -> None:
     rows = []
     rows.append(["Career Fit (Phù hợp)"] + [f"{fit.fit_score:.1f}%" for fit, _ in chosen_pairs])
     rows.append(["Career Readiness (Sẵn sàng)"] + [f"{ready.readiness_score:.1f}%" for _, ready in chosen_pairs])
-    rows.append(["Khoảng cách kỹ năng"] + [_gap_size_label(compute_gap_analysis(profile, role_objs[fit.role_name])) for fit, _ in chosen_pairs])
+    rows.append(
+        ["Khoảng cách kỹ năng"]
+        + [_gap_size_label(compute_gap_analysis(profile, role_objs[fit.role_name])) for fit, _ in chosen_pairs]
+    )
     rows.append(["Yêu cầu tiếng Anh"] + [role_objs[fit.role_name].minimum_english for fit, _ in chosen_pairs])
-    rows.append(["Giờ làm việc"] + [("Giờ hành chính" if role_objs[fit.role_name].preferred_hours == "office_hours" else "Làm ca/trực") for fit, _ in chosen_pairs])
+    rows.append(
+        ["Giờ làm việc"]
+        + [
+            ("Giờ hành chính" if role_objs[fit.role_name].preferred_hours == "office_hours" else "Làm ca/trực")
+            for fit, _ in chosen_pairs
+        ]
+    )
     rows.append(["Hình thức làm việc"] + [role_objs[fit.role_name].remote_friendly for fit, _ in chosen_pairs])
 
     # Kỹ năng yêu cầu chi tiết
@@ -508,7 +565,12 @@ def _render_comparison_section(profile: StudentCareerProfile, ranked) -> None:
 # ============================================================================
 # TAB 4 — KHOẢNG CÁCH KỸ NĂNG (GAP ANALYSIS)
 # ============================================================================
-def _render_gap_section(profile: StudentCareerProfile, ranked, lms_repo: Optional[BaseLMSRepository] = None, cms_repo: Optional[BaseCMSRepository] = None) -> str | None:
+def _render_gap_section(
+    profile: StudentCareerProfile,
+    ranked,
+    lms_repo: Optional[BaseLMSRepository] = None,
+    cms_repo: Optional[BaseCMSRepository] = None,
+) -> str | None:
     if not ranked:
         ui_kit.empty_state("Chưa có dữ liệu để phân tích khoảng cách kỹ năng.", icon="📭")
         return None
@@ -517,7 +579,9 @@ def _render_gap_section(profile: StudentCareerProfile, ranked, lms_repo: Optiona
     cms = cms_repo or get_cms_repository()
 
     role_options = {fit.role_name: fit.role_id for fit, _ in ranked}
-    chosen_name = st.selectbox("Chọn nghề mục tiêu để soi chi tiết khoảng cách kỹ năng:", list(role_options.keys()), key="gap_role_pick_v2")
+    chosen_name = st.selectbox(
+        "Chọn nghề mục tiêu để soi chi tiết khoảng cách kỹ năng:", list(role_options.keys()), key="gap_role_pick_v2"
+    )
     role_id = role_options[chosen_name]
     role = get_role(role_id)
     gaps = compute_traced_gap_analysis(profile, role, lms_repo=lms, cms_repo=cms, include_artifacts=True)
@@ -652,7 +716,8 @@ def _render_roadmap_section(
     )
 
     non_have_gaps = [
-        g for g in compute_traced_gap_analysis(profile, role, lms_repo=lms, cms_repo=cms)
+        g
+        for g in compute_traced_gap_analysis(profile, role, lms_repo=lms, cms_repo=cms)
         if g.status != STATUS_HAVE and g.item_type == "skill"
     ]
     if non_have_gaps:
@@ -672,15 +737,26 @@ def _render_roadmap_section(
 
         col_s1, col_s2, col_btn = st.columns([2, 2, 2])
         with col_s1:
-            score_val = st.slider("Điểm bài kiểm tra LMS (thang 10):", min_value=5.0, max_value=10.0, value=8.5, step=0.5, key=f"sim_score_{role_id}")
+            score_val = st.slider(
+                "Điểm bài kiểm tra LMS (thang 10):",
+                min_value=5.0,
+                max_value=10.0,
+                value=8.5,
+                step=0.5,
+                key=f"sim_score_{role_id}",
+            )
         with col_s2:
-            duration_val = st.number_input("Thời lượng học tập (phút):", min_value=15, max_value=240, value=45, step=15, key=f"sim_dur_{role_id}")
+            duration_val = st.number_input(
+                "Thời lượng học tập (phút):", min_value=15, max_value=240, value=45, step=15, key=f"sim_dur_{role_id}"
+            )
         with col_btn:
             st.write("")
             st.write("")
             if st.button("🚀 Gửi kết quả lên LMS & Cập nhật", type="primary", key=f"btn_sim_lms_{role_id}"):
                 next_lvl = "Intermediate" if score_val >= 6.5 else "Basic"
-                act_title = matched_gap.cms_match.lesson_title if matched_gap.cms_match else f"Bài thực hành {selected_skill}"
+                act_title = (
+                    matched_gap.cms_match.lesson_title if matched_gap.cms_match else f"Bài thực hành {selected_skill}"
+                )
                 course_code = matched_gap.cms_match.course_code if matched_gap.cms_match else "CS201"
                 action_res = execute_closed_loop_action(
                     student_id=str(selected_id),
@@ -742,7 +818,9 @@ def _render_roadmap_section(
             t_m2.metric("Khoảng cách chuyển dịch", plan.gap_size)
 
             st.info(f"🤝 **Kỹ năng dùng chung:** {', '.join(plan.shared_skills) if plan.shared_skills else 'Không có'}")
-            st.warning(f"🎯 **Kỹ năng cần học mới:** {', '.join(plan.missing_skills) if plan.missing_skills else 'Không có'}")
+            st.warning(
+                f"🎯 **Kỹ năng cần học mới:** {', '.join(plan.missing_skills) if plan.missing_skills else 'Không có'}"
+            )
 
 
 # ============================================================================
@@ -750,13 +828,17 @@ def _render_roadmap_section(
 # ============================================================================
 def _render_whatif_section(profile: StudentCareerProfile, ranked) -> None:
     st.markdown("### 🧪 Giả lập tình huống & Hỗ trợ Ra Quyết định")
-    st.caption("Thử nghiệm các kịch bản thay đổi điều kiện hoặc nâng kỹ năng để xem biến thiên của Career Fit và Readiness:")
+    st.caption(
+        "Thử nghiệm các kịch bản thay đổi điều kiện hoặc nâng kỹ năng để xem biến thiên của Career Fit và Readiness:"
+    )
 
-    w_tab1, w_tab2, w_tab3 = st.tabs([
-        "1. Nâng cấp Kỹ năng",
-        "2. Đổi Ràng buộc Cá nhân",
-        "3. Lọc Nghề theo Thời gian",
-    ])
+    w_tab1, w_tab2, w_tab3 = st.tabs(
+        [
+            "1. Nâng cấp Kỹ năng",
+            "2. Đổi Ràng buộc Cá nhân",
+            "3. Lọc Nghề theo Thời gian",
+        ]
+    )
 
     role_options = {fit.role_name: fit.role_id for fit, _ in ranked}
 
@@ -768,9 +850,15 @@ def _render_whatif_section(profile: StudentCareerProfile, ranked) -> None:
             test_role_name = st.selectbox("Chọn nghề cần kiểm tra:", list(role_options.keys()), key="wi_role_sk")
             target_r = get_role(role_options[test_role_name])
         with wc2:
-            test_skill = st.selectbox("Chọn kỹ năng cần nâng:", [s for skills in ALL_SKILL_CATALOG.values() for s in skills], key="wi_skill_pick")
+            test_skill = st.selectbox(
+                "Chọn kỹ năng cần nâng:",
+                [s for skills in ALL_SKILL_CATALOG.values() for s in skills],
+                key="wi_skill_pick",
+            )
         with wc3:
-            test_level = st.selectbox("Mức độ giả định:", ["Basic", "Intermediate", "Advanced"], index=1, key="wi_level_pick")
+            test_level = st.selectbox(
+                "Mức độ giả định:", ["Basic", "Intermediate", "Advanced"], index=1, key="wi_level_pick"
+            )
 
         if st.button("Chạy giả lập nâng kỹ năng", key="btn_run_wi_sk"):
             hypo = apply_skill_change(profile, test_skill, "technical", test_level)
@@ -788,23 +876,33 @@ def _render_whatif_section(profile: StudentCareerProfile, ranked) -> None:
         with rc1:
             toggle_shift = st.checkbox("Giả sử: Tôi chấp nhận làm ca kíp / trực đêm", value=True, key="wi_shift_chk")
         with rc2:
-            toggle_remote = st.selectbox("Giả sử: Hình thức làm việc", ["flexible", "remote", "on_site"], key="wi_remote_sel")
+            toggle_remote = st.selectbox(
+                "Giả sử: Hình thức làm việc", ["flexible", "remote", "on_site"], key="wi_remote_sel"
+            )
 
         if st.button("Chạy giả lập ràng buộc", key="btn_run_wi_con"):
             hypo_con = apply_constraint_change(profile, shift_acceptance=toggle_shift, remote_preference=toggle_remote)
             st.markdown("##### Thay đổi xếp hạng nghề nghiệp sau khi nới lỏng ràng buộc:")
             new_ranked = rank_careers(hypo_con, list_roles(), top_k=5)
             for r_idx, (f, r) in enumerate(new_ranked, start=1):
-                st.caption(f"{r_idx}. **{f.role_name}**: Fit = {f.fit_score:.1f}% | Readiness = {r.readiness_score:.1f}%")
+                st.caption(
+                    f"{r_idx}. **{f.role_name}**: Fit = {f.fit_score:.1f}% | Readiness = {r.readiness_score:.1f}%"
+                )
 
     # Kịch bản 3: Lọc theo thời gian
     with w_tab3:
         st.markdown("##### Kịch bản: 'Nếu tôi muốn xin việc trong 3 tháng thì nghề nào nên ưu tiên?'")
-        st.caption("Nếu thời gian ngắn (<= 3 tháng), hệ thống sẽ ưu tiên Career Readiness. Nếu dài hạn, ưu tiên Career Fit.")
-        tf = st.select_slider("Khung thời gian mục tiêu (tháng):", options=[1, 3, 6, 12, 24], value=3, key="wi_tf_slider")
+        st.caption(
+            "Nếu thời gian ngắn (<= 3 tháng), hệ thống sẽ ưu tiên Career Readiness. Nếu dài hạn, ưu tiên Career Fit."
+        )
+        tf = st.select_slider(
+            "Khung thời gian mục tiêu (tháng):", options=[1, 3, 6, 12, 24], value=3, key="wi_tf_slider"
+        )
         timeframe_results = rank_roles_for_timeframe(profile, list_roles(), tf, top_k=5)
 
-        tf_df = pd.DataFrame(timeframe_results)[["role_name", "fit_score", "readiness_score", "hybrid_score", "primary_metric"]]
+        tf_df = pd.DataFrame(timeframe_results)[
+            ["role_name", "fit_score", "readiness_score", "hybrid_score", "primary_metric"]
+        ]
         tf_df.columns = ["Nghề nghiệp", "Career Fit (%)", "Readiness (%)", "Điểm ưu tiên tổng hợp", "Trọng số ưu tiên"]
         st.dataframe(tf_df.set_index("Nghề nghiệp"), width="stretch")
 
@@ -813,11 +911,13 @@ def _render_whatif_section(profile: StudentCareerProfile, ranked) -> None:
 # TAB 7 — AI CAREER ADVISOR (CHAT TƯ VẤN)
 # ============================================================================
 def _render_ai_chat_section(profile: StudentCareerProfile, ranked, role, student_id_llm) -> None:
-    from dss.services import llm_service, prompt_security, token_tracker
     from dss.core.logging_config import get_logger
+    from dss.services import llm_service, prompt_security, token_tracker
 
     _logger = get_logger(__name__)
-    st.caption("Hỏi AI hướng nghiệp — Tư vấn dựa trên 100% dữ liệu hồ sơ thực tế của bạn, tuyệt đối không bịa đặt khi thiếu bằng chứng.")
+    st.caption(
+        "Hỏi AI hướng nghiệp — Tư vấn dựa trên 100% dữ liệu hồ sơ thực tế của bạn, tuyệt đối không bịa đặt khi thiếu bằng chứng."
+    )
 
     quick_prompts = [
         "Vì sao tôi hợp nghề đầu tiên hơn nghề thứ hai?",
@@ -848,7 +948,9 @@ def _render_ai_chat_section(profile: StudentCareerProfile, ranked, role, student
             with st.chat_message(msg["role"]):
                 st.markdown(msg["content"])
 
-    typed_q = st.chat_input("Nhập câu hỏi về định hướng nghề nghiệp, kỹ năng hoặc lộ trình học của bạn...", key="career_chat_input_v2")
+    typed_q = st.chat_input(
+        "Nhập câu hỏi về định hướng nghề nghiệp, kỹ năng hoặc lộ trình học của bạn...", key="career_chat_input_v2"
+    )
     question = pending_q or typed_q
 
     if question:
@@ -865,6 +967,7 @@ def _render_ai_chat_section(profile: StudentCareerProfile, ranked, role, student
 
         try:
             from dss.core.init_app import get_llm_integration
+
             llm_integration = get_llm_integration()
         except Exception:
             llm_integration = None
@@ -878,6 +981,7 @@ def _render_ai_chat_section(profile: StudentCareerProfile, ranked, role, student
                         kwargs["api_key"] = chat_auto["api_key"]
                     elif chat_auto["provider_key"] == "ollama":
                         from dss.core.models import ollama_base_url
+
                         kwargs["base_url"] = ollama_base_url()
                     stream = llm_integration.call_ai_provider(prompt, provider=chat_auto["provider_key"], **kwargs)
                     answer = "".join(stream)
@@ -989,26 +1093,32 @@ def student_advisory_tab(df, role=None, current_student_id=None):
                     f"Nguồn dữ liệu: {'Mô phỏng (Demo)' if lms_repo.mode == 'DEMO' else lms_repo.mode}",
                     kind="warning" if lms_repo.mode == "DEMO" else "success",
                 )
-                st.caption("Nguồn dữ liệu chính xác định: năng lực học tập thực tế, môn mạnh/yếu, tiến độ, giờ học, chuyên cần và minh chứng.")
+                st.caption(
+                    "Nguồn dữ liệu chính xác định: năng lực học tập thực tế, môn mạnh/yếu, tiến độ, giờ học, chuyên cần và minh chứng."
+                )
             with c_cms:
                 st.markdown("##### 📚 Nguồn nội dung khuyến nghị")
                 ui_kit.render_badge(
                     f"Nguồn nội dung: {'Mô phỏng (Demo)' if cms_repo.mode == 'DEMO' else cms_repo.mode}",
                     kind="warning" if cms_repo.mode == "DEMO" else "success",
                 )
-                st.caption("Khớp nối học phần, module, bài học, lab thực hành chuẩn hóa theo từng khoảng cách kỹ năng thay vì khuyến nghị chung chung.")
+                st.caption(
+                    "Khớp nối học phần, module, bài học, lab thực hành chuẩn hóa theo từng khoảng cách kỹ năng thay vì khuyến nghị chung chung."
+                )
 
     ranked = rank_careers(profile, list_roles(), top_k=5)
 
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
-        "1️⃣ Hồ sơ nghề nghiệp",
-        "2️⃣ Nghề phù hợp",
-        "3️⃣ So sánh nghề",
-        "4️⃣ Khoảng cách kỹ năng",
-        "5️⃣ Lộ trình phát triển",
-        "6️⃣ Giả lập tình huống",
-        "7️⃣ Hỏi AI hướng nghiệp",
-    ])
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(
+        [
+            "1️⃣ Hồ sơ nghề nghiệp",
+            "2️⃣ Nghề phù hợp",
+            "3️⃣ So sánh nghề",
+            "4️⃣ Khoảng cách kỹ năng",
+            "5️⃣ Lộ trình phát triển",
+            "6️⃣ Giả lập tình huống",
+            "7️⃣ Hỏi AI hướng nghiệp",
+        ]
+    )
 
     with tab1:
         _render_profile_section(profile)

@@ -1,4 +1,5 @@
 """Student-owned structured plans, available without an LLM or a GPA column."""
+
 from __future__ import annotations
 
 import os
@@ -8,8 +9,8 @@ import streamlit as st
 from dss.core.logging_config import get_logger
 from dss.services import auth_service, learning_plan_history
 from dss.services.learning_plan import learning_plan_generator
-from dss.services.learning_profile import StudentLearningProfile
 from dss.services.learning_plan_resources import approved_plan_resources
+from dss.services.learning_profile import StudentLearningProfile
 
 _logger = get_logger(__name__)
 
@@ -87,7 +88,9 @@ def render_learning_plan_workspace(df) -> None:
                             selected_course = st.selectbox("Học phần", courses, key="structured_course")
                             rows = rows[rows[course_column].astype(str) == selected_course]
                     if len(rows) > 1:
-                        st.info("Dữ liệu có nhiều bản ghi cho học phần này; trường cần chọn bản ghi đã đối soát trước khi lập kế hoạch.")
+                        st.info(
+                            "Dữ liệu có nhiều bản ghi cho học phần này; trường cần chọn bản ghi đã đối soát trước khi lập kế hoạch."
+                        )
                         rows = rows.iloc[0:0]
                 if len(rows) == 1:
                     own_row = rows.iloc[0].to_dict()
@@ -99,9 +102,13 @@ def render_learning_plan_workspace(df) -> None:
                 if st.button("Tạo kế hoạch từ dữ liệu hiện có", key="structured_plan_generate"):
                     try:
                         profile = StudentLearningProfile.build_from_lms_records(
-                            student_id, course_id, own_row,
+                            student_id,
+                            course_id,
+                            own_row,
                         )
-                        plan = learning_plan_generator.generate_plan(profile, approved_resources=approved_plan_resources(course_id))
+                        plan = learning_plan_generator.generate_plan(
+                            profile, approved_resources=approved_plan_resources(course_id)
+                        )
                         learning_plan_history.save_learning_plan(student_id, plan)
                         st.success("Đã lưu phiên bản kế hoạch mới.")
                         st.rerun()
@@ -115,7 +122,8 @@ def render_learning_plan_workspace(df) -> None:
 
         if records:
             selected = st.selectbox(
-                "Phiên bản kế hoạch", list(range(len(records))),
+                "Phiên bản kế hoạch",
+                list(range(len(records))),
                 format_func=lambda i: (
                     f"{records[i]['plan']['course_id']} — v{records[i]['plan']['version']} "
                     f"— {records[i]['plan']['created_at'][:10]}"

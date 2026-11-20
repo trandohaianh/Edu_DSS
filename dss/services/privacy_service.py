@@ -7,6 +7,7 @@ Tuân thủ nguyên tắc LMS-scale:
 - Chỉ gửi các đặc trưng học tập cốt lõi cần thiết: Phân loại rủi ro, Điểm yếu môn học, Khoảng điểm GPA, Tỷ lệ điểm danh.
 - Ghi log DANH MỤC DỮ LIỆU ĐÃ GỬI (data categories), KHÔNG ghi dữ liệu thô.
 """
+
 from __future__ import annotations
 
 import re
@@ -34,6 +35,7 @@ def generate_pseudonym(student_id: str, salt: Optional[str] = None, organization
     100 bit). Tham số `salt` cũ KHÔNG còn được dùng (giữ chữ ký để tương thích):
     muối công khai trong mã nguồn chính là lỗ hổng đã được loại bỏ."""
     from dss.security.pseudonymization import pseudonymize
+
     return pseudonymize(student_id, organization_id=organization_id)
 
 
@@ -101,8 +103,9 @@ _SCORE_PAIR_REGEX = re.compile(
 
 
 def generalize_score_pairs(text: str) -> str:
-    """"(SV: 6.20, TB lớp: 7.10)" -> "(thấp hơn TB lớp một chút)": giữ tín hiệu tương đối
+    """ "(SV: 6.20, TB lớp: 7.10)" -> "(thấp hơn TB lớp một chút)": giữ tín hiệu tương đối
     cần cho tư vấn, bỏ giá trị tuyệt đối của sinh viên khỏi payload gửi ra ngoài (C1.1)."""
+
     def _repl(m):
         try:
             gap = float(m.group(2).replace(",", ".")) - float(m.group(1).replace(",", "."))
@@ -113,6 +116,7 @@ def generalize_score_pairs(text: str) -> str:
         if gap > 0:
             return "(thấp hơn TB lớp một chút)"
         return "(không thấp hơn TB lớp)"
+
     return _SCORE_PAIR_REGEX.sub(_repl, text or "")
 
 
@@ -136,8 +140,9 @@ def build_anonymized_student_context(
     profile = student_profile or {}
     pseudonym = generate_pseudonym(student_id)
     risk_level = profile.get("risk_level", "trung bình")
-    clean_weaknesses = [generalize_score_pairs(sanitize_conversation_turn_for_provider(str(w)))
-                        for w in (student_weaknesses or [])]
+    clean_weaknesses = [
+        generalize_score_pairs(sanitize_conversation_turn_for_provider(str(w))) for w in (student_weaknesses or [])
+    ]
 
     lines = [
         f"- Mức độ rủi ro học tập: {risk_level}",
@@ -151,7 +156,9 @@ def build_anonymized_student_context(
             lines.append(f"- Mức chuyên cần: {bracket}")
             categories.append("attendance_bracket")
     if profile.get("progress_note"):
-        lines.append(f"- Nhận xét tiến độ học tập: {sanitize_conversation_turn_for_provider(str(profile['progress_note']))}")
+        lines.append(
+            f"- Nhận xét tiến độ học tập: {sanitize_conversation_turn_for_provider(str(profile['progress_note']))}"
+        )
         categories.append("sanitized_progress_note")
 
     context_str = "\n".join(lines)
@@ -170,8 +177,9 @@ def build_anonymized_student_context(
     return context_str, audit_metadata
 
 
-def build_quick_question_prompt(risk_level: Optional[str], predicted_value: Optional[float],
-                                weakest_factor: Optional[str], question: str) -> str:
+def build_quick_question_prompt(
+    risk_level: Optional[str], predicted_value: Optional[float], weakest_factor: Optional[str], question: str
+) -> str:
     """Prompt cho hộp "Hỏi nhanh AI" (Trang chủ Sinh viên) — cùng chính sách tối thiểu
     hoá với build_anonymized_student_context: không định danh, GPA theo khoảng,
     câu hỏi tự do được khử PII."""
@@ -182,8 +190,10 @@ def build_quick_question_prompt(risk_level: Optional[str], predicted_value: Opti
     ]
     if weakest_factor:
         parts.append(f"Yếu tố cần cải thiện nhất: {sanitize_conversation_turn_for_provider(str(weakest_factor))}.")
-    parts.append("Trả lời ngắn gọn, thân thiện, bằng tiếng Việt cho câu hỏi sau: "
-                 + sanitize_conversation_turn_for_provider(question.strip()))
+    parts.append(
+        "Trả lời ngắn gọn, thân thiện, bằng tiếng Việt cho câu hỏi sau: "
+        + sanitize_conversation_turn_for_provider(question.strip())
+    )
     return " ".join(parts)
 
 
@@ -209,4 +219,3 @@ class PrivacyService:
 
 
 privacy_service = PrivacyService()
-

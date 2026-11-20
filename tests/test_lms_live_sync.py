@@ -1,7 +1,10 @@
 """Unit tests for LMS Live Push & Webhook Synchronization Layer."""
+
 import hashlib
 import hmac
+
 import pandas as pd
+
 from dss.services.lms_live_sync import LMSLiveEvent, LMSLiveSyncManager
 
 
@@ -19,11 +22,13 @@ def test_webhook_signature_verification():
 
 def test_apply_event_to_dataframe_grade_update():
     """Kiểm tra áp dụng sự kiện cập nhật điểm trực tiếp vào DataFrame."""
-    df = pd.DataFrame({
-        "student_id": ["SV001", "SV002"],
-        "final_score": [6.5, 8.0],
-        "ty_le_diem_danh": [0.80, 0.95],
-    })
+    df = pd.DataFrame(
+        {
+            "student_id": ["SV001", "SV002"],
+            "final_score": [6.5, 8.0],
+            "ty_le_diem_danh": [0.80, 0.95],
+        }
+    )
 
     event = LMSLiveEvent(
         event_id="evt_001",
@@ -48,11 +53,13 @@ def test_apply_event_to_dataframe_grade_update():
 
 def test_simulate_live_pushes():
     """Kiểm tra các hàm giả lập Moodle và Canvas live push."""
-    df = pd.DataFrame({
-        "student_id": ["SV100"],
-        "final_score": [7.0],
-        "ty_le_diem_danh": [0.75],
-    })
+    df = pd.DataFrame(
+        {
+            "student_id": ["SV100"],
+            "final_score": [7.0],
+            "ty_le_diem_danh": [0.75],
+        }
+    )
 
     mgr = LMSLiveSyncManager()
 

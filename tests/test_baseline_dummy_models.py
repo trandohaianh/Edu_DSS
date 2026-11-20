@@ -2,6 +2,7 @@
 thực sự học được gì hơn "đoán bừa theo lớp đa số" (phân loại) / "luôn đoán
 trung bình" (hồi quy) hay không. Thêm DummyClassifier/DummyRegressor dưới khóa
 "__baseline__" — không bao giờ được xếp hạng/chọn làm is_best."""
+
 from __future__ import annotations
 
 import warnings
@@ -17,7 +18,9 @@ def test_classification_results_include_baseline_marker():
     df = generate_data()
     feats = [c for c in df.columns if c not in ("student_id", "diem_ky_sau", "xep_loai", "final_score", "grade")]
     clf = ClassificationTrainer()
-    results, *_ = clf.train_and_evaluate(df, feats, "xep_loai", ["Logistic Regression (Softmax)"], cv_folds=3, save_model=False)
+    results, *_ = clf.train_and_evaluate(
+        df, feats, "xep_loai", ["Logistic Regression (Softmax)"], cv_folds=3, save_model=False
+    )
     assert "__baseline__" in results
     assert "Accuracy" in results["__baseline__"]
 
@@ -35,7 +38,14 @@ def test_baseline_never_picked_as_best_model_classification():
     df = generate_data()
     feats = [c for c in df.columns if c not in ("student_id", "diem_ky_sau", "xep_loai", "final_score", "grade")]
     clf = ClassificationTrainer()
-    results, *_ = clf.train_and_evaluate(df, feats, "xep_loai", ["Logistic Regression (Softmax)", "Random Forest Classifier"], cv_folds=3, save_model=False)
+    results, *_ = clf.train_and_evaluate(
+        df,
+        feats,
+        "xep_loai",
+        ["Logistic Regression (Softmax)", "Random Forest Classifier"],
+        cv_folds=3,
+        save_model=False,
+    )
     assert pick_best_model_name(results, "clf") != "__baseline__"
 
 

@@ -3,6 +3,7 @@ MỌI cột số, kể cả cột mà giá trị THẤP mới là TỐT (vd. nga
 số ngày từ lần hoạt động gần nhất, càng thấp càng tốt) và bí danh/target
 (final_score). Sinh viên hoạt động TÍCH CỰC hơn trung bình lớp (ít ngày hơn) bị
 gắn nhầm thành "điểm yếu"."""
+
 from __future__ import annotations
 
 import inspect
@@ -33,7 +34,6 @@ def test_undeclared_column_never_flagged_as_weakness():
 def test_ai_advisor_uses_is_weakness_not_raw_threshold():
     source = inspect.getsource(ai_advisor)
     assert "if col_val < avg_val * 0.9:" not in source, (
-        "ai_advisor.py vẫn dùng luật cũ áp cho MỌI cột số, không phân biệt "
-        "chiều tốt/xấu hay bí danh/target."
+        "ai_advisor.py vẫn dùng luật cũ áp cho MỌI cột số, không phân biệt chiều tốt/xấu hay bí danh/target."
     )
     assert "is_weakness(col, col_val, avg_val)" in source

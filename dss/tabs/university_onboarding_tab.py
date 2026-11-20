@@ -8,6 +8,7 @@ configured — university/tenant management is inherently a Postgres-backed
 concept in this codebase (see dss/db/models.py::Organization), not
 something the local single-tenant JSON warehouse mode has.
 """
+
 from __future__ import annotations
 
 import streamlit as st
@@ -25,6 +26,7 @@ def university_onboarding_tab():
     )
 
     from dss.db.session import is_database_configured
+
     if not is_database_configured():
         st.error("Chưa cấu hình PostgreSQL (DATABASE_URL). Quản lý trường đại học yêu cầu PostgreSQL.")
         return
@@ -38,10 +40,18 @@ def university_onboarding_tab():
     st.subheader("Các trường đại học hiện có")
     if orgs:
         st.dataframe(
-            [{"ID": o["id"], "Mã": o["org_code"], "Tên": o["name"],
-              "Trạng thái vòng đời": o["lifecycle_status"], "Chế độ triển khai": o["deployment_mode"]}
-             for o in orgs],
-            width="stretch", hide_index=True,
+            [
+                {
+                    "ID": o["id"],
+                    "Mã": o["org_code"],
+                    "Tên": o["name"],
+                    "Trạng thái vòng đời": o["lifecycle_status"],
+                    "Chế độ triển khai": o["deployment_mode"],
+                }
+                for o in orgs
+            ],
+            width="stretch",
+            hide_index=True,
         )
     else:
         st.caption("Chưa có trường đại học nào.")
@@ -57,7 +67,11 @@ def university_onboarding_tab():
         org_code = col1.text_input("Mã tổ chức (org_code)", key="ob_org_code")
         name = col2.text_input("Tên trường", key="ob_name")
         domain = st.text_input("Domain (tuỳ chọn)", key="ob_domain")
-        deployment_mode = st.selectbox("Chế độ triển khai", onboarding.SIMULATED_EXTERNAL_ORGS and ["MULTI_TENANT_SAAS", "DEDICATED"], key="ob_deployment_mode")
+        deployment_mode = st.selectbox(
+            "Chế độ triển khai",
+            onboarding.SIMULATED_EXTERNAL_ORGS and ["MULTI_TENANT_SAAS", "DEDICATED"],
+            key="ob_deployment_mode",
+        )
         if st.button("Tạo tổ chức (SETUP)", key="ob_provision_btn"):
             if not org_code or not name:
                 st.error("Cần nhập mã tổ chức và tên trường.")
@@ -87,15 +101,20 @@ def university_onboarding_tab():
                 ui_kit.report_error("Lỗi tạo Admin", e)
 
     with st.expander("3️⃣ Cấu hình kết nối LMS/CMS", expanded=(step == "connector")):
-        st.caption("credential_reference phải là TÊN biến môi trường chứa token thật — không dán token trực tiếp vào đây.")
+        st.caption(
+            "credential_reference phải là TÊN biến môi trường chứa token thật — không dán token trực tiếp vào đây."
+        )
         external_org = st.selectbox("Tổ chức bên ngoài (simulator)", ["org-a", "org-b"], key="ob_external_org")
         base_url = st.text_input("Base URL", value="http://localhost:8765", key="ob_base_url")
         credential_reference = st.text_input("Credential reference (tên biến môi trường)", key="ob_cred_ref")
         if st.button("Lưu cấu hình kết nối", key="ob_save_connector_btn"):
             try:
                 onboarding.configure_connector(
-                    org_id, connector_type="simulated_lms_cms", external_organization_id=external_org,
-                    base_url=base_url, credential_reference=credential_reference,
+                    org_id,
+                    connector_type="simulated_lms_cms",
+                    external_organization_id=external_org,
+                    base_url=base_url,
+                    credential_reference=credential_reference,
                 )
                 st.session_state["_onboarding_step"] = "test"
                 st.success("Đã lưu cấu hình kết nối.")
@@ -130,7 +149,9 @@ def university_onboarding_tab():
                 st.error(f"❌ {result.get('detail', 'Đồng bộ thất bại')}")
 
     with st.expander("7️⃣ Kích hoạt trường đại học", expanded=(step == "test")):
-        accept_without_sync = st.checkbox("Chấp nhận kích hoạt dù chưa đồng bộ (trường hợp đặc biệt)", key="ob_accept_no_sync")
+        accept_without_sync = st.checkbox(
+            "Chấp nhận kích hoạt dù chưa đồng bộ (trường hợp đặc biệt)", key="ob_accept_no_sync"
+        )
         if st.button("Kích hoạt (Activate)", key="ob_activate_btn", type="primary"):
             result = onboarding.activate_university(org_id, accept_without_sync=accept_without_sync)
             if result.activated:

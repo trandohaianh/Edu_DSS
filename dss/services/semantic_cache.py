@@ -16,6 +16,7 @@ Mục 20 & 21 Yêu cầu:
   Tự động hủy khi student state thay đổi, làm xong diagnostic, có điểm mới, KB thay đổi,
   Production model thay đổi, hoặc plan hết hạn. Không sinh lại plan trên mỗi lượt Streamlit rerun.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -26,7 +27,6 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
-
 
 CACHE_CLASS_GLOBAL = "GLOBAL"
 CACHE_CLASS_COURSE = "COURSE"
@@ -64,7 +64,9 @@ class ExactCache:
             entry.hit_count += 1
             return entry.content
 
-    def set(self, key: str, content: Any, cache_class: str, dimensions: Dict[str, Any], ttl_seconds: Optional[int] = None) -> None:
+    def set(
+        self, key: str, content: Any, cache_class: str, dimensions: Dict[str, Any], ttl_seconds: Optional[int] = None
+    ) -> None:
         with self._lock:
             now = time.time()
             ttl = ttl_seconds or self.default_ttl
@@ -80,10 +82,7 @@ class ExactCache:
     def invalidate_by_dimension(self, dim_name: str, dim_value: Any) -> int:
         """Hủy các bản ghi đệm khớp với giá trị chiều cho trước."""
         with self._lock:
-            keys_to_delete = [
-                k for k, v in self._store.items()
-                if v.dimensions.get(dim_name) == dim_value
-            ]
+            keys_to_delete = [k for k, v in self._store.items() if v.dimensions.get(dim_name) == dim_value]
             for k in keys_to_delete:
                 del self._store[k]
             return len(keys_to_delete)
@@ -215,7 +214,9 @@ class LayeredSemanticCache:
                 self._stats["misses"] += 1
         return content
 
-    def set_student_plan(self, student_pseudonym: str, state_hash: str, plan_data: Any, ttl_seconds: int = 86400) -> None:
+    def set_student_plan(
+        self, student_pseudonym: str, state_hash: str, plan_data: Any, ttl_seconds: int = 86400
+    ) -> None:
         key = f"plan::{student_pseudonym}::{state_hash}"
         dimensions = {
             "student_pseudonym": student_pseudonym,
@@ -234,8 +235,7 @@ class LayeredSemanticCache:
         with self.semantic_cache._lock:
             before = len(self.semantic_cache._entries)
             self.semantic_cache._entries = [
-                e for e in self.semantic_cache._entries
-                if e.dimensions.get("course_id") != course_id
+                e for e in self.semantic_cache._entries if e.dimensions.get("course_id") != course_id
             ]
             c2 = before - len(self.semantic_cache._entries)
         return c1 + c2

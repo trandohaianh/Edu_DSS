@@ -1,5 +1,6 @@
 """C1.1 — PostgreSQL is never exposed on all interfaces; production has one public
 entry point (the TLS reverse proxy) with security headers."""
+
 from __future__ import annotations
 
 import re
@@ -20,8 +21,9 @@ def test_dev_compose_binds_every_published_port_to_loopback_by_default():
     for name, svc in compose["services"].items():
         for port in svc.get("ports", []):
             host_part = str(port).rsplit(":", 1)[0]
-            assert host_part.startswith("${EDUDSS_BIND_ADDR:-127.0.0.1}") or host_part.startswith("${DB_BIND_ADDR:-127.0.0.1}"), \
-                f"{name} publishes {port} on all interfaces by default"
+            assert host_part.startswith("${EDUDSS_BIND_ADDR:-127.0.0.1}") or host_part.startswith(
+                "${DB_BIND_ADDR:-127.0.0.1}"
+            ), f"{name} publishes {port} on all interfaces by default"
 
 
 def test_production_database_and_app_publish_no_ports():
@@ -37,17 +39,23 @@ def test_production_database_and_app_publish_no_ports():
 def test_production_app_runs_in_production_mode_with_required_secrets():
     env = _load(PROD / "docker-compose.prod.yml")["services"]["app"]["environment"]
     assert env["EDUDSS_ENV"] == "production"
-    assert ":?" in env["EDUDSS_PSEUDONYM_KEY"]        # deployment refuses to start without the key
-    assert "${DB_APP_USER}" in env["DATABASE_URL"]    # app connects as the non-superuser (RLS applies)
+    assert ":?" in env["EDUDSS_PSEUDONYM_KEY"]  # deployment refuses to start without the key
+    assert "${DB_APP_USER}" in env["DATABASE_URL"]  # app connects as the non-superuser (RLS applies)
 
 
 def test_caddyfile_terminates_tls_and_sets_security_headers():
     caddy = (PROD / "Caddyfile").read_text(encoding="utf-8")
     assert "{$EDUDSS_DOMAIN}" in caddy and "reverse_proxy app:8501" in caddy
-    for header in ("Strict-Transport-Security", "X-Content-Type-Options", "X-Frame-Options",
-                   "Referrer-Policy", "Content-Security-Policy", "Permissions-Policy"):
+    for header in (
+        "Strict-Transport-Security",
+        "X-Content-Type-Options",
+        "X-Frame-Options",
+        "Referrer-Policy",
+        "Content-Security-Policy",
+        "Permissions-Policy",
+    ):
         assert header in caddy
-    assert re.search(r"connect-src[^\"]*wss:", caddy)   # Streamlit WebSocket allowed
+    assert re.search(r"connect-src[^\"]*wss:", caddy)  # Streamlit WebSocket allowed
     assert "-Server" in caddy
 
 

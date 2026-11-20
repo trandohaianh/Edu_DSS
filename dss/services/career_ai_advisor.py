@@ -9,16 +9,25 @@ Nguyên tắc bắt buộc (Mục XXII, XXIII, XXIV, XXV):
 4. Deterministic Grounded Fallback Engine: Khi LLM ngoại tuyến hoặc chưa cấu hình API,
    hệ thống tự động giải đáp 5 câu hỏi trọng tâm bằng quy tắc chuẩn hoá từ dữ liệu đã tính toán.
 """
+
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple
 
-from dss.services.career_gap_analysis import compute_gap_analysis, group_gap_by_status, STATUS_HAVE, STATUS_MISSING, STATUS_STRENGTHEN, PRIORITY_CRITICAL, PRIORITY_HIGH
+from dss.services.career_gap_analysis import (
+    PRIORITY_CRITICAL,
+    PRIORITY_HIGH,
+    STATUS_HAVE,
+    STATUS_MISSING,
+    STATUS_STRENGTHEN,
+    compute_gap_analysis,
+    group_gap_by_status,
+)
 from dss.services.career_knowledge_base import CareerRole, get_role
 from dss.services.career_profile import StudentCareerProfile
-from dss.services.career_roadmap import generate_roadmap, _BUCKET_1M, _BUCKET_3M
-from dss.services.privacy_service import sanitize_conversation_turn_for_provider
+from dss.services.career_roadmap import _BUCKET_1M, _BUCKET_3M, generate_roadmap
 from dss.services.career_scoring import CareerFitResult, CareerReadinessResult
+from dss.services.privacy_service import sanitize_conversation_turn_for_provider
 
 
 def _strength_band(score) -> str:
@@ -42,13 +51,15 @@ def build_career_ai_context(
     lines: List[str] = [
         "=== HỒ SƠ NGHỀ NGHIỆP SINH VIÊN (DỮ LIỆU ĐÃ KHỬ ĐỊNH DANH) ===",
         # C1.1: KHÔNG gửi định danh (kể cả bí danh) ra nhà cung cấp AI.
-        f"Nguồn dữ liệu: {profile.data_source} " + ("(Hồ sơ minh họa mô phỏng)" if profile.data_source == "DEMO" else "(Dữ liệu thực tế)"),
+        f"Nguồn dữ liệu: {profile.data_source} "
+        + ("(Hồ sơ minh họa mô phỏng)" if profile.data_source == "DEMO" else "(Dữ liệu thực tế)"),
     ]
 
     # 1. Học thuật
     lines.append("\n[1. HỒ SƠ HỌC THUẬT]")
     # C1.1: chỉ gửi KHOẢNG/NHÓM (đủ cho định hướng nghề nghiệp), không gửi điểm chính xác.
     from dss.services.privacy_service import gpa_band
+
     lines.append(f"- Khoảng GPA tổng quan: {gpa_band(profile.academic.gpa)}")
     if profile.academic.domain_scores:
         dom_str = "; ".join(f"{d}: {_strength_band(s)}" for d, s in profile.academic.domain_scores.items())
@@ -63,15 +74,23 @@ def build_career_ai_context(
     recorded_skills = [s for s in profile.skills.items.values() if s.achieved_level > 0]
     if recorded_skills:
         for s in recorded_skills:
-            ev_str = "; ".join(sanitize_conversation_turn_for_provider(str(e)) for e in s.evidence) if s.evidence else "Chưa có minh chứng cụ thể"
-            lines.append(f"- {s.skill_name} ({s.category}): Cấp độ {s.skill_level} | Nguồn: {s.source} | Độ tin cậy: {s.confidence} | Minh chứng: {ev_str}")
+            ev_str = (
+                "; ".join(sanitize_conversation_turn_for_provider(str(e)) for e in s.evidence)
+                if s.evidence
+                else "Chưa có minh chứng cụ thể"
+            )
+            lines.append(
+                f"- {s.skill_name} ({s.category}): Cấp độ {s.skill_level} | Nguồn: {s.source} | Độ tin cậy: {s.confidence} | Minh chứng: {ev_str}"
+            )
     else:
         lines.append("- Chưa có kỹ năng nào được xác thực hoặc đạt từ mức Basic trở lên.")
 
     # 3. Kinh nghiệm & Tạo tác
     lines.append("\n[3. KINH NGHIỆM & TẠO TÁC NGHỀ NGHIỆP]")
     lines.append(f"- Đã có Portfolio: {'Có' if profile.experience.has_portfolio() else 'Chưa có'}")
-    lines.append(f"- Sẵn sàng phỏng vấn: {'Đã có kinh nghiệm' if profile.experience.is_interview_ready() else 'Chưa có kinh nghiệm'}")
+    lines.append(
+        f"- Sẵn sàng phỏng vấn: {'Đã có kinh nghiệm' if profile.experience.is_interview_ready() else 'Chưa có kinh nghiệm'}"
+    )
     if profile.experience.items:
         for it in profile.experience.items:
             rel = f" (kỹ năng minh chứng: {', '.join(it.related_skills)})" if it.related_skills else ""
@@ -84,21 +103,33 @@ def build_career_ai_context(
     if profile.interest.scores:
         lines.append("- Sở thích nghề nghiệp: " + "; ".join(f"{k}: {v}/5" for k, v in profile.interest.scores.items()))
     if profile.work_style.preferences:
-        lines.append("- Phong cách làm việc: " + "; ".join(f"{k}: {v}/5" for k, v in profile.work_style.preferences.items()))
+        lines.append(
+            "- Phong cách làm việc: " + "; ".join(f"{k}: {v}/5" for k, v in profile.work_style.preferences.items())
+        )
 
     # 5. Ràng buộc & Mục tiêu
     lines.append("\n[5. RÀNG BUỘC CÁ NHÂN & MỤC TIÊU]")
     c = profile.constraints
-    lines.append(f"- Địa điểm mong muốn: {c.desired_location} (Sẵn sàng relocate: {'Có' if c.willing_to_relocate else 'Không'})")
-    lines.append(f"- Giờ làm việc: {'Giờ hành chính' if c.preferred_hours == 'office_hours' else 'Chấp nhận làm ca'} (Làm ca đêm: {'Có' if c.shift_acceptance else 'Không'})")
-    lines.append(f"- Hình thức làm việc: {c.remote_preference} | Tiếng Anh: {c.english_level} | Giờ học thêm/tuần: {c.learning_hours_per_week}h")
+    lines.append(
+        f"- Địa điểm mong muốn: {c.desired_location} (Sẵn sàng relocate: {'Có' if c.willing_to_relocate else 'Không'})"
+    )
+    lines.append(
+        f"- Giờ làm việc: {'Giờ hành chính' if c.preferred_hours == 'office_hours' else 'Chấp nhận làm ca'} (Làm ca đêm: {'Có' if c.shift_acceptance else 'Không'})"
+    )
+    lines.append(
+        f"- Hình thức làm việc: {c.remote_preference} | Tiếng Anh: {c.english_level} | Giờ học thêm/tuần: {c.learning_hours_per_week}h"
+    )
     g = profile.goal
-    lines.append(f"- Mục tiêu: Vị trí '{g.goal_type}' cho nghề '{g.target_role_id}' trong vòng {g.target_timeframe_months} tháng")
+    lines.append(
+        f"- Mục tiêu: Vị trí '{g.goal_type}' cho nghề '{g.target_role_id}' trong vòng {g.target_timeframe_months} tháng"
+    )
 
     # 6. Xếp hạng Top nghề
     lines.append("\n[6. KẾT QUẢ PHÂN TÍCH PHÙ HỢP (FIT) & SẴN SÀNG (READINESS)]")
     for i, (fit, ready) in enumerate(ranked, start=1):
-        lines.append(f"{i}. {fit.role_name} -> Career Fit: {fit.fit_score:.1f}% | Career Readiness: {ready.readiness_score:.1f}% | Độ tin cậy: {fit.confidence}")
+        lines.append(
+            f"{i}. {fit.role_name} -> Career Fit: {fit.fit_score:.1f}% | Career Readiness: {ready.readiness_score:.1f}% | Độ tin cậy: {fit.confidence}"
+        )
 
     # 7. Khoảng cách kỹ năng nghề mục tiêu (Top 1 hoặc target role)
     target_role_id = profile.goal.target_role_id or (ranked[0][0].role_id if ranked else None)
@@ -108,25 +139,53 @@ def build_career_ai_context(
             gaps = compute_gap_analysis(profile, target_role, include_artifacts=True)
             grouped = group_gap_by_status(gaps)
             lines.append(f"\n[7. KHOẢNG CÁCH KỸ NĂNG VỚI NGHỀ '{target_role.role_name}']")
-            lines.append("- ĐÃ CÓ: " + (", ".join(g.skill_name for g in grouped[STATUS_HAVE]) if grouped[STATUS_HAVE] else "Chưa có kỹ năng nào đạt chuẩn"))
-            lines.append("- CẦN CỦNG CỐ: " + (", ".join(f"{g.skill_name} [{g.priority}]" for g in grouped[STATUS_STRENGTHEN]) if grouped[STATUS_STRENGTHEN] else "Không có"))
-            lines.append("- CHƯA CÓ: " + (", ".join(f"{g.skill_name} [{g.priority}]" for g in grouped[STATUS_MISSING]) if grouped[STATUS_MISSING] else "Không thiếu kỹ năng nào"))
+            lines.append(
+                "- ĐÃ CÓ: "
+                + (
+                    ", ".join(g.skill_name for g in grouped[STATUS_HAVE])
+                    if grouped[STATUS_HAVE]
+                    else "Chưa có kỹ năng nào đạt chuẩn"
+                )
+            )
+            lines.append(
+                "- CẦN CỦNG CỐ: "
+                + (
+                    ", ".join(f"{g.skill_name} [{g.priority}]" for g in grouped[STATUS_STRENGTHEN])
+                    if grouped[STATUS_STRENGTHEN]
+                    else "Không có"
+                )
+            )
+            lines.append(
+                "- CHƯA CÓ: "
+                + (
+                    ", ".join(f"{g.skill_name} [{g.priority}]" for g in grouped[STATUS_MISSING])
+                    if grouped[STATUS_MISSING]
+                    else "Không thiếu kỹ năng nào"
+                )
+            )
 
     # 8. Tích hợp LMS & CMS (Truy vết minh chứng thực tế và học liệu cụ thể)
     try:
         from dss.services.career_lms_cms_pipeline import compute_traced_gap_analysis
         from dss.services.cms_repository import get_cms_repository
         from dss.services.lms_connector import get_lms_repository
+
         lms_sum = get_lms_repository().get_student_learning_summary(profile.student_pseudonym)
         lines.append("\n[8. NGUỒN DỮ LIỆU HỌC TẬP LMS & HỌC LIỆU KHUYẾN NGHỊ CMS]")
-        lines.append(f"- Nguồn dữ liệu học tập: [LMS] | Chuyên cần: {lms_sum.average_attendance:.1f}% | Tiến độ: {lms_sum.average_progress:.1f}% | Tổng giờ học: {lms_sum.total_learning_hours:.1f}h | Phong độ: {lms_sum.performance_trend}")
+        lines.append(
+            f"- Nguồn dữ liệu học tập: [LMS] | Chuyên cần: {lms_sum.average_attendance:.1f}% | Tiến độ: {lms_sum.average_progress:.1f}% | Tổng giờ học: {lms_sum.total_learning_hours:.1f}h | Phong độ: {lms_sum.performance_trend}"
+        )
         if target_role_id:
             role_obj = get_role(target_role_id)
             if role_obj:
                 t_gaps = compute_traced_gap_analysis(profile, role_obj)
                 for tg in t_gaps[:5]:
                     if tg.status != STATUS_HAVE:
-                        remedy = f" -> Khắc phục [CMS]: {tg.cms_match.lesson_title} (Nhiệm vụ: {tg.cms_recommendation_action})" if tg.cms_match else ""
+                        remedy = (
+                            f" -> Khắc phục [CMS]: {tg.cms_match.lesson_title} (Nhiệm vụ: {tg.cms_recommendation_action})"
+                            if tg.cms_match
+                            else ""
+                        )
                         lines.append(f"- Kỹ năng '{tg.skill_name}': Căn cứ [LMS]: {tg.lms_evidence}{remedy}")
     except Exception:
         pass
@@ -194,11 +253,15 @@ def generate_offline_grounded_answer(
 
     # CÂU HỎI 2: "Điểm yếu lớn nhất của tôi là gì?"
     if "điểm yếu" in q_lower or "yếu nhất" in q_lower or "thiếu gì" in q_lower or "lỗ hổng" in q_lower:
-        critical_gaps = [g for g in gaps if g.priority in (PRIORITY_CRITICAL, PRIORITY_HIGH) and g.status != STATUS_HAVE]
+        critical_gaps = [
+            g for g in gaps if g.priority in (PRIORITY_CRITICAL, PRIORITY_HIGH) and g.status != STATUS_HAVE
+        ]
         if not critical_gaps:
             return f"Đối với vị trí **{target_role.role_name}**, bạn đã có nền tảng kỹ năng khá vững! Điểm cần cải thiện chính là hoàn thiện thêm dự án Portfolio và chuẩn bị phỏng vấn kỹ thuật."
 
-        items_str = "\n".join(f"- **{g.skill_name}** (Ưu tiên: `{g.priority}` - Hiện tại: `{g.current_level}`)" for g in critical_gaps)
+        items_str = "\n".join(
+            f"- **{g.skill_name}** (Ưu tiên: `{g.priority}` - Hiện tại: `{g.current_level}`)" for g in critical_gaps
+        )
         return (
             f"### ⚠️ Điểm yếu / Khoảng cách lớn nhất đối với vai trò **{target_role.role_name}**:\n\n"
             f"{items_str}\n\n"
@@ -212,7 +275,9 @@ def generate_offline_grounded_answer(
         tasks_3m = roadmap.buckets.get(_BUCKET_3M, [])
         all_urgent = tasks_1m + tasks_3m[:2]
 
-        tasks_summary = "\n".join(f"- **{t.action}** (Nỗ lực: {t.estimated_effort} — Kết quả: {t.target_result})" for t in all_urgent)
+        tasks_summary = "\n".join(
+            f"- **{t.action}** (Nỗ lực: {t.estimated_effort} — Kết quả: {t.target_result})" for t in all_urgent
+        )
         return (
             f"### ⏱️ Kế hoạch hành động cấp tốc trong 2 tháng (60 ngày) cho **{target_role.role_name}**:\n\n"
             f"Với thời gian ngắn, bạn chỉ tập trung vào các kỹ năng giải quyết trực tiếp khoảng cách lớn nhất:\n\n"
@@ -223,7 +288,9 @@ def generate_offline_grounded_answer(
     # CÂU HỎI 3: "Tôi nên học SQL hay Power BI trước?" hoặc "nên học kỹ năng nào trước"
     if "trước" in q_lower or "học gì" in q_lower or "ưu tiên" in q_lower or "kỹ năng nào" in q_lower:
         critical_missing = [g for g in gaps if g.status == STATUS_MISSING and g.priority == PRIORITY_CRITICAL]
-        high_missing = [g for g in gaps if g.status in (STATUS_MISSING, STATUS_STRENGTHEN) and g.priority == PRIORITY_HIGH]
+        high_missing = [
+            g for g in gaps if g.status in (STATUS_MISSING, STATUS_STRENGTHEN) and g.priority == PRIORITY_HIGH
+        ]
         priority_skills = critical_missing or high_missing or gaps
 
         first_skill = priority_skills[0].skill_name if priority_skills else "SQL"

@@ -2,6 +2,7 @@
 Student-facing chat path, not just class/unit-test/demo-endpoint only. This
 proves the actual code path: Student UI (ai_advisor.py) → ai_router.py →
 agent.py → tools → Validator, not a parallel, untested calling convention."""
+
 from __future__ import annotations
 
 import inspect
@@ -17,7 +18,7 @@ def test_ai_advisor_passes_real_pseudonym_and_role_to_gpa_reply():
     định, coi như CHƯA thật sự wire."""
     source = inspect.getsource(ai_advisor.ai_advisor_tab)
     idx = source.index("ai_router.build_gpa_calculation_reply(")
-    block = source[idx: idx + 300]
+    block = source[idx : idx + 300]
     assert "privacy_service.generate_pseudonym(str(student_id_llm))" in block
     assert "role=role or" in block
 
@@ -43,7 +44,8 @@ def test_end_to_end_student_chat_question_reaches_agent_authorization():
     agent.authorize() + Validator (không chỉ format trùng khớp ngẫu nhiên)."""
     reply = ai_router.build_gpa_calculation_reply(
         "current_gpa 6.0 credits_done 20 target_gpa 7.5 credits_remaining 20",
-        user_id="pseudo_student_real_path_test", role="Sinh viên",
+        user_id="pseudo_student_real_path_test",
+        role="Sinh viên",
     )
     assert reply is not None
     assert "9.0" in reply or "9.00" in reply

@@ -19,9 +19,11 @@ Kiểm thử toàn diện 15 yêu cầu:
 16. Admin AI Agent (namespace admin_operations, low-risk vs high-risk)
 17. Kiểm tra đính chính comment 19 documents
 """
+
 from __future__ import annotations
 
 import json
+
 import pytest
 
 from dss.services import (
@@ -56,9 +58,7 @@ def test_01_llm_gateway_routing_and_fallback():
     gateway = llm_gateway.LLMGateway()
 
     # Thử resolve API key mà không có config -> trả fallback Demo
-    p, m, k = gateway.resolve_active_provider_and_model(
-        requested_provider=None, role="Sinh viên"
-    )
+    p, m, k = gateway.resolve_active_provider_and_model(requested_provider=None, role="Sinh viên")
     assert p in ("demo", "groq", "gemini", "openai")
 
     # Gọi stream_generate ở chế độ Demo fallback
@@ -170,13 +170,15 @@ def test_05_document_ingestion_multi_format():
     assert doc_md.chunks[0].course_id == "CS101"
 
     # 5b. LMS Content JSON
-    lms_json = json.dumps({
-        "course_name": "Khoa hoc Co so du lieu",
-        "modules": [
-            {"title": "Chuong 1", "content": "Tong quan ve He quan tri CSDL SQL."},
-            {"title": "Chuong 2", "content": "Truy van SELECT va JOIN nang cao."},
-        ],
-    }).encode("utf-8")
+    lms_json = json.dumps(
+        {
+            "course_name": "Khoa hoc Co so du lieu",
+            "modules": [
+                {"title": "Chuong 1", "content": "Tong quan ve He quan tri CSDL SQL."},
+                {"title": "Chuong 2", "content": "Truy van SELECT va JOIN nang cao."},
+            ],
+        }
+    ).encode("utf-8")
     doc_json = document_ingestion.ingest_document(
         file_bytes=lms_json,
         file_name="lms_course.json",
@@ -277,10 +279,12 @@ def test_08_rag_namespace_isolation_and_permissions():
 # ============================================================================
 def test_09_student_profile_cannot_be_stored_as_knowledge():
     with pytest.raises(ValueError, match="VI PHẠM NGUYÊN TẮC BẢO MẬT"):
-        rag_namespaces.validate_student_profile_not_in_knowledge({
-            "title": "Bảng điểm sinh viên K65",
-            "id": "student_profile_001",
-        })
+        rag_namespaces.validate_student_profile_not_in_knowledge(
+            {
+                "title": "Bảng điểm sinh viên K65",
+                "id": "student_profile_001",
+            }
+        )
 
 
 # ============================================================================
@@ -290,13 +294,15 @@ def test_10_retrieval_returns_no_relevant_evidence_on_low_confidence():
     # Giả lập mock provider trả về điểm tương đồng rất thấp (< 0.55)
     class _MockLowConfidenceProvider:
         def find_relevant_documents_rag(self, **kwargs):
-            return [{
-                "id": "doc_irrelevant",
-                "title": "Tài liệu nấu ăn",
-                "content": "Cách nấu phở bò truyền thống.",
-                "relevance_score": 0.22,  # Rất thấp
-                "low_confidence": True,
-            }]
+            return [
+                {
+                    "id": "doc_irrelevant",
+                    "title": "Tài liệu nấu ăn",
+                    "content": "Cách nấu phở bò truyền thống.",
+                    "relevance_score": 0.22,  # Rất thấp
+                    "low_confidence": True,
+                }
+            ]
 
     res = rag_service.retrieve_context(
         _MockLowConfidenceProvider(),
@@ -436,6 +442,7 @@ def test_15_rag_and_llm_evaluators():
 # ============================================================================
 def test_16_admin_ai_agent_boundaries(monkeypatch):
     import streamlit as st
+
     agent = admin_agent.AdminAIAgent()
     assert agent.namespace == rag_namespaces.NAMESPACE_ADMIN_OPERATIONS
 
@@ -464,12 +471,12 @@ def test_16_admin_ai_agent_boundaries(monkeypatch):
     assert "bị từ chối" in msg_high
 
 
-
 # ============================================================================
 # 17. DOCUMENTATION COMMENT 19 DOCUMENTS
 # ============================================================================
 def test_17_documentation_comment_19_documents():
     from dss.core.models import MultiAIProvider
+
     provider = MultiAIProvider()
     docs = provider.knowledge_base["documents"]
     # Kiểm tra số lượng tài liệu thực tế chính xác là 19

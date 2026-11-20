@@ -2,6 +2,7 @@
 calls sanitize_conversation_turn_for_provider() when building conversation
 history for the LLM, not just that the function exists in isolation
 (source-inspection, same convention as other wiring tests this engagement)."""
+
 from __future__ import annotations
 
 import inspect

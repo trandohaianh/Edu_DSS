@@ -1,5 +1,7 @@
 """Unit tests for Deep Dark Mode and Theme Switcher functionality."""
+
 from pathlib import Path
+
 from dss.config import inject_styles
 
 
@@ -52,10 +54,10 @@ def test_dark_tokens_are_defined_for_explicit_and_system_dark():
     điều hành đang ở chế độ tối — và đổi nền trang/bề mặt/chữ thật sự."""
     css_path = Path(__file__).resolve().parent.parent / "dss" / "styles" / "main.css"
     content = css_path.read_text(encoding="utf-8")
-    explicit = content[content.index(":root:has(.dss-theme-dark) {"):]
+    explicit = content[content.index(":root:has(.dss-theme-dark) {") :]
     explicit = explicit[: explicit.index("}")]
-    media = content[content.index("@media (prefers-color-scheme: dark)"):]
-    system = media[media.index(":root:has(.dss-theme-system) {"):]
+    media = content[content.index("@media (prefers-color-scheme: dark)") :]
+    system = media[media.index(":root:has(.dss-theme-system) {") :]
     system = system[: system.index("}")]
     for block in (explicit, system):
         assert "--bg-primary: #0F172A" in block

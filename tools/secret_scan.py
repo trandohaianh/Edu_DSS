@@ -10,6 +10,7 @@ never the matched value.
   --allow-local-stores is NOT given; CI checkouts never contain them.
 Exit 1 when a blocking finding exists.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -76,16 +77,18 @@ def scan_tree(root: Path) -> list[tuple[str, str, int]]:
 
 def scan_history(root: Path) -> list[tuple[str, str, int]]:
     try:
-        revs = subprocess.run(["git", "rev-list", "--all"], cwd=root, capture_output=True, text=True,
-                              check=True).stdout.split()
+        revs = subprocess.run(
+            ["git", "rev-list", "--all"], cwd=root, capture_output=True, text=True, check=True
+        ).stdout.split()
     except (OSError, subprocess.CalledProcessError):
         return []
     findings: dict[tuple[str, str], int] = {}
     for provider, pattern in PATTERNS.items():
         regex = pattern.decode()
         for i in range(0, len(revs), 50):
-            out = subprocess.run(["git", "grep", "-l", "-E", "-e", regex, *revs[i:i + 50]], cwd=root,
-                                 capture_output=True, text=True).stdout
+            out = subprocess.run(
+                ["git", "grep", "-l", "-E", "-e", regex, *revs[i : i + 50]], cwd=root, capture_output=True, text=True
+            ).stdout
             for line in out.splitlines():
                 commit, _, path = line.partition(":")
                 findings[(path, provider)] = findings.get((path, provider), 0) + 1

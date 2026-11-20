@@ -30,6 +30,7 @@ Production disables, regardless of any opt-in:
     synthetic sample data / simulated LMS events · demo (fabricated) AI answers ·
     unapproved knowledge-base documents.
 """
+
 from __future__ import annotations
 
 import logging
@@ -49,8 +50,10 @@ def current_env() -> str:
     if not raw:
         if "" not in _warned_unknown:
             _warned_unknown.add("")
-            _logger.warning("EDUDSS_ENV is not set; running as production (fail closed). "
-                            "Set EDUDSS_ENV=development for local demo accounts and synthetic data.")
+            _logger.warning(
+                "EDUDSS_ENV is not set; running as production (fail closed). "
+                "Set EDUDSS_ENV=development for local demo accounts and synthetic data."
+            )
         return ENV_PRODUCTION
     if raw not in _KNOWN_ENVS:
         if raw not in _warned_unknown:

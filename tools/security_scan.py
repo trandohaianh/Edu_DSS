@@ -7,6 +7,7 @@ Checks:
 3. Untrusted pickle avoidance.
 4. Correct file permissions and .gitignore coverage.
 """
+
 import hashlib
 import json
 import os
@@ -45,7 +46,9 @@ def scan_for_secrets() -> list:
                         # Skip placeholder dummy tokens
                         if "EXAMPLE" in m or "YOUR" in m or "test" in m.lower():
                             continue
-                        findings.append(f"Secret detected ({secret_type}) in {p.relative_to(ROOT_DIR)}: {m[:6]}...{m[-4:]}")
+                        findings.append(
+                            f"Secret detected ({secret_type}) in {p.relative_to(ROOT_DIR)}: {m[:6]}...{m[-4:]}"
+                        )
             except Exception:
                 pass
     return findings
@@ -64,7 +67,7 @@ def verify_model_checksums() -> list:
         if not meta_file.exists():
             continue
         try:
-            with open(meta_file, "r", encoding="utf-8") as f:
+            with open(meta_file, encoding="utf-8") as f:
                 meta = json.load(f)
             expected_sha = meta.get("model_sha256")
             if not expected_sha:
@@ -75,7 +78,9 @@ def verify_model_checksums() -> list:
                     hasher.update(chunk)
             actual_sha = hasher.hexdigest()
             if actual_sha != expected_sha:
-                issues.append(f"Checksum mismatch for {joblib_file.name}: expected {expected_sha[:8]}, got {actual_sha[:8]}")
+                issues.append(
+                    f"Checksum mismatch for {joblib_file.name}: expected {expected_sha[:8]}, got {actual_sha[:8]}"
+                )
             else:
                 verified_count += 1
         except Exception as ex:

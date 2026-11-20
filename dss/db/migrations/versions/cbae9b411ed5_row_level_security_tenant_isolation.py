@@ -22,12 +22,12 @@ superuser — production deployments MUST connect the running application as a
 separate, non-superuser role for this migration's guarantee to mean anything.
 See dss/db/session.py's module docstring and PHASE1_REPORT.md.
 """
+
 from typing import Sequence, Union
 
-from alembic import op
-import sqlalchemy as sa
 import pgvector.sqlalchemy  # needed whenever a migration touches rag_chunks.embedding
-
+import sqlalchemy as sa
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = 'cbae9b411ed5'
@@ -37,9 +37,20 @@ depends_on: Union[str, Sequence[str], None] = None
 
 # Tenant-scoped tables that carry `organization_id` directly.
 _DIRECT_TENANT_TABLES = [
-    "users", "subscriptions", "students", "lecturers", "courses", "enrollments",
-    "academic_records", "model_versions", "predictions", "recommendations",
-    "consultations", "rag_documents", "audit_logs", "activity_logs",
+    "users",
+    "subscriptions",
+    "students",
+    "lecturers",
+    "courses",
+    "enrollments",
+    "academic_records",
+    "model_versions",
+    "predictions",
+    "recommendations",
+    "consultations",
+    "rag_documents",
+    "audit_logs",
+    "activity_logs",
 ]
 
 # Child tables with no organization_id column of their own — isolated via a
@@ -58,22 +69,26 @@ def upgrade() -> None:
     for table_name in _DIRECT_TENANT_TABLES:
         conn.execute(sa.text(f'ALTER TABLE {table_name} ENABLE ROW LEVEL SECURITY'))
         conn.execute(sa.text(f'ALTER TABLE {table_name} FORCE ROW LEVEL SECURITY'))
-        conn.execute(sa.text(
-            f'CREATE POLICY tenant_isolation ON {table_name} '
-            f"USING (organization_id = NULLIF(current_setting('app.organization_id', true), '')::integer) "
-            f"WITH CHECK (organization_id = NULLIF(current_setting('app.organization_id', true), '')::integer)"
-        ))
+        conn.execute(
+            sa.text(
+                f'CREATE POLICY tenant_isolation ON {table_name} '
+                f"USING (organization_id = NULLIF(current_setting('app.organization_id', true), '')::integer) "
+                f"WITH CHECK (organization_id = NULLIF(current_setting('app.organization_id', true), '')::integer)"
+            )
+        )
 
     for table_name, (fk_col, parent_table) in _SUBQUERY_TENANT_TABLES.items():
         conn.execute(sa.text(f'ALTER TABLE {table_name} ENABLE ROW LEVEL SECURITY'))
         conn.execute(sa.text(f'ALTER TABLE {table_name} FORCE ROW LEVEL SECURITY'))
-        conn.execute(sa.text(
-            f'CREATE POLICY tenant_isolation ON {table_name} '
-            f"USING ({fk_col} IN (SELECT id FROM {parent_table} "
-            f"WHERE organization_id = NULLIF(current_setting('app.organization_id', true), '')::integer)) "
-            f"WITH CHECK ({fk_col} IN (SELECT id FROM {parent_table} "
-            f"WHERE organization_id = NULLIF(current_setting('app.organization_id', true), '')::integer))"
-        ))
+        conn.execute(
+            sa.text(
+                f'CREATE POLICY tenant_isolation ON {table_name} '
+                f"USING ({fk_col} IN (SELECT id FROM {parent_table} "
+                f"WHERE organization_id = NULLIF(current_setting('app.organization_id', true), '')::integer)) "
+                f"WITH CHECK ({fk_col} IN (SELECT id FROM {parent_table} "
+                f"WHERE organization_id = NULLIF(current_setting('app.organization_id', true), '')::integer))"
+            )
+        )
 
 
 def downgrade() -> None:

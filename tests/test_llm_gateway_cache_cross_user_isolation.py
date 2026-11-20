@@ -9,6 +9,7 @@ CACHE của sinh viên A — rò rỉ dữ liệu cá nhân hóa (điểm số, 
 tư vấn riêng) CHÉO giữa 2 người dùng khác nhau. Đây đúng là rủi ro P0 mà đề
 bài cảnh báo rõ: "Semantic Cache must be scoped by ... user ... — must
 NEVER leak Student A's response to Student B"."""
+
 from __future__ import annotations
 
 import pytest
@@ -56,21 +57,33 @@ def test_cross_user_same_prompt_text_does_not_leak_cached_personalized_answer(mo
     gateway = _patch_chain(monkeypatch, fake)
 
     shared_prompt = "Prompt-giong-het-nhau-ve-chuoi-ky-tu-test-cross-user-isolation"
-    answer_a = "".join(gateway.stream_generate(
-        prompt=shared_prompt, user_id="pseudo_student_A", role="Sinh viên", request_type="advisor_chat",
-    ))
+    answer_a = "".join(
+        gateway.stream_generate(
+            prompt=shared_prompt,
+            user_id="pseudo_student_A",
+            role="Sinh viên",
+            request_type="advisor_chat",
+        )
+    )
     assert "SINH VIÊN A" in answer_a
 
     fake.calls.clear()
-    answer_b = "".join(gateway.stream_generate(
-        prompt=shared_prompt, user_id="pseudo_student_B", role="Sinh viên", request_type="advisor_chat",
-    ))
+    answer_b = "".join(
+        gateway.stream_generate(
+            prompt=shared_prompt,
+            user_id="pseudo_student_B",
+            role="Sinh viên",
+            request_type="advisor_chat",
+        )
+    )
     assert fake.calls, (
         "Với user_id KHÁC, PHẢI là cache MISS (provider được gọi lại) — "
         "KHÔNG được trả thẳng câu trả lời cá nhân hóa đã cache của sinh viên A "
         "cho sinh viên B."
     )
-    assert answer_b == answer_a, "Fake provider trả lời giống hệt (không phân biệt input) — chỉ xác nhận KHÔNG phục vụ từ cache, không xác nhận nội dung khác nhau."
+    assert answer_b == answer_a, (
+        "Fake provider trả lời giống hệt (không phân biệt input) — chỉ xác nhận KHÔNG phục vụ từ cache, không xác nhận nội dung khác nhau."
+    )
 
 
 def test_same_user_same_prompt_still_benefits_from_cache(monkeypatch):
@@ -80,13 +93,23 @@ def test_same_user_same_prompt_still_benefits_from_cache(monkeypatch):
     gateway = _patch_chain(monkeypatch, fake)
 
     shared_prompt = "Prompt-rieng-cho-test-same-user-cache-hit"
-    "".join(gateway.stream_generate(
-        prompt=shared_prompt, user_id="pseudo_student_C", role="Sinh viên", request_type="advisor_chat",
-    ))
+    "".join(
+        gateway.stream_generate(
+            prompt=shared_prompt,
+            user_id="pseudo_student_C",
+            role="Sinh viên",
+            request_type="advisor_chat",
+        )
+    )
     fake.calls.clear()
-    "".join(gateway.stream_generate(
-        prompt=shared_prompt, user_id="pseudo_student_C", role="Sinh viên", request_type="advisor_chat",
-    ))
+    "".join(
+        gateway.stream_generate(
+            prompt=shared_prompt,
+            user_id="pseudo_student_C",
+            role="Sinh viên",
+            request_type="advisor_chat",
+        )
+    )
     assert not fake.calls, "CÙNG 1 user_id hỏi lại CÙNG prompt vẫn phải là cache HIT (không gọi lại provider)."
 
 
@@ -101,20 +124,35 @@ def test_invalidate_student_now_actually_clears_entries_cached_via_stream_genera
     gateway = _patch_chain(monkeypatch, fake)
 
     prompt = "Prompt-rieng-cho-test-invalidate-student"
-    "".join(gateway.stream_generate(
-        prompt=prompt, user_id="pseudo_student_D", role="Sinh viên", request_type="advisor_chat",
-    ))
+    "".join(
+        gateway.stream_generate(
+            prompt=prompt,
+            user_id="pseudo_student_D",
+            role="Sinh viên",
+            request_type="advisor_chat",
+        )
+    )
     fake.calls.clear()
-    "".join(gateway.stream_generate(
-        prompt=prompt, user_id="pseudo_student_D", role="Sinh viên", request_type="advisor_chat",
-    ))
+    "".join(
+        gateway.stream_generate(
+            prompt=prompt,
+            user_id="pseudo_student_D",
+            role="Sinh viên",
+            request_type="advisor_chat",
+        )
+    )
     assert not fake.calls, "Trước khi invalidate, vẫn phải là cache HIT."
 
     cleared = layered_cache.invalidate_student("pseudo_student_D")
     assert cleared >= 1, "invalidate_student() phải khớp được entry vừa cache (dimension student_pseudonym)."
 
     fake.calls.clear()
-    "".join(gateway.stream_generate(
-        prompt=prompt, user_id="pseudo_student_D", role="Sinh viên", request_type="advisor_chat",
-    ))
+    "".join(
+        gateway.stream_generate(
+            prompt=prompt,
+            user_id="pseudo_student_D",
+            role="Sinh viên",
+            request_type="advisor_chat",
+        )
+    )
     assert fake.calls, "Sau invalidate_student(), lượt hỏi lại PHẢI là cache MISS (gọi lại provider)."

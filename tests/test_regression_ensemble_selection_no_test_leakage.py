@@ -3,6 +3,7 @@ cách so sánh voting_r2/stacking_r2 TÍNH TRÊN CHÍNH X_test/y_test — tức 
 tập test để ra QUYẾT ĐỊNH chọn mô hình, không còn là đánh giá độc lập/trung
 thực nữa (data leakage kiểu "chọn theo tập test"). Phải so sánh bằng
 cross_val_score trên tập TRAIN; tập test chỉ dùng để BÁO CÁO mô hình đã chọn."""
+
 from __future__ import annotations
 
 import inspect
@@ -31,10 +32,13 @@ def test_ensemble_training_runs_end_to_end_with_selection_from_cv():
     feats = [c for c in df.columns if c not in ("student_id", "diem_ky_sau", "xep_loai", "final_score", "grade")]
     reg = RegressionTrainer()
     results, pipelines, *_ = reg.train_and_evaluate(
-        df, feats, "diem_ky_sau",
+        df,
+        feats,
+        "diem_ky_sau",
         ["Linear Regression", "Random Forest Regressor"],
         training_strategy="Kết hợp (Ensemble)",
-        cv_folds=3, save_model=False,
+        cv_folds=3,
+        save_model=False,
     )
     ensemble_names = [k for k in results if str(k).startswith("Auto-Ensemble")]
     assert ensemble_names, f"Không có ensemble nào được tạo: {list(results)}"
@@ -52,19 +56,25 @@ def test_correlation_leakage_guard_uses_training_labels_only(monkeypatch):
     y = np.arange(60, dtype=float)
     candidate = y.copy()
     candidate[40:] = -candidate[40:]
-    frame = pd.DataFrame({
-        "snapshot_leak": candidate,
-        "independent_feature": np.random.default_rng(7).normal(size=len(y)),
-        "next_score": y,
-    })
+    frame = pd.DataFrame(
+        {
+            "snapshot_leak": candidate,
+            "independent_feature": np.random.default_rng(7).normal(size=len(y)),
+            "next_score": y,
+        }
+    )
 
     def fixed_split(X, target, **kwargs):
         return X.iloc[:40], X.iloc[40:], target.iloc[:40], target.iloc[40:]
 
     monkeypatch.setattr(trainers_module, "train_test_split", fixed_split)
     results, pipelines, _, trained_features, *_ = RegressionTrainer().train_and_evaluate(
-        frame, ["snapshot_leak", "independent_feature"], "next_score",
-        ["Linear Regression"], cv_folds=2, save_model=False,
+        frame,
+        ["snapshot_leak", "independent_feature"],
+        "next_score",
+        ["Linear Regression"],
+        cv_folds=2,
+        save_model=False,
     )
 
     assert results and pipelines

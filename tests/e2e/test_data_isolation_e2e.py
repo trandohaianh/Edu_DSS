@@ -6,6 +6,7 @@ env của subprocess -> mọi thao tác qua UI (đăng nhập tự tạo tài kh
 viên, nạp bài giảng CMS...) ghi thẳng vào data_warehouse/ thật, dù bản thân
 tiến trình pytest có được cô lập hay không (2 tiến trình khác nhau, mỗi tiến
 trình có os.environ riêng)."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -31,6 +32,5 @@ def test_e2e_server_subprocess_uses_isolated_data_root(e2e_test_data_root, login
     real_users_file = _REAL_DATA_WAREHOUSE / "users.json"
     if real_users_file.exists():
         assert probe_username not in real_users_file.read_text(encoding="utf-8").lower(), (
-            "RÒ RỈ PERF-002 (E2E): tài khoản Sinh viên do E2E tự tạo đã xuất hiện "
-            "trong users.json THẬT."
+            "RÒ RỈ PERF-002 (E2E): tài khoản Sinh viên do E2E tự tạo đã xuất hiện trong users.json THẬT."
         )

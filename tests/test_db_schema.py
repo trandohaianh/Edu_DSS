@@ -10,6 +10,7 @@ run the app or its existing tests). To run these locally:
     DATABASE_URL=postgresql+psycopg2://edudss:devtest_local_only@localhost:55433/edudss_db \\
       pytest tests/test_db_schema.py -v
 """
+
 from __future__ import annotations
 
 import os
@@ -45,8 +46,10 @@ def _fresh_schema():
     the actual tables without any other module noticing until it tried to use
     them."""
     reset_engine_for_tests()
+    from dss.db import (
+        models,  # noqa: F401  (import registers all tables on Base.metadata — without this, Base.metadata is empty and create_all() silently creates nothing)
+    )
     from dss.db.base import Base
-    from dss.db import models  # noqa: F401  (import registers all tables on Base.metadata — without this, Base.metadata is empty and create_all() silently creates nothing)
     from dss.db.session import get_engine
 
     engine = get_engine()
@@ -64,11 +67,26 @@ def test_all_20_tables_exist(_fresh_schema):
     inspector = inspect(_fresh_schema)
     tables = set(inspector.get_table_names())
     expected = {
-        "organizations", "roles", "permissions", "role_permissions", "users",
-        "subscriptions", "students", "lecturers", "courses", "enrollments",
-        "academic_records", "model_versions", "model_metrics", "predictions",
-        "recommendations", "consultations", "rag_documents", "rag_chunks",
-        "audit_logs", "activity_logs",
+        "organizations",
+        "roles",
+        "permissions",
+        "role_permissions",
+        "users",
+        "subscriptions",
+        "students",
+        "lecturers",
+        "courses",
+        "enrollments",
+        "academic_records",
+        "model_versions",
+        "model_metrics",
+        "predictions",
+        "recommendations",
+        "consultations",
+        "rag_documents",
+        "rag_chunks",
+        "audit_logs",
+        "activity_logs",
     }
     missing = expected - tables
     assert not missing, f"Missing tables: {missing}"
@@ -131,7 +149,9 @@ def test_student_unique_code_per_organization_not_globally():
     with pytest.raises(IntegrityError):
         with session_scope() as session:
             existing_org_a = session.query(Organization).filter(Organization.name == org_a_name).one()
-            session.add(Student(organization_id=existing_org_a.id, student_code=code, full_name="Duplicate in same org"))
+            session.add(
+                Student(organization_id=existing_org_a.id, student_code=code, full_name="Duplicate in same org")
+            )
 
 
 def test_model_version_training_id_unique():
@@ -145,8 +165,12 @@ def test_model_version_training_id_unique():
         tid = _unique("training")
         session.add(
             ModelVersion(
-                organization_id=org.id, training_id=tid, model_key="ds::target",
-                dataset_id="ds", target_col="target", model_name="RandomForest",
+                organization_id=org.id,
+                training_id=tid,
+                model_key="ds::target",
+                dataset_id="ds",
+                target_col="target",
+                model_name="RandomForest",
             )
         )
 
@@ -155,8 +179,12 @@ def test_model_version_training_id_unique():
             org2 = session.query(Organization).first()
             session.add(
                 ModelVersion(
-                    organization_id=org2.id, training_id=tid, model_key="other::target",
-                    dataset_id="other", target_col="target", model_name="XGBoost",
+                    organization_id=org2.id,
+                    training_id=tid,
+                    model_key="other::target",
+                    dataset_id="other",
+                    target_col="target",
+                    model_name="XGBoost",
                 )
             )
 
@@ -178,8 +206,11 @@ def test_audit_log_repository_records_and_reads_back():
 
     target_id = _unique("training")
     ok = audit_log_repository.record(
-        action="model.promoted", target_type="model_version", target_id=target_id,
-        actor_username="admin_test", before={"production_training_id": None},
+        action="model.promoted",
+        target_type="model_version",
+        target_id=target_id,
+        actor_username="admin_test",
+        before={"production_training_id": None},
         after={"production_training_id": target_id},
     )
     assert ok is True

@@ -1,7 +1,8 @@
 """Shared runtime imports for Streamlit tab modules."""
+
 from dss.config import *  # noqa: F403
-from dss.core.feature_utils import to_excel, render_save_export_buttons
 from dss.core.data_helpers import feature_label
+from dss.core.feature_utils import render_save_export_buttons, to_excel
 from dss.core.logging_config import get_logger
 from dss.core.target_utils import is_id_like
 
@@ -26,14 +27,14 @@ def clustering_hybrid_tab(df, wh=None, role="Giảng viên / CVHT", current_stud
         ui_kit.section_header(
             "Nhóm học tập của bạn",
             subtitle="Xem bạn thuộc nhóm nào trong lớp và gợi ý cải thiện phù hợp. Nhóm được gom tự động theo "
-                     "mức độ tương đồng của kết quả học tập — không phải xếp loại hay đánh giá chính thức.",
+            "mức độ tương đồng của kết quả học tập — không phải xếp loại hay đánh giá chính thức.",
             icon="🔬",
         )
     else:
         ui_kit.section_header(
             "Phân cụm & Gợi ý",
             subtitle="Phân cụm sinh viên (K-Means) và gợi ý học tập. Cụm là phân khúc theo độ tương đồng dữ liệu — "
-                     "công cụ khám phá, không phải phân loại sinh viên chính thức.",
+            "công cụ khám phá, không phải phân loại sinh viên chính thức.",
             icon="🔬",
         )
     if role != "Sinh viên":
@@ -74,9 +75,7 @@ def clustering_hybrid_tab(df, wh=None, role="Giảng viên / CVHT", current_stud
     # ============================================================================
     n_selected_feats = len(st.session_state.get('cluster_selected_cols', []) or [])
     current_k = st.session_state.get('cluster_k_optimal')
-    n_clusters_now = (
-        int(st.session_state['cluster_results_df']['cluster'].nunique()) if has_results else None
-    )
+    n_clusters_now = int(st.session_state['cluster_results_df']['cluster'].nunique()) if has_results else None
     _quality_sil = st.session_state.get("cluster_quality_silhouette")
     _quality_db = st.session_state.get("cluster_quality_db")
     # Sinh viên KHÔNG được xem thẻ "Dataset: X SV" — đó là quy mô TOÀN LỚP, không
@@ -94,12 +93,27 @@ def clustering_hybrid_tab(df, wh=None, role="Giảng viên / CVHT", current_stud
                     _cl_num = int(_own_rows.iloc[0]['cluster'])
                     _own_cluster_label = f"Cụm {_cl_num}"
                     _own_goal = f"Nâng cao GPA & Đồ án Cụm {_cl_num}"
-        first_card = ("Nhóm học tập của bạn", _own_cluster_label, "Nhóm học tập được phân bổ theo hồ sơ học tập", "purple")
+        first_card = (
+            "Nhóm học tập của bạn",
+            _own_cluster_label,
+            "Nhóm học tập được phân bổ theo hồ sơ học tập",
+            "purple",
+        )
         ui_kit.kpi_row(
             [
                 first_card,
-                ("Trạng thái", "Đã phân nhóm" if _own_cluster_label != "—" else "Chưa phân nhóm", "Trạng thái phân cụm K-Means", "success" if _own_cluster_label != "—" else "warning"),
-                ("Mục tiêu học tập", _own_goal, "Mục tiêu trọng tâm cho học kỳ", "purple" if _own_cluster_label != "—" else "warning"),
+                (
+                    "Trạng thái",
+                    "Đã phân nhóm" if _own_cluster_label != "—" else "Chưa phân nhóm",
+                    "Trạng thái phân cụm K-Means",
+                    "success" if _own_cluster_label != "—" else "warning",
+                ),
+                (
+                    "Mục tiêu học tập",
+                    _own_goal,
+                    "Mục tiêu trọng tâm cho học kỳ",
+                    "purple" if _own_cluster_label != "—" else "warning",
+                ),
             ]
         )
     else:
@@ -107,12 +121,30 @@ def clustering_hybrid_tab(df, wh=None, role="Giảng viên / CVHT", current_stud
         ui_kit.kpi_row(
             [
                 first_card,
-                ("Đặc trưng đã chọn", n_selected_feats if n_selected_feats else "—", "Số lượng biến số tham gia phân cụm", None),
-                ("Số cụm (k)", n_clusters_now if n_clusters_now is not None else (current_k or "—"), "Số nhóm phân tách tối ưu", None),
-                ("Silhouette", f"{_quality_sil:.3f}" if _quality_sil is not None else "—",
-                 "Mức độ tách biệt giữa các cụm. Càng gần 1 càng tốt (tách biệt rõ).", "success"),
-                ("Davies-Bouldin", f"{_quality_db:.3f}" if _quality_db is not None else "—",
-                 "Mức độ chồng lấn giữa các cụm. Càng thấp càng tốt (ít trùng lặp).", None),
+                (
+                    "Đặc trưng đã chọn",
+                    n_selected_feats if n_selected_feats else "—",
+                    "Số lượng biến số tham gia phân cụm",
+                    None,
+                ),
+                (
+                    "Số cụm (k)",
+                    n_clusters_now if n_clusters_now is not None else (current_k or "—"),
+                    "Số nhóm phân tách tối ưu",
+                    None,
+                ),
+                (
+                    "Silhouette",
+                    f"{_quality_sil:.3f}" if _quality_sil is not None else "—",
+                    "Mức độ tách biệt giữa các cụm. Càng gần 1 càng tốt (tách biệt rõ).",
+                    "success",
+                ),
+                (
+                    "Davies-Bouldin",
+                    f"{_quality_db:.3f}" if _quality_db is not None else "—",
+                    "Mức độ chồng lấn giữa các cụm. Càng thấp càng tốt (ít trùng lặp).",
+                    None,
+                ),
             ]
         )
     st.markdown("<div style='height:0.5rem;'></div>", unsafe_allow_html=True)
@@ -132,7 +164,8 @@ def clustering_hybrid_tab(df, wh=None, role="Giảng viên / CVHT", current_stud
 
                 all_numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
                 all_numeric_cols = [
-                    col for col in all_numeric_cols
+                    col
+                    for col in all_numeric_cols
                     if 'id' not in col.lower() and 'pca' not in col.lower() and 'cluster' not in col.lower()
                 ]
                 # C-1: dùng hàm chọn cột mặc định DÙNG CHUNG (loại bí danh/target,
@@ -173,7 +206,9 @@ def clustering_hybrid_tab(df, wh=None, role="Giảng viên / CVHT", current_stud
                         with st.spinner(f"Đang tính từ K={k_range_start} đến K={k_range_end}..."):
                             progress_bar = st.progress(0)
                             result = clustering_service.compute_elbow_silhouette(
-                                X_processed, k_range_start, k_range_end,
+                                X_processed,
+                                k_range_start,
+                                k_range_end,
                                 progress_callback=lambda frac: progress_bar.progress(frac),
                             )
                             progress_bar.empty()
@@ -202,8 +237,12 @@ def clustering_hybrid_tab(df, wh=None, role="Giảng viên / CVHT", current_stud
                     st.markdown("---")
                     st.markdown("**Chạy phân cụm**")
                     k_optimal = st.number_input(
-                        "Số cụm (K):", min_value=2, max_value=15, value=4,
-                        help="Số cụm bạn muốn chia dữ liệu thành.", key="k_cluster",
+                        "Số cụm (K):",
+                        min_value=2,
+                        max_value=15,
+                        value=4,
+                        help="Số cụm bạn muốn chia dữ liệu thành.",
+                        key="k_cluster",
                     )
                     if st.button("🚀 Chạy Phân cụm K-Means", type="primary", key="run_cluster", width="stretch"):
                         with st.spinner(f"Đang chạy K-Means với K={k_optimal}..."):
@@ -226,23 +265,37 @@ def clustering_hybrid_tab(df, wh=None, role="Giảng viên / CVHT", current_stud
                     if st.session_state.get("elbow_silhouette") is None:
                         st.caption("ℹ️ Phiên trước chỉ có Elbow. Bấm lại **Vẽ Elbow + Silhouette** để có đủ dữ liệu.")
                     fig_elbow = px.line(
-                        x=st.session_state.elbow_k_range, y=st.session_state.elbow_inertia,
+                        x=st.session_state.elbow_k_range,
+                        y=st.session_state.elbow_inertia,
                         title="Elbow — Inertia theo K",
-                        labels={'x': 'Số cụm (K)', 'y': 'Inertia'}, markers=True,
+                        labels={'x': 'Số cụm (K)', 'y': 'Inertia'},
+                        markers=True,
                     )
-                    fig_elbow.update_traces(mode='lines+markers', line=dict(width=3, color='#1976d2'), marker=dict(size=9, color='#1976d2'))
-                    fig_elbow.update_layout(height=300, hovermode='x unified', template='plotly_white', margin=dict(t=40, b=10))
+                    fig_elbow.update_traces(
+                        mode='lines+markers', line=dict(width=3, color='#1976d2'), marker=dict(size=9, color='#1976d2')
+                    )
+                    fig_elbow.update_layout(
+                        height=300, hovermode='x unified', template='plotly_white', margin=dict(t=40, b=10)
+                    )
                     st.plotly_chart(fig_elbow, width="stretch", key="elbow_chart_cached")
 
                     sil_list = st.session_state.get("elbow_silhouette")
                     if sil_list is not None and len(sil_list) == len(st.session_state.elbow_k_range):
                         fig_sil = px.line(
-                            x=st.session_state.elbow_k_range, y=sil_list,
+                            x=st.session_state.elbow_k_range,
+                            y=sil_list,
                             title="Silhouette theo K (càng cao càng tách cụm rõ)",
-                            labels={"x": "Số cụm (K)", "y": "Silhouette score"}, markers=True,
+                            labels={"x": "Số cụm (K)", "y": "Silhouette score"},
+                            markers=True,
                         )
-                        fig_sil.update_traces(mode="lines+markers", line=dict(width=3, color="#0d9488"), marker=dict(size=9, color="#0d9488"))
-                        fig_sil.update_layout(height=280, hovermode="x unified", template="plotly_white", margin=dict(t=40, b=10))
+                        fig_sil.update_traces(
+                            mode="lines+markers",
+                            line=dict(width=3, color="#0d9488"),
+                            marker=dict(size=9, color="#0d9488"),
+                        )
+                        fig_sil.update_layout(
+                            height=280, hovermode="x unified", template="plotly_white", margin=dict(t=40, b=10)
+                        )
                         st.plotly_chart(fig_sil, width="stretch", key="silhouette_chart_cached")
 
                         compare_df = pd.DataFrame(
@@ -256,7 +309,9 @@ def clustering_hybrid_tab(df, wh=None, role="Giảng viên / CVHT", current_stud
                             st.dataframe(compare_df, width="stretch", hide_index=True)
                             ke = st.session_state.get("cluster_k_elbow_suggest")
                             ks = st.session_state.get("cluster_k_sil_best")
-                            st.caption(f"Elbow (tham khảo): **{ke if ke is not None else '—'}** · Silhouette tốt nhất: **{ks if ks is not None else '—'}**")
+                            st.caption(
+                                f"Elbow (tham khảo): **{ke if ke is not None else '—'}** · Silhouette tốt nhất: **{ks if ks is not None else '—'}**"
+                            )
                 else:
                     ui_kit.empty_state(
                         "Chưa có kết quả Elbow/Silhouette.",
@@ -269,11 +324,16 @@ def clustering_hybrid_tab(df, wh=None, role="Giảng viên / CVHT", current_stud
                     k_now = st.session_state.get('cluster_k_optimal', df_results_kpi['cluster'].nunique())
                     cluster_counts_dist = df_results_kpi['cluster'].value_counts().sort_index()
                     fig_dist = px.bar(
-                        x=cluster_counts_dist.index.astype(str), y=cluster_counts_dist.values,
-                        labels={'x': 'Cụm', 'y': 'Số SV'}, title=f"Phân bố sinh viên theo cụm (K={k_now})",
-                        color=cluster_counts_dist.index.astype(str), color_discrete_sequence=px.colors.qualitative.Set3,
+                        x=cluster_counts_dist.index.astype(str),
+                        y=cluster_counts_dist.values,
+                        labels={'x': 'Cụm', 'y': 'Số SV'},
+                        title=f"Phân bố sinh viên theo cụm (K={k_now})",
+                        color=cluster_counts_dist.index.astype(str),
+                        color_discrete_sequence=px.colors.qualitative.Set3,
                     )
-                    fig_dist.update_layout(showlegend=False, template='plotly_white', height=280, margin=dict(t=40, b=10))
+                    fig_dist.update_layout(
+                        showlegend=False, template='plotly_white', height=280, margin=dict(t=40, b=10)
+                    )
                     st.plotly_chart(fig_dist, width="stretch", key="cluster_distribution_chart")
 
         with col_right:
@@ -293,7 +353,9 @@ def clustering_hybrid_tab(df, wh=None, role="Giảng viên / CVHT", current_stud
                     for cid in sorted(cluster_mean_df_r.index):
                         cdata = cluster_mean_df_r.loc[cid]
                         cavg = cdata[selected_cols_r]
-                        strengths_r, weaknesses_r = clustering_service.compute_strengths_weaknesses(cavg, overall_avg_r, overall_std=overall_std_r)
+                        strengths_r, weaknesses_r = clustering_service.compute_strengths_weaknesses(
+                            cavg, overall_avg_r, overall_std=overall_std_r
+                        )
                         st.markdown(f"**Cụm {cid}** · {int(cdata['Số lượng SV'])} SV")
                         if strengths_r:
                             st.caption(f"✅ Mạnh: {', '.join(feature_label(c) for c in strengths_r[:2])}")
@@ -396,14 +458,29 @@ def clustering_hybrid_tab(df, wh=None, role="Giảng viên / CVHT", current_stud
                             "Chọn thêm cột số ở panel Cấu hình để có biểu đồ PCA 2D."
                         )
                         fig_pca = px.scatter(
-                            df_results_pca, x=np.arange(len(df_results_pca)), y="pca1",
-                            color=df_results_pca["cluster"].astype(str), color_discrete_sequence=px.colors.qualitative.Set3,
-                            hover_name=hover_name, hover_data=selected_cols[:5],
+                            df_results_pca,
+                            x=np.arange(len(df_results_pca)),
+                            y="pca1",
+                            color=df_results_pca["cluster"].astype(str),
+                            color_discrete_sequence=px.colors.qualitative.Set3,
+                            hover_name=hover_name,
+                            hover_data=selected_cols[:5],
                             title="Phân bố cụm (PCA 1D — chỉ PC1)",
-                            labels={"x": "Thứ tự hàng", "y": f"PC1 ({variance_explained[0] * 100:.1f}% phương sai)", "color": "Cụm"},
+                            labels={
+                                "x": "Thứ tự hàng",
+                                "y": f"PC1 ({variance_explained[0] * 100:.1f}% phương sai)",
+                                "color": "Cụm",
+                            },
                         )
-                        fig_pca.update_traces(marker=dict(size=8, opacity=0.7, line=dict(width=1, color="DarkSlateGrey")), selector=dict(mode="markers"))
-                        fig_pca.update_layout(height=480, template="plotly_white", legend=dict(title="Cụm", orientation="v", yanchor="top", y=1, xanchor="left", x=1.02))
+                        fig_pca.update_traces(
+                            marker=dict(size=8, opacity=0.7, line=dict(width=1, color="DarkSlateGrey")),
+                            selector=dict(mode="markers"),
+                        )
+                        fig_pca.update_layout(
+                            height=480,
+                            template="plotly_white",
+                            legend=dict(title="Cụm", orientation="v", yanchor="top", y=1, xanchor="left", x=1.02),
+                        )
                         st.plotly_chart(fig_pca, width="stretch", key="cluster_pca_plot_1d")
                     else:
                         df_results_pca["pca1"] = X_pca[:, 0]
@@ -413,14 +490,29 @@ def clustering_hybrid_tab(df, wh=None, role="Giảng viên / CVHT", current_stud
                             f"(PC1: {variance_explained[0] * 100:.1f}%, PC2: {variance_explained[1] * 100:.1f}%)."
                         )
                         fig_pca = px.scatter(
-                            df_results_pca, x="pca1", y="pca2",
-                            color=df_results_pca["cluster"].astype(str), color_discrete_sequence=px.colors.qualitative.Set3,
-                            hover_name=hover_name, hover_data=selected_cols[:5],
+                            df_results_pca,
+                            x="pca1",
+                            y="pca2",
+                            color=df_results_pca["cluster"].astype(str),
+                            color_discrete_sequence=px.colors.qualitative.Set3,
+                            hover_name=hover_name,
+                            hover_data=selected_cols[:5],
                             title="Phân bố cụm sinh viên (PCA 2D)",
-                            labels={"pca1": f"PC1 ({variance_explained[0] * 100:.1f}%)", "pca2": f"PC2 ({variance_explained[1] * 100:.1f}%)", "cluster": "Cụm"},
+                            labels={
+                                "pca1": f"PC1 ({variance_explained[0] * 100:.1f}%)",
+                                "pca2": f"PC2 ({variance_explained[1] * 100:.1f}%)",
+                                "cluster": "Cụm",
+                            },
                         )
-                        fig_pca.update_traces(marker=dict(size=8, opacity=0.7, line=dict(width=1, color="DarkSlateGrey")), selector=dict(mode="markers"))
-                        fig_pca.update_layout(height=480, template="plotly_white", legend=dict(title="Cụm", orientation="v", yanchor="top", y=1, xanchor="left", x=1.02))
+                        fig_pca.update_traces(
+                            marker=dict(size=8, opacity=0.7, line=dict(width=1, color="DarkSlateGrey")),
+                            selector=dict(mode="markers"),
+                        )
+                        fig_pca.update_layout(
+                            height=480,
+                            template="plotly_white",
+                            legend=dict(title="Cụm", orientation="v", yanchor="top", y=1, xanchor="left", x=1.02),
+                        )
                         st.plotly_chart(fig_pca, width="stretch", key="cluster_pca_plot")
 
         st.markdown("<div style='height:0.75rem;'></div>", unsafe_allow_html=True)
@@ -453,12 +545,25 @@ def clustering_hybrid_tab(df, wh=None, role="Giảng viên / CVHT", current_stud
                         r_closed = r_vals + [r_vals[0]]
                         theta_closed = theta_labels + [theta_labels[0]]
                         fig_radar.add_trace(
-                            go.Scatterpolar(r=r_closed, theta=theta_closed, fill="toself", name=f"Cụm {cl_id}", line_color=palette[i % len(palette)], opacity=0.55)
+                            go.Scatterpolar(
+                                r=r_closed,
+                                theta=theta_closed,
+                                fill="toself",
+                                name=f"Cụm {cl_id}",
+                                line_color=palette[i % len(palette)],
+                                opacity=0.55,
+                            )
                         )
                     fig_radar.update_layout(
                         title="So sánh chân dung cụm (Radar — đã chuẩn hóa theo trục [0, 1])",
-                        polar=dict(radialaxis=dict(visible=True, range=[0, 1], tickmode="linear", tick0=0, dtick=0.25, tickformat=".2f"), angularaxis=dict(direction="clockwise", rotation=90)),
-                        height=480, template="plotly_white",
+                        polar=dict(
+                            radialaxis=dict(
+                                visible=True, range=[0, 1], tickmode="linear", tick0=0, dtick=0.25, tickformat=".2f"
+                            ),
+                            angularaxis=dict(direction="clockwise", rotation=90),
+                        ),
+                        height=480,
+                        template="plotly_white",
                         legend=dict(orientation="h", yanchor="bottom", y=-0.15, x=0.5, xanchor="center"),
                         margin=dict(t=60, b=80),
                     )
@@ -473,17 +578,21 @@ def clustering_hybrid_tab(df, wh=None, role="Giảng viên / CVHT", current_stud
                     bar_data = []
                     for cl_id in means_bar.index:
                         for c in selected_cols:
-                            bar_data.append({
-                                "Nhóm": f"Cụm {cl_id}",
-                                "Đặc trưng": feature_label(c),
-                                "Điểm trung bình": round(float(means_bar.loc[cl_id, c]), 2)
-                            })
+                            bar_data.append(
+                                {
+                                    "Nhóm": f"Cụm {cl_id}",
+                                    "Đặc trưng": feature_label(c),
+                                    "Điểm trung bình": round(float(means_bar.loc[cl_id, c]), 2),
+                                }
+                            )
                     for c in selected_cols:
-                        bar_data.append({
-                            "Nhóm": "Trung bình toàn khoá",
-                            "Đặc trưng": feature_label(c),
-                            "Điểm trung bình": round(float(overall_means[c]), 2)
-                        })
+                        bar_data.append(
+                            {
+                                "Nhóm": "Trung bình toàn khoá",
+                                "Đặc trưng": feature_label(c),
+                                "Điểm trung bình": round(float(overall_means[c]), 2),
+                            }
+                        )
                     bar_df = pd.DataFrame(bar_data)
                     fig_bar = px.bar(
                         bar_df,
@@ -530,7 +639,9 @@ def clustering_hybrid_tab(df, wh=None, role="Giảng viên / CVHT", current_stud
             for cluster_id in sorted(cluster_mean_df.index):
                 cluster_data = cluster_mean_df.loc[cluster_id]
                 cluster_avg_features = cluster_data[selected_cols]
-                strengths, weaknesses = clustering_service.compute_strengths_weaknesses(cluster_avg_features, overall_avg, overall_std=overall_std)
+                strengths, weaknesses = clustering_service.compute_strengths_weaknesses(
+                    cluster_avg_features, overall_avg, overall_std=overall_std
+                )
                 with st.expander(f"📌 Cụm {cluster_id} ({int(cluster_data['Số lượng SV'])} sinh viên)"):
                     col_desc1, col_desc2 = st.columns(2)
                     with col_desc1:
@@ -575,8 +686,11 @@ def clustering_hybrid_tab(df, wh=None, role="Giảng viên / CVHT", current_stud
                         _cl_idx = st.session_state.get('cluster_select_index', 0)
                         _cl_idx = max(0, min(_cl_idx, len(available_clusters) - 1))
                         cluster_to_analyze = st.selectbox(
-                            "Chọn Cụm (Cluster) để phân tích:", available_clusters, index=_cl_idx,
-                            help="Chọn cụm bạn muốn xem phân tích chi tiết.", key="rec_cluster_select_key",
+                            "Chọn Cụm (Cluster) để phân tích:",
+                            available_clusters,
+                            index=_cl_idx,
+                            help="Chọn cụm bạn muốn xem phân tích chi tiết.",
+                            key="rec_cluster_select_key",
                         )
                         if cluster_to_analyze in available_clusters:
                             st.session_state.cluster_select_index = available_clusters.index(cluster_to_analyze)
@@ -593,35 +707,49 @@ def clustering_hybrid_tab(df, wh=None, role="Giảng viên / CVHT", current_stud
 
                             st.markdown(f"###### 📊 Phân tích Cụm {cluster_to_analyze}")
                             diff_pct_series = clustering_service.compute_diff_pct(cluster_avg, overall_avg)
-                            comparison_df = pd.DataFrame({
-                                'Cụm (TB)': cluster_avg, 'Toàn lớp (TB)': overall_avg,
-                                'Chênh lệch': (cluster_avg - overall_avg).round(2), 'Chênh lệch (%)': diff_pct_series,
-                            })
+                            comparison_df = pd.DataFrame(
+                                {
+                                    'Cụm (TB)': cluster_avg,
+                                    'Toàn lớp (TB)': overall_avg,
+                                    'Chênh lệch': (cluster_avg - overall_avg).round(2),
+                                    'Chênh lệch (%)': diff_pct_series,
+                                }
+                            )
                             # Đổi tên chỉ mục (tên cột dữ liệu thô) sang nhãn tiếng Việt thân
                             # thiện trước khi hiển thị — không để lộ snake_case (vd. gpa_previous).
                             comparison_df.index = [feature_label(c) for c in comparison_df.index]
                             st.dataframe(comparison_df, width="stretch", height=250)
 
-                            cluster_strengths, cluster_weaknesses = clustering_service.compute_strengths_weaknesses(cluster_avg, overall_avg, overall_std=overall_std)
+                            cluster_strengths, cluster_weaknesses = clustering_service.compute_strengths_weaknesses(
+                                cluster_avg, overall_avg, overall_std=overall_std
+                            )
                             col_str, col_wk = st.columns(2)
                             with col_str:
                                 if cluster_strengths:
-                                    st.success(f"**✅ Điểm mạnh:** {', '.join(feature_label(c) for c in cluster_strengths[:5])}")
+                                    st.success(
+                                        f"**✅ Điểm mạnh:** {', '.join(feature_label(c) for c in cluster_strengths[:5])}"
+                                    )
                                 else:
                                     st.info("**✅ Điểm mạnh:** Không có điểm nổi bật")
                             with col_wk:
                                 if cluster_weaknesses:
-                                    st.warning(f"**⚠️ Điểm yếu:** {', '.join(feature_label(c) for c in cluster_weaknesses[:5])}")
+                                    st.warning(
+                                        f"**⚠️ Điểm yếu:** {', '.join(feature_label(c) for c in cluster_weaknesses[:5])}"
+                                    )
                                 else:
                                     st.info("**⚠️ Điểm yếu:** Không có điểm yếu rõ ràng")
 
                             st.markdown("###### Kế hoạch can thiệp theo cụm (ưu tiên)")
-                            intervention_df = clustering_service.compute_intervention_plan(diff_pct_series, selected_cols)
+                            intervention_df = clustering_service.compute_intervention_plan(
+                                diff_pct_series, selected_cols
+                            )
                             st.dataframe(
                                 intervention_df,
                                 column_config={
                                     "Chỉ số": st.column_config.TextColumn("Chỉ số", width="medium"),
-                                    "Chênh lệch so với nhóm (%)": st.column_config.NumberColumn("Chênh lệch (%)", width="small", format="%.1f%%"),
+                                    "Chênh lệch so với nhóm (%)": st.column_config.NumberColumn(
+                                        "Chênh lệch (%)", width="small", format="%.1f%%"
+                                    ),
                                     "Mức ưu tiên": st.column_config.TextColumn("Mức ưu tiên", width="small"),
                                     "Hành động gợi ý": st.column_config.TextColumn("Hành động gợi ý", width="large"),
                                 },
@@ -631,7 +759,9 @@ def clustering_hybrid_tab(df, wh=None, role="Giảng viên / CVHT", current_stud
                             )
 
                             high_priority = intervention_df[intervention_df["Mức ưu tiên"] == "Cao"]["Chỉ số"].tolist()
-                            medium_priority = intervention_df[intervention_df["Mức ưu tiên"] == "Trung bình"]["Chỉ số"].tolist()
+                            medium_priority = intervention_df[intervention_df["Mức ưu tiên"] == "Trung bình"][
+                                "Chỉ số"
+                            ].tolist()
                             st.markdown(
                                 "<div style='background:var(--surface);color:var(--text-primary);padding:12px 14px;border-radius:10px;margin-top:8px;border:1px solid var(--border);'>"
                                 f"<span style='color:var(--text-primary) !important;'><b>📌 Tóm tắt hành động cụm {cluster_to_analyze}:</b></span><br>"
@@ -652,7 +782,9 @@ def clustering_hybrid_tab(df, wh=None, role="Giảng viên / CVHT", current_stud
                                     break
 
                             if student_id_col is None:
-                                st.info("ℹ️ Để dùng gợi ý cá nhân, dữ liệu cần cột định danh sinh viên (student_id, id, student_name, hoặc name).")
+                                st.info(
+                                    "ℹ️ Để dùng gợi ý cá nhân, dữ liệu cần cột định danh sinh viên (student_id, id, student_name, hoặc name)."
+                                )
                             else:
                                 student_ids = df_cluster_only[student_id_col].unique().tolist()
                                 if not student_ids:
@@ -662,7 +794,9 @@ def clustering_hybrid_tab(df, wh=None, role="Giảng viên / CVHT", current_stud
                                         student_id_to_analyze = current_student_id
                                         st.caption(f"👤 Phân tích chi tiết cho: **{student_id_to_analyze}**")
                                     else:
-                                        student_session_key = f"rec_student_select_key_{str(cluster_to_analyze).replace(' ', '_')}"
+                                        student_session_key = (
+                                            f"rec_student_select_key_{str(cluster_to_analyze).replace(' ', '_')}"
+                                        )
                                         idx_key = f"{student_session_key}_idx"
                                         sel_key = f"{student_session_key}_select"
                                         if idx_key not in st.session_state:
@@ -670,141 +804,261 @@ def clustering_hybrid_tab(df, wh=None, role="Giảng viên / CVHT", current_stud
                                         student_index = st.session_state.get(idx_key, 0)
                                         student_index = min(student_index, len(student_ids) - 1) if student_ids else 0
                                         student_id_to_analyze = st.selectbox(
-                                            f"👨‍🎓 Chọn Sinh viên trong Cụm {cluster_to_analyze}:", student_ids, index=student_index,
-                                            help="Chọn sinh viên để xem phân tích chi tiết và gợi ý học tập.", key=sel_key,
+                                            f"👨‍🎓 Chọn Sinh viên trong Cụm {cluster_to_analyze}:",
+                                            student_ids,
+                                            index=student_index,
+                                            help="Chọn sinh viên để xem phân tích chi tiết và gợi ý học tập.",
+                                            key=sel_key,
                                         )
                                         if student_id_to_analyze in student_ids:
                                             st.session_state[idx_key] = student_ids.index(student_id_to_analyze)
 
                                     if student_id_to_analyze:
                                         try:
-                                            student_row = df_cluster_only[df_cluster_only[student_id_col] == student_id_to_analyze]
+                                            student_row = df_cluster_only[
+                                                df_cluster_only[student_id_col] == student_id_to_analyze
+                                            ]
                                             if student_row.empty:
-                                                st.error(f"⚠️ Không tìm thấy dữ liệu cho sinh viên `{student_id_to_analyze}`.")
+                                                st.error(
+                                                    f"⚠️ Không tìm thấy dữ liệu cho sinh viên `{student_id_to_analyze}`."
+                                                )
                                             else:
                                                 student_data = student_row[selected_cols].iloc[0]
-                                                student_comparison_df = pd.DataFrame({
-                                                    'Chỉ số': [feature_label(c) for c in selected_cols],
-                                                    'Sinh viên': [round(float(student_data[c]), 2) for c in selected_cols],
-                                                    'Cụm (TB)': [round(float(cluster_avg[c]), 2) for c in selected_cols],
-                                                    'Toàn lớp (TB)': [round(float(overall_avg[c]), 2) for c in selected_cols],
-                                                    'Chênh lệch vs Cụm': [f"{(student_data[c] - cluster_avg[c]):+.2f}" for c in selected_cols],
-                                                    'Chênh lệch vs Toàn lớp': [f"{(student_data[c] - overall_avg[c]):+.2f}" for c in selected_cols],
-                                                })
+                                                student_comparison_df = pd.DataFrame(
+                                                    {
+                                                        'Chỉ số': [feature_label(c) for c in selected_cols],
+                                                        'Sinh viên': [
+                                                            round(float(student_data[c]), 2) for c in selected_cols
+                                                        ],
+                                                        'Cụm (TB)': [
+                                                            round(float(cluster_avg[c]), 2) for c in selected_cols
+                                                        ],
+                                                        'Toàn lớp (TB)': [
+                                                            round(float(overall_avg[c]), 2) for c in selected_cols
+                                                        ],
+                                                        'Chênh lệch vs Cụm': [
+                                                            f"{(student_data[c] - cluster_avg[c]):+.2f}"
+                                                            for c in selected_cols
+                                                        ],
+                                                        'Chênh lệch vs Toàn lớp': [
+                                                            f"{(student_data[c] - overall_avg[c]):+.2f}"
+                                                            for c in selected_cols
+                                                        ],
+                                                    }
+                                                )
                                                 st.markdown(f"**📊 Phân tích Sinh viên `{student_id_to_analyze}`:**")
                                                 st.dataframe(
                                                     student_comparison_df,
                                                     column_config={
                                                         "Chỉ số": st.column_config.TextColumn("Chỉ số", width="medium"),
-                                                        "Sinh viên": st.column_config.NumberColumn("Sinh viên", width="small"),
-                                                        "Cụm (TB)": st.column_config.NumberColumn("Cụm (TB)", width="small"),
-                                                        "Toàn lớp (TB)": st.column_config.NumberColumn("Toàn lớp (TB)", width="small"),
-                                                        "Chênh lệch vs Cụm": st.column_config.TextColumn("Lệch Cụm", width="small"),
-                                                        "Chênh lệch vs Toàn lớp": st.column_config.TextColumn("Lệch Toàn lớp", width="small"),
+                                                        "Sinh viên": st.column_config.NumberColumn(
+                                                            "Sinh viên", width="small"
+                                                        ),
+                                                        "Cụm (TB)": st.column_config.NumberColumn(
+                                                            "Cụm (TB)", width="small"
+                                                        ),
+                                                        "Toàn lớp (TB)": st.column_config.NumberColumn(
+                                                            "Toàn lớp (TB)", width="small"
+                                                        ),
+                                                        "Chênh lệch vs Cụm": st.column_config.TextColumn(
+                                                            "Lệch Cụm", width="small"
+                                                        ),
+                                                        "Chênh lệch vs Toàn lớp": st.column_config.TextColumn(
+                                                            "Lệch Toàn lớp", width="small"
+                                                        ),
                                                     },
                                                     use_container_width=True,
                                                     height=220,
                                                     hide_index=True,
                                                 )
 
-                                                student_weaknesses_vs_cluster = (student_data < cluster_avg * 0.9).index[student_data < cluster_avg * 0.9].tolist()
-                                                student_weaknesses_vs_overall = (student_data < overall_avg * 0.9).index[student_data < overall_avg * 0.9].tolist()
-                                                student_strengths = (student_data > cluster_avg * 1.1).index[student_data > cluster_avg * 1.1].tolist()
+                                                student_weaknesses_vs_cluster = (
+                                                    (student_data < cluster_avg * 0.9)
+                                                    .index[student_data < cluster_avg * 0.9]
+                                                    .tolist()
+                                                )
+                                                student_weaknesses_vs_overall = (
+                                                    (student_data < overall_avg * 0.9)
+                                                    .index[student_data < overall_avg * 0.9]
+                                                    .tolist()
+                                                )
+                                                student_strengths = (
+                                                    (student_data > cluster_avg * 1.1)
+                                                    .index[student_data > cluster_avg * 1.1]
+                                                    .tolist()
+                                                )
 
                                                 st.markdown("**Gợi ý và khuyến nghị**")
                                                 if student_weaknesses_vs_cluster:
-                                                    st.warning(f"Cần cải thiện (so với cụm {cluster_to_analyze}) cho `{student_id_to_analyze}`: {', '.join(feature_label(c) for c in student_weaknesses_vs_cluster[:5])}")
+                                                    st.warning(
+                                                        f"Cần cải thiện (so với cụm {cluster_to_analyze}) cho `{student_id_to_analyze}`: {', '.join(feature_label(c) for c in student_weaknesses_vs_cluster[:5])}"
+                                                    )
                                                 elif student_weaknesses_vs_overall:
-                                                    st.info(f"So với toàn lớp: `{student_id_to_analyze}` đang cần cố gắng thêm ở: {', '.join(feature_label(c) for c in student_weaknesses_vs_overall[:5])}")
+                                                    st.info(
+                                                        f"So với toàn lớp: `{student_id_to_analyze}` đang cần cố gắng thêm ở: {', '.join(feature_label(c) for c in student_weaknesses_vs_overall[:5])}"
+                                                    )
                                                 else:
-                                                    st.success(f"`{student_id_to_analyze}` có kết quả học tập ổn định, đạt tốt so với cụm và toàn lớp.")
+                                                    st.success(
+                                                        f"`{student_id_to_analyze}` có kết quả học tập ổn định, đạt tốt so với cụm và toàn lớp."
+                                                    )
                                                 if student_strengths:
-                                                    st.success(f"Điểm mạnh nổi trội của `{student_id_to_analyze}`: {', '.join(feature_label(c) for c in student_strengths[:5])}")
+                                                    st.success(
+                                                        f"Điểm mạnh nổi trội của `{student_id_to_analyze}`: {', '.join(feature_label(c) for c in student_strengths[:5])}"
+                                                    )
 
                                                 st.markdown("**🎯 Gợi ý học tập cộng tác theo nhóm**")
                                                 with st.container(border=True):
-                                                    cl_str_names = [feature_label(c) for c in cluster_strengths[:3]] if cluster_strengths else []
-                                                    cl_wk_names = [feature_label(c) for c in cluster_weaknesses[:3]] if cluster_weaknesses else []
-                                                    st.markdown(f"**Nhóm học tập Cụm {cluster_to_analyze}** (`{len(df_cluster_only)} sinh viên`)")
+                                                    cl_str_names = (
+                                                        [feature_label(c) for c in cluster_strengths[:3]]
+                                                        if cluster_strengths
+                                                        else []
+                                                    )
+                                                    cl_wk_names = (
+                                                        [feature_label(c) for c in cluster_weaknesses[:3]]
+                                                        if cluster_weaknesses
+                                                        else []
+                                                    )
+                                                    st.markdown(
+                                                        f"**Nhóm học tập Cụm {cluster_to_analyze}** (`{len(df_cluster_only)} sinh viên`)"
+                                                    )
                                                     col_g1, col_g2 = st.columns(2)
                                                     with col_g1:
                                                         if cl_str_names:
-                                                            st.success(f"**Thế mạnh tập thể:** {', '.join(cl_str_names)}")
+                                                            st.success(
+                                                                f"**Thế mạnh tập thể:** {', '.join(cl_str_names)}"
+                                                            )
                                                         else:
-                                                            st.info("**Thế mạnh tập thể:** Nền tảng học tập cơ bản ổn định, tinh thần học đều")
+                                                            st.info(
+                                                                "**Thế mạnh tập thể:** Nền tảng học tập cơ bản ổn định, tinh thần học đều"
+                                                            )
                                                     with col_g2:
                                                         if cl_wk_names:
-                                                            st.warning(f"**Trọng tâm bứt phá:** {', '.join(cl_wk_names)}")
+                                                            st.warning(
+                                                                f"**Trọng tâm bứt phá:** {', '.join(cl_wk_names)}"
+                                                            )
                                                         else:
-                                                            st.info("**Trọng tâm bứt phá:** Rèn luyện kỹ năng thực hành và đồ án nâng cao")
-                                                    st.caption(f"💡 **Khuyến nghị hoạt động:** Khuyến khích thành lập nhóm học tập 3–4 bạn trong Cụm {cluster_to_analyze} để cùng ôn tập và trao đổi tài liệu tự học.")
+                                                            st.info(
+                                                                "**Trọng tâm bứt phá:** Rèn luyện kỹ năng thực hành và đồ án nâng cao"
+                                                            )
+                                                    st.caption(
+                                                        f"💡 **Khuyến nghị hoạt động:** Khuyến khích thành lập nhóm học tập 3–4 bạn trong Cụm {cluster_to_analyze} để cùng ôn tập và trao đổi tài liệu tự học."
+                                                    )
 
                                                 try:
                                                     st.markdown("**🧭 Bạn học có hồ sơ tương tự**")
                                                     n_rows = len(df_results)
                                                     if X_processed.shape[0] != n_rows:
                                                         if role == "Sinh viên":
-                                                            st.warning("Dữ liệu phân cụm đã thay đổi — vui lòng liên hệ Giảng viên để cập nhật lại nhóm học tập.")
+                                                            st.warning(
+                                                                "Dữ liệu phân cụm đã thay đổi — vui lòng liên hệ Giảng viên để cập nhật lại nhóm học tập."
+                                                            )
                                                         else:
-                                                            st.warning("Số hàng dữ liệu không khớp ma trận đặc trưng lúc phân cụm. Nhấn lại **Chạy Phân cụm K-Means**.")
+                                                            st.warning(
+                                                                "Số hàng dữ liệu không khớp ma trận đặc trưng lúc phân cụm. Nhấn lại **Chạy Phân cụm K-Means**."
+                                                            )
                                                     else:
-                                                        pos_mask = (df_results[student_id_col].values == student_id_to_analyze)
+                                                        pos_mask = (
+                                                            df_results[student_id_col].values == student_id_to_analyze
+                                                        )
                                                         student_positions = np.flatnonzero(pos_mask)
                                                         if student_positions.size == 0:
-                                                            st.info("Không xác định được vị trí hàng của sinh viên trong bảng.")
+                                                            st.info(
+                                                                "Không xác định được vị trí hàng của sinh viên trong bảng."
+                                                            )
                                                         else:
                                                             student_pos = int(student_positions[0])
-                                                            cluster_mask = (df_results["cluster"].values == cluster_to_analyze)
+                                                            cluster_mask = (
+                                                                df_results["cluster"].values == cluster_to_analyze
+                                                            )
                                                             cluster_pos = np.flatnonzero(cluster_mask)
                                                             cset = set(cluster_pos.tolist())
                                                             if student_pos not in cset:
-                                                                st.info("Sinh viên không thuộc cụm đang xem hoặc dữ liệu đã thay đổi — chạy lại phân cụm.")
+                                                                st.info(
+                                                                    "Sinh viên không thuộc cụm đang xem hoặc dữ liệu đã thay đổi — chạy lại phân cụm."
+                                                                )
                                                             elif len(cluster_pos) < 2:
-                                                                st.info("Không đủ sinh viên trong cụm để gợi ý tương tự (cần ít nhất 2).")
+                                                                st.info(
+                                                                    "Không đủ sinh viên trong cụm để gợi ý tương tự (cần ít nhất 2)."
+                                                                )
                                                             else:
-                                                                neighbors = clustering_service.find_similar_students(X_processed, cluster_pos, student_pos, top_k=5)
+                                                                neighbors = clustering_service.find_similar_students(
+                                                                    X_processed, cluster_pos, student_pos, top_k=5
+                                                                )
                                                                 if neighbors:
                                                                     id_col_nn = None
-                                                                    for col in ("student_id", "id", "student_name", "name"):
+                                                                    for col in (
+                                                                        "student_id",
+                                                                        "id",
+                                                                        "student_name",
+                                                                        "name",
+                                                                    ):
                                                                         if col in df_results.columns:
                                                                             id_col_nn = col
                                                                             break
                                                                     rows = []
                                                                     for gpos, score in neighbors:
                                                                         n_row = df_results.iloc[gpos]
-                                                                        neighbor_id = n_row[id_col_nn] if id_col_nn else str(gpos)
+                                                                        neighbor_id = (
+                                                                            n_row[id_col_nn] if id_col_nn else str(gpos)
+                                                                        )
                                                                         n_scores = n_row[selected_cols]
-                                                                        top_feat = n_scores.astype(float).idxmax() if len(selected_cols) > 0 else "—"
-                                                                        top_val = round(float(n_scores[top_feat]), 1) if top_feat != "—" else 0
-                                                                        rows.append({
-                                                                            "Mã SV bạn học": str(neighbor_id),
-                                                                            "Độ tương đồng": f"{score * 100:.1f}%",
-                                                                            "Môn thế mạnh nổi trội": f"{feature_label(top_feat)} ({top_val}đ)",
-                                                                            "Đề xuất ghép nhóm": "Cùng tiến độ — Ghép đôi Study Buddy ôn tập & làm bài lab",
-                                                                        })
+                                                                        top_feat = (
+                                                                            n_scores.astype(float).idxmax()
+                                                                            if len(selected_cols) > 0
+                                                                            else "—"
+                                                                        )
+                                                                        top_val = (
+                                                                            round(float(n_scores[top_feat]), 1)
+                                                                            if top_feat != "—"
+                                                                            else 0
+                                                                        )
+                                                                        rows.append(
+                                                                            {
+                                                                                "Mã SV bạn học": str(neighbor_id),
+                                                                                "Độ tương đồng": f"{score * 100:.1f}%",
+                                                                                "Môn thế mạnh nổi trội": f"{feature_label(top_feat)} ({top_val}đ)",
+                                                                                "Đề xuất ghép nhóm": "Cùng tiến độ — Ghép đôi Study Buddy ôn tập & làm bài lab",
+                                                                            }
+                                                                        )
                                                                     st.dataframe(
                                                                         pd.DataFrame(rows),
                                                                         column_config={
-                                                                            "Mã SV bạn học": st.column_config.TextColumn("Mã bạn học", width="small"),
-                                                                            "Độ tương đồng": st.column_config.TextColumn("Độ tương đồng", width="small"),
-                                                                            "Môn thế mạnh nổi trội": st.column_config.TextColumn("Môn thế mạnh nổi trội", width="medium"),
-                                                                            "Đề xuất ghép nhóm": st.column_config.TextColumn("Đề xuất kết nối học tập", width="large"),
+                                                                            "Mã SV bạn học": st.column_config.TextColumn(
+                                                                                "Mã bạn học", width="small"
+                                                                            ),
+                                                                            "Độ tương đồng": st.column_config.TextColumn(
+                                                                                "Độ tương đồng", width="small"
+                                                                            ),
+                                                                            "Môn thế mạnh nổi trội": st.column_config.TextColumn(
+                                                                                "Môn thế mạnh nổi trội", width="medium"
+                                                                            ),
+                                                                            "Đề xuất ghép nhóm": st.column_config.TextColumn(
+                                                                                "Đề xuất kết nối học tập", width="large"
+                                                                            ),
                                                                         },
                                                                         use_container_width=True,
                                                                         height=220,
                                                                         hide_index=True,
                                                                     )
                                                                 else:
-                                                                    st.info("Không đủ dữ liệu trong cụm để gợi ý bạn học tương tự.")
+                                                                    st.info(
+                                                                        "Không đủ dữ liệu trong cụm để gợi ý bạn học tương tự."
+                                                                    )
                                                 except Exception:
-                                                    st.info("Không thể tính gợi ý content-based do hạn chế dữ liệu hoặc cấu trúc.")
+                                                    st.info(
+                                                        "Không thể tính gợi ý content-based do hạn chế dữ liệu hoặc cấu trúc."
+                                                    )
 
                                                 try:
                                                     st.markdown("**🧩 Gợi ý cụm tham chiếu (học từ cụm mạnh hơn)**")
-                                                    cluster_means_all = df_results.groupby('cluster')[selected_cols].mean()
+                                                    cluster_means_all = df_results.groupby('cluster')[
+                                                        selected_cols
+                                                    ].mean()
                                                     best_ref = None
                                                     if cluster_weaknesses:
-                                                        best_ref = clustering_service.find_reference_cluster(cluster_means_all, cluster_to_analyze, cluster_weaknesses)
+                                                        best_ref = clustering_service.find_reference_cluster(
+                                                            cluster_means_all, cluster_to_analyze, cluster_weaknesses
+                                                        )
                                                     if best_ref is not None:
                                                         st.info(
                                                             f"🌟 **Cụm tham chiếu để học hỏi — Cụm {best_ref}:** Cụm {best_ref} có điểm trung bình cao nhất ở các tiêu chí mà "
@@ -840,17 +1094,25 @@ def clustering_hybrid_tab(df, wh=None, role="Giảng viên / CVHT", current_stud
                 st.markdown("##### Danh sách sinh viên theo cụm")
                 _display_cols = [c for c in df_results.columns if c != 'cluster']
                 _cluster_filter = st.selectbox(
-                    "Lọc theo cụm:", ["Tất cả"] + [str(c) for c in sorted(df_results['cluster'].unique())],
+                    "Lọc theo cụm:",
+                    ["Tất cả"] + [str(c) for c in sorted(df_results['cluster'].unique())],
                     key="cluster_table_filter",
                 )
-                _table_df = df_results if _cluster_filter == "Tất cả" else df_results[df_results['cluster'].astype(str) == _cluster_filter]
+                _table_df = (
+                    df_results
+                    if _cluster_filter == "Tất cả"
+                    else df_results[df_results['cluster'].astype(str) == _cluster_filter]
+                )
                 st.dataframe(_table_df[['cluster'] + _display_cols], width="stretch", height=320)
 
-                st.caption("Dataset và Model KMeans đã được tự động lưu vào Kho dữ liệu ở panel Diễn giải cụm phía trên.")
+                st.caption(
+                    "Dataset và Model KMeans đã được tự động lưu vào Kho dữ liệu ở panel Diễn giải cụm phía trên."
+                )
                 _xbytes = to_excel(st.session_state.cluster_results_df)
                 if _xbytes:
                     st.download_button(
-                        label="📥 Xuất file Excel (.xlsx)", data=_xbytes,
+                        label="📥 Xuất file Excel (.xlsx)",
+                        data=_xbytes,
                         file_name=f"cluster_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                         key="cluster_export_xlsx_step5",

@@ -21,6 +21,7 @@ University Onboarding tables specifically) are implemented here.
 | Cross-tenant access attempt | `tests/test_db_row_level_security.py` (accepted, pre-existing), `tests/test_workstream_c_ml_provenance.py::test_07` (Workstream C), `tests/test_university_onboarding.py::test_07` (Stage 2) | VERIFIED |
 | Corrupted backup artifact/checksum | THIS FILE — new | VERIFIED |
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -65,7 +66,7 @@ def test_corrupted_backup_checksum_field_detected(tmp_path):
     # Tamper with the manifest's own recorded checksum (simulates a
     # corrupted/incorrectly-transcribed backup manifest, independent of
     # the underlying file being fine).
-    with open(manifest_path, "r", encoding="utf-8") as f:
+    with open(manifest_path, encoding="utf-8") as f:
         tampered = json.load(f)
     tampered["artifact_directories"]["datasets"][0]["sha256"] = "0" * 64
     with open(manifest_path, "w", encoding="utf-8") as f:

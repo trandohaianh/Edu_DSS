@@ -11,9 +11,10 @@ mapping-profile functions DO use `tenant_session_scope()` (both tables are
 real tenant-scoped tables with the standard `tenant_isolation` RLS
 policy — see the `35d62f0c6002_university_onboarding` migration).
 """
+
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from typing import Any, Optional
 
 from dss.db.models import LmsConnectorConfig, LmsMappingProfile, Organization
@@ -36,8 +37,12 @@ def create_organization(
         raise ValueError(f"Unknown deployment_mode: {deployment_mode}")
     with session_scope() as session:
         org = Organization(
-            org_code=org_code, name=name, domain=domain, is_active=True,
-            lifecycle_status="SETUP", deployment_mode=deployment_mode,
+            org_code=org_code,
+            name=name,
+            domain=domain,
+            is_active=True,
+            lifecycle_status="SETUP",
+            deployment_mode=deployment_mode,
         )
         session.add(org)
         session.flush()
@@ -87,8 +92,12 @@ def enable_organization(organization_id: int) -> None:
 
 def _org_to_dict(org: Organization) -> dict[str, Any]:
     return {
-        "id": org.id, "org_code": org.org_code, "name": org.name, "domain": org.domain,
-        "is_active": org.is_active, "lifecycle_status": org.lifecycle_status,
+        "id": org.id,
+        "org_code": org.org_code,
+        "name": org.name,
+        "domain": org.domain,
+        "is_active": org.is_active,
+        "lifecycle_status": org.lifecycle_status,
         "deployment_mode": org.deployment_mode,
     }
 
@@ -96,6 +105,7 @@ def _org_to_dict(org: Organization) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 # LMS connector configuration
 # ---------------------------------------------------------------------------
+
 
 def upsert_connector_config(
     organization_id: int,
@@ -146,7 +156,10 @@ def get_connector_config(organization_id: int) -> Optional[dict[str, Any]]:
 
 
 def record_connection_test_result(
-    organization_id: int, status: str, detail: str, tested_at: Optional[datetime] = None,
+    organization_id: int,
+    status: str,
+    detail: str,
+    tested_at: Optional[datetime] = None,
 ) -> None:
     """`detail` must never contain a raw credential — callers pass a short,
     human-readable outcome description (e.g. "HTTP 401: invalid token"),
@@ -156,7 +169,7 @@ def record_connection_test_result(
         if row is None:
             raise ValueError(f"No connector configured for organization {organization_id}")
         row.last_connection_status = status
-        row.last_connection_at = tested_at or datetime.now(timezone.utc)
+        row.last_connection_at = tested_at or datetime.now(UTC)
         row.last_connection_detail = detail[:2000] if detail else None
         row.configuration_status = "VALID" if status == "SUCCESS" else "INVALID"
 
@@ -166,7 +179,7 @@ def record_successful_sync(organization_id: int, synced_at: Optional[datetime] =
         row = session.query(LmsConnectorConfig).filter_by(organization_id=organization_id).one_or_none()
         if row is None:
             raise ValueError(f"No connector configured for organization {organization_id}")
-        row.last_successful_sync_at = synced_at or datetime.now(timezone.utc)
+        row.last_successful_sync_at = synced_at or datetime.now(UTC)
 
 
 def set_mapping_profile(organization_id: int, mapping_profile_id: int) -> None:
@@ -179,11 +192,17 @@ def set_mapping_profile(organization_id: int, mapping_profile_id: int) -> None:
 
 def _connector_to_dict(row: LmsConnectorConfig) -> dict[str, Any]:
     return {
-        "id": row.id, "connector_type": row.connector_type, "base_url": row.base_url,
-        "auth_mode": row.auth_mode, "credential_reference": row.credential_reference,
-        "external_organization_id": row.external_organization_id, "timeout_seconds": row.timeout_seconds,
-        "retry_policy": row.retry_policy, "enabled_resources": row.enabled_resources,
-        "sync_mode": row.sync_mode, "mapping_profile_id": row.mapping_profile_id,
+        "id": row.id,
+        "connector_type": row.connector_type,
+        "base_url": row.base_url,
+        "auth_mode": row.auth_mode,
+        "credential_reference": row.credential_reference,
+        "external_organization_id": row.external_organization_id,
+        "timeout_seconds": row.timeout_seconds,
+        "retry_policy": row.retry_policy,
+        "enabled_resources": row.enabled_resources,
+        "sync_mode": row.sync_mode,
+        "mapping_profile_id": row.mapping_profile_id,
         "last_connection_status": row.last_connection_status,
         "last_connection_at": row.last_connection_at.isoformat() if row.last_connection_at else None,
         "last_successful_sync_at": row.last_successful_sync_at.isoformat() if row.last_successful_sync_at else None,
@@ -195,12 +214,15 @@ def _connector_to_dict(row: LmsConnectorConfig) -> dict[str, Any]:
 # Canonical mapping profiles
 # ---------------------------------------------------------------------------
 
+
 def save_mapping_profile(organization_id: int, name: str, resource_mappings: dict, validation_status: str) -> int:
     with tenant_session_scope(organization_id) as session:
         row = LmsMappingProfile(
-            organization_id=organization_id, name=name, resource_mappings=resource_mappings,
+            organization_id=organization_id,
+            name=name,
+            resource_mappings=resource_mappings,
             validation_status=validation_status,
-            validated_at=datetime.now(timezone.utc) if validation_status == "VALID" else None,
+            validated_at=datetime.now(UTC) if validation_status == "VALID" else None,
         )
         session.add(row)
         session.flush()
@@ -213,7 +235,9 @@ def get_mapping_profile(organization_id: int, mapping_profile_id: int) -> Option
         if row is None or row.organization_id != organization_id:
             return None
         return {
-            "id": row.id, "name": row.name, "resource_mappings": row.resource_mappings,
+            "id": row.id,
+            "name": row.name,
+            "resource_mappings": row.resource_mappings,
             "validation_status": row.validation_status,
             "validated_at": row.validated_at.isoformat() if row.validated_at else None,
         }

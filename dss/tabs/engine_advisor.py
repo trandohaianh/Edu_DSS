@@ -1,4 +1,5 @@
 """Authenticated queued advice and pre-generated lesson explanations."""
+
 from __future__ import annotations
 
 import uuid
@@ -43,10 +44,18 @@ def _student_advice(course, state_key):
         recommendations = gateway.get_recommendations(course)
         rows = recommendations.get("items", [])
         if rows:
-            st.dataframe([{
-                "Bài tập": item["item_id"], "Chủ đề": item["topic_id"],
-                "Lý do": item.get("reason", ""),
-            } for item in rows], hide_index=True, use_container_width=True)
+            st.dataframe(
+                [
+                    {
+                        "Bài tập": item["item_id"],
+                        "Chủ đề": item["topic_id"],
+                        "Lý do": item.get("reason", ""),
+                    }
+                    for item in rows
+                ],
+                hide_index=True,
+                use_container_width=True,
+            )
         else:
             st.info("Chưa có bài tập đáp ứng điều kiện tiên quyết.")
     request_key = state_key + ":request_id"
@@ -66,7 +75,9 @@ def _student_advice(course, state_key):
             # VD 422 "khoá idempotency đã dùng cho yêu cầu khác" sau khi mô hình được huấn luyện lại: bỏ request_id cũ,
             # nếu không mọi lần bấm sau đều gửi lại đúng khoá đó và bị từ chối mãi.
             st.session_state.pop(request_key, None)
-            st.warning("Yêu cầu tư vấn chưa được nhận (mô hình có thể vừa được cập nhật). Hãy bấm lại để gửi yêu cầu mới.")
+            st.warning(
+                "Yêu cầu tư vấn chưa được nhận (mô hình có thể vừa được cập nhật). Hãy bấm lại để gửi yêu cầu mới."
+            )
     job_id = st.session_state.get(state_key)
     request_id = st.session_state.get(request_key)
     if job_id:
@@ -78,8 +89,7 @@ def _student_advice(course, state_key):
         else:
             _show_job(job)
             if job.get("state") == "DISPATCH_UNCERTAIN" and request_id:
-                if st.button("Gửi lại yêu cầu chưa xác nhận",
-                             key=state_key + ":retry_dispatch"):
+                if st.button("Gửi lại yêu cầu chưa xác nhận", key=state_key + ":retry_dispatch"):
                     try:
                         response = gateway.request_advice(course, request_id)
                         st.session_state[state_key] = response["job"]["job_id"]
@@ -93,18 +103,19 @@ def _student_advice(course, state_key):
 
 def _student_lessons(course, state_key):
     from dss.services import cms_lecture_repository as cms
+
     lessons = [lesson for lesson in cms.list_lessons(course_id=course) if lesson.ai_enabled]
     if not lessons:
         st.info("Chưa có bài giảng được chuẩn bị cho học phần.")
         return
-    selected = st.selectbox("Bài học", lessons, format_func=lambda lesson: lesson.title,
-                            key=state_key + ":lesson")
+    selected = st.selectbox("Bài học", lessons, format_func=lambda lesson: lesson.title, key=state_key + ":lesson")
     paragraphs = gateway.list_cached_paragraphs(course, selected.lesson_id)
     if not paragraphs:
         st.info("Bài giảng cần được giảng viên duyệt và đồng bộ trước khi xem giải thích.")
         return
-    selected_part = st.selectbox("Đoạn bài học", paragraphs,
-        format_func=lambda part: part["preview"], key=state_key + ":paragraph")
+    selected_part = st.selectbox(
+        "Đoạn bài học", paragraphs, format_func=lambda part: part["preview"], key=state_key + ":paragraph"
+    )
     response = gateway.get_cached_explanation(course, selected.lesson_id, selected_part["paragraph_id"])
     if response.get("state") != "READY":
         st.info(response["text"])
@@ -120,6 +131,7 @@ def _student_lessons(course, state_key):
 def _staff_upload(course, llm_integration):
     from dss.security.upload_security import read_upload_within_size_limit, safe_document_name
     from dss.services import cms_lecture_repository as cms
+
     with st.expander("Nạp bài giảng để chuẩn bị giải thích"):
         with st.form("engine:upload"):
             title = st.text_input("Tiêu đề bài giảng")
@@ -132,23 +144,32 @@ def _staff_upload(course, llm_integration):
                 st.warning("Cần tài liệu, tiêu đề và mã bài học.")
                 return
             actor = gateway.authorize_staff_course(course)
-            filename, _ = safe_document_name(uploaded.name,
-                allowed_extensions={".txt", ".md", ".pdf", ".docx", ".pptx", ".json"})
+            filename, _ = safe_document_name(
+                uploaded.name, allowed_extensions={".txt", ".md", ".pdf", ".docx", ".pptx", ".json"}
+            )
             cms.ingest_lecture_material(
-                file_bytes=read_upload_within_size_limit(uploaded), file_name=filename,
-                title=title.strip(), course_id=course, lesson_id=lesson_id.strip(),
-                topic_id=topic.strip(), lecturer_id=actor.username, llm_integration=llm_integration)
+                file_bytes=read_upload_within_size_limit(uploaded),
+                file_name=filename,
+                title=title.strip(),
+                course_id=course,
+                lesson_id=lesson_id.strip(),
+                topic_id=topic.strip(),
+                lecturer_id=actor.username,
+                llm_integration=llm_integration,
+            )
             st.success("Đã lưu tài liệu. Giải thích được chuẩn bị trước; sinh viên xem sau khi tài liệu được duyệt.")
 
 
 def _staff(course, llm_integration):
     from dss.services import cms_lecture_repository as cms
+
     _staff_upload(course, llm_integration)
     st.caption("Duyệt nguồn tài liệu tại mục Duyệt tài liệu, sau đó đồng bộ phiên bản được duyệt tại đây.")
     lessons = cms.list_lessons(course_id=course)
     if lessons:
-        selected = st.selectbox("Bài giảng cần đồng bộ", lessons,
-                                format_func=lambda lesson: lesson.title, key="engine:staff-lesson")
+        selected = st.selectbox(
+            "Bài giảng cần đồng bộ", lessons, format_func=lambda lesson: lesson.title, key="engine:staff-lesson"
+        )
         retry = st.checkbox("Thử lại các đoạn chuẩn bị thất bại", key="engine:retry-failed")
         if st.button("Đồng bộ trạng thái duyệt và chuẩn bị giải thích", key="engine:sync"):
             result = gateway.sync_lesson(course, selected.lesson_id, retry_failed=retry)
@@ -160,14 +181,25 @@ def _staff(course, llm_integration):
         offset = st.number_input("Vị trí bắt đầu", min_value=0, step=50, key="engine:risk-offset")
         if st.button("Xem dự báo của học phần", key="engine:risk"):
             result = gateway.get_class_risk(course, offset=int(offset), limit=50)
-            st.caption("Các hồ sơ trong dữ liệu đã huấn luyện; chưa thay thế danh sách lớp chính thức. Mốc dữ liệu: "
-                       + str(result.get("reference_at", "")))
+            st.caption(
+                "Các hồ sơ trong dữ liệu đã huấn luyện; chưa thay thế danh sách lớp chính thức. Mốc dữ liệu: "
+                + str(result.get("reference_at", ""))
+            )
             rows = result.get("items", [])
             if rows:
-                st.dataframe([{
-                    "Mã sinh viên": item["student_id"], "Điểm dự báo": item.get("grade"),
-                    "Nhóm rủi ro dự báo": item.get("risk"), "Dữ liệu đã cũ": item.get("stale_data"),
-                } for item in rows], hide_index=True, use_container_width=True)
+                st.dataframe(
+                    [
+                        {
+                            "Mã sinh viên": item["student_id"],
+                            "Điểm dự báo": item.get("grade"),
+                            "Nhóm rủi ro dự báo": item.get("risk"),
+                            "Dữ liệu đã cũ": item.get("stale_data"),
+                        }
+                        for item in rows
+                    ],
+                    hide_index=True,
+                    use_container_width=True,
+                )
             else:
                 st.info("Chưa có hồ sơ tại vị trí này.")
     if gateway._actor().role == "Admin":
@@ -198,8 +230,7 @@ def engine_advisor_tab(llm_integration=None):
         course = st.selectbox("Học phần", courses, key="engine:course")
         key = f"engine:{actor.school_id}:{actor.username}:{course}"
         if actor.role == "Sinh viên":
-            view = st.radio("Nội dung", ["Tư vấn học tập", "Giải thích bài học"],
-                            horizontal=True, key="engine:view")
+            view = st.radio("Nội dung", ["Tư vấn học tập", "Giải thích bài học"], horizontal=True, key="engine:view")
             if view == "Tư vấn học tập":
                 _student_advice(course, key)
             else:

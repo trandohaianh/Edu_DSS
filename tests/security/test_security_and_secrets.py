@@ -6,13 +6,15 @@ Validates:
 3. Model artifact SHA-256 checksum verification and tampering rejection.
 4. RBAC security enforcement (Lecturer cannot promote model, Student cannot see keys).
 """
+
 import json
 import re
-import pytest
 from pathlib import Path
 
-from dss.services.auth_service import authenticate, AccountLockedError
+import pytest
+
 from dss.core.warehouse import DataWarehouse
+from dss.services.auth_service import AccountLockedError, authenticate
 
 
 class DummyModel:
@@ -25,7 +27,7 @@ def test_zero_live_api_keys_in_env_example_and_config():
     env_example = Path(__file__).resolve().parent.parent.parent / ".env.example"
     assert env_example.exists(), ".env.example must exist"
     content = env_example.read_text(encoding="utf-8")
-    
+
     # Check that no real google/groq/openai/hf keys exist
     assert "AIzaSy" not in content
     assert "gsk_" not in content
@@ -38,11 +40,11 @@ def test_zero_live_api_keys_in_env_example_and_config():
 def test_login_brute_force_lockout():
     """Verify that 5 failed login attempts result in 15-minute account lockout."""
     username = "test_attacker_user"
-    
+
     # 5 failed attempts
     for _ in range(5):
         assert authenticate(username, "wrong_password") is None
-        
+
     # 6th attempt should raise AccountLockedError
     with pytest.raises(AccountLockedError):
         authenticate(username, "any_password")
@@ -51,7 +53,7 @@ def test_login_brute_force_lockout():
 def test_model_artifact_sha256_tampering_rejected(tmp_path):
     """Verify that if a .joblib model file is modified/corrupted, it is rejected."""
     wh = DataWarehouse(base_path=str(tmp_path))
-    
+
     training_id, meta = wh.save_model_training(
         dataset_id="sec_ds",
         model_pipeline=DummyModel(),
@@ -60,19 +62,19 @@ def test_model_artifact_sha256_tampering_rejected(tmp_path):
         target_col="diem_cuoi_ky",
         metrics={"r2": 0.95, "mae": 0.2},
     )
-    
+
     # Verify file saved and metadata contains checksum
     joblib_path = tmp_path / "models" / f"{training_id}.joblib"
     assert joblib_path.exists()
     meta_path = tmp_path / "metadata" / f"{training_id}_model.json"
-    with open(meta_path, "r", encoding="utf-8") as f:
+    with open(meta_path, encoding="utf-8") as f:
         saved_meta = json.load(f)
     assert "model_sha256" in saved_meta
-    
+
     # Now tamper with the joblib file
     with open(joblib_path, "ab") as f:
         f.write(b"CORRUPT_PAYLOAD")
-        
+
     # Attempting to load the tampered model must reject with SHA-256 error
     pipeline, meta_loaded, msg = wh.load_model_training(training_id)
     assert pipeline is None
@@ -82,10 +84,11 @@ def test_model_artifact_sha256_tampering_rejected(tmp_path):
 def test_lecturer_cannot_promote_to_production(tmp_path):
     """Verify that only Admin can promote a candidate to production."""
     import streamlit as st
+
     from dss.services.model_registry import promote
-    
+
     wh = DataWarehouse(base_path=str(tmp_path))
-    
+
     training_id, meta = wh.save_model_training(
         dataset_id="sec_ds",
         model_pipeline=DummyModel(),
@@ -94,13 +97,12 @@ def test_lecturer_cannot_promote_to_production(tmp_path):
         target_col="diem_cuoi_ky",
         metrics={"r2": 0.99, "mae": 0.05},
     )
-    
+
     # Lecturer tries to promote -> must be rejected at service layer
     st.session_state["_auth_role"] = "Giảng viên"
     with pytest.raises(PermissionError):
         promote(wh, training_id)
-        
+
     # Model remains candidate
     _, meta_reloaded, _ = wh.load_model_training(training_id)
     assert meta_reloaded["is_production"] is False
-

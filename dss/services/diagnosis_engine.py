@@ -1,10 +1,11 @@
 """Rule-based observations, with explicit missing evidence and no invented facts."""
+
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 from typing import Any, Dict, List, Optional
 
-from dss.services.learning_profile import StudentLearningProfile, observed_number, observed_mapping
+from dss.services.learning_profile import StudentLearningProfile, observed_mapping, observed_number
 
 CATEGORY_KNOWLEDGE_GAP = "KNOWLEDGE_GAP"
 CATEGORY_PREREQUISITE_GAP = "PREREQUISITE_GAP"
@@ -69,21 +70,29 @@ class DiagnosisEngine:
         retention = observed_number(trajectory.delayed_retention_rate, maximum=1)
         baseline = observed_number(trajectory.historical_baseline_score, maximum=10)
         core = {
-            "Điểm quiz": quiz, "Điểm bài tập": assignment, "Điểm thi": exam,
-            "Tỷ lệ trả lời đúng": accuracy, "Thời gian trả lời": response,
-            "Tần suất luyện tập": practice, "Số ngày hoạt động": active,
-            "Kết quả kiểm tra ghi nhớ": retention, "Đường cơ sở cá nhân": baseline,
+            "Điểm quiz": quiz,
+            "Điểm bài tập": assignment,
+            "Điểm thi": exam,
+            "Tỷ lệ trả lời đúng": accuracy,
+            "Thời gian trả lời": response,
+            "Tần suất luyện tập": practice,
+            "Số ngày hoạt động": active,
+            "Kết quả kiểm tra ghi nhớ": retention,
+            "Đường cơ sở cá nhân": baseline,
         }
         missing = [label for label, value in core.items() if value is None]
         diagnoses: List[StructuredDiagnosis] = []
 
         def add(category, issue, evidence, cause, diagnostic, extra_missing=()):
-            diagnoses.append(StructuredDiagnosis(
-                issue=issue, evidence=evidence,
-                hypotheses=[HypothesisItem(category, cause, None, list(evidence), True)],
-                missing_evidence=list(dict.fromkeys([*missing, *extra_missing])),
-                recommended_diagnostic=diagnostic,
-            ))
+            diagnoses.append(
+                StructuredDiagnosis(
+                    issue=issue,
+                    evidence=evidence,
+                    hypotheses=[HypothesisItem(category, cause, None, list(evidence), True)],
+                    missing_evidence=list(dict.fromkeys([*missing, *extra_missing])),
+                    recommended_diagnostic=diagnostic,
+                )
+            )
 
         if practice is not None and assignment is not None and practice < 1.5 and assignment < 6.5:
             add(
@@ -115,7 +124,11 @@ class DiagnosisEngine:
                     ["Độ khó và thời gian chuẩn của câu hỏi"],
                 )
 
-        weak_prereqs = {topic: value for topic, value in observed_mapping(acad.prerequisite_mastery, maximum=1).items() if value < 0.6}
+        weak_prereqs = {
+            topic: value
+            for topic, value in observed_mapping(acad.prerequisite_mastery, maximum=1).items()
+            if value < 0.6
+        }
         if weak_prereqs:
             add(
                 CATEGORY_PREREQUISITE_GAP,
@@ -135,9 +148,19 @@ class DiagnosisEngine:
                 ["Khoảng cách thời gian và độ tương đương của các lần đánh giá"],
             )
 
-        weak_topics = {topic: value for topic, value in observed_mapping(acad.topic_scores, maximum=10).items() if value < 6}
-        weak_skills = {topic: value for topic, value in observed_mapping(question.subskill_mastery, maximum=1).items() if value < 0.6}
-        low_scores = [(label, value) for label, value in (("Quiz", quiz), ("Bài tập", assignment), ("Bài thi", exam)) if value is not None and value < 6]
+        weak_topics = {
+            topic: value for topic, value in observed_mapping(acad.topic_scores, maximum=10).items() if value < 6
+        }
+        weak_skills = {
+            topic: value
+            for topic, value in observed_mapping(question.subskill_mastery, maximum=1).items()
+            if value < 0.6
+        }
+        low_scores = [
+            (label, value)
+            for label, value in (("Quiz", quiz), ("Bài tập", assignment), ("Bài thi", exam))
+            if value is not None and value < 6
+        ]
         if weak_topics or weak_skills or low_scores:
             evidence = [f"Chủ đề {topic}: {value:.1f}/10" for topic, value in sorted(weak_topics.items())]
             evidence += [f"Kỹ năng {topic}: {value:.1%}" for topic, value in sorted(weak_skills.items())]

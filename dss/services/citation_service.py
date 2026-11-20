@@ -11,6 +11,7 @@ Nguyên tắc:
   + Nhận diện các trích dẫn bị ảo giác / tự bịa (Hallucinated Citations).
   + Tính điểm căn cứ nguồn (Groundedness Score).
 """
+
 from __future__ import annotations
 
 import re
@@ -98,13 +99,15 @@ def verify_citations(
             key = chunk_data.get("id") or title_lower
             if key not in seen_keys:
                 seen_keys.add(key)
-                verified.append({
-                    "title": chunk_data.get("title"),
-                    "document_id": chunk_data.get("id") or chunk_data.get("document_id"),
-                    "source": chunk_data.get("source", "LMS"),
-                    "relevance_score": float(chunk_data.get("relevance_score", 0.0)),
-                    "verified": True,
-                })
+                verified.append(
+                    {
+                        "title": chunk_data.get("title"),
+                        "document_id": chunk_data.get("id") or chunk_data.get("document_id"),
+                        "source": chunk_data.get("source", "LMS"),
+                        "relevance_score": float(chunk_data.get("relevance_score", 0.0)),
+                        "verified": True,
+                    }
+                )
 
     # Kiểm tra các ID được trích dẫn
     for fc in found_citations:
@@ -112,39 +115,49 @@ def verify_citations(
         if cid in valid_ids:
             # Tìm chunk tương ứng
             matching_chunk = next(
-                (c for c in retrieved_chunks if str(c.get("id", "")).lower() == cid or str(c.get("chunk_id", "")).lower() == cid),
+                (
+                    c
+                    for c in retrieved_chunks
+                    if str(c.get("id", "")).lower() == cid or str(c.get("chunk_id", "")).lower() == cid
+                ),
                 None,
             )
             if matching_chunk:
                 key = matching_chunk.get("id") or cid
                 if key not in seen_keys:
                     seen_keys.add(key)
-                    verified.append({
-                        "title": matching_chunk.get("title"),
-                        "document_id": matching_chunk.get("id"),
-                        "source": matching_chunk.get("source", "LMS"),
-                        "relevance_score": float(matching_chunk.get("relevance_score", 0.0)),
-                        "verified": True,
-                    })
+                    verified.append(
+                        {
+                            "title": matching_chunk.get("title"),
+                            "document_id": matching_chunk.get("id"),
+                            "source": matching_chunk.get("source", "LMS"),
+                            "relevance_score": float(matching_chunk.get("relevance_score", 0.0)),
+                            "verified": True,
+                        }
+                    )
         else:
             # ID không tồn tại trong tập chunks -> Ảo giác
-            hallucinated.append({
-                "cited_identifier": cid,
-                "reason": "Mã tài liệu không tồn tại trong tập tài liệu được nạp.",
-                "verified": False,
-            })
+            hallucinated.append(
+                {
+                    "cited_identifier": cid,
+                    "reason": "Mã tài liệu không tồn tại trong tập tài liệu được nạp.",
+                    "verified": False,
+                }
+            )
 
     # Nếu mô hình không trích dẫn trực tiếp tên hoặc ID, nhưng kết quả retrieved_chunks có điểm cao,
     # tự động bổ sung danh sách tài liệu tham khảo chính thống được nạp để hiển thị trên UI
     if not verified and retrieved_chunks:
         for c in retrieved_chunks[:3]:
-            verified.append({
-                "title": c.get("title"),
-                "document_id": c.get("id") or c.get("document_id"),
-                "source": c.get("source", "LMS"),
-                "relevance_score": float(c.get("relevance_score", 0.0)),
-                "verified": True,
-            })
+            verified.append(
+                {
+                    "title": c.get("title"),
+                    "document_id": c.get("id") or c.get("document_id"),
+                    "source": c.get("source", "LMS"),
+                    "relevance_score": float(c.get("relevance_score", 0.0)),
+                    "verified": True,
+                }
+            )
 
     return {
         "verified_citations": verified,

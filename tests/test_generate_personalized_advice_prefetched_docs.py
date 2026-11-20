@@ -11,6 +11,7 @@ Test dưới đây xác nhận `generate_personalized_advice` giờ chấp nhậ
 `prefetched_relevant_docs` — khi được truyền vào, hàm PHẢI dùng ĐÚNG object
 đó (không tự truy xuất lại), để nơi gọi có thể truy xuất 1 lần DUY NHẤT và
 tái dùng cho cả prompt lẫn citation verification."""
+
 from __future__ import annotations
 
 import pytest
@@ -22,6 +23,7 @@ import dss.config as dss_config
 def llm_integration():
     dss_config._ensure_local_llm_libs()
     from dss.core.models import MultiAIProvider
+
     return MultiAIProvider()
 
 
@@ -48,12 +50,17 @@ def test_prefetched_relevant_docs_skips_internal_retrieval(llm_integration, monk
 
     monkeypatch.setattr(type(llm_integration), "_prepare_personalized_advice_prompt", _spy)
 
-    list(llm_integration.generate_personalized_advice(
-        student_weaknesses=["Quản lý thời gian (SV: 3, TB lớp: 7)"],
-        predicted_gpa=5.0, provider="gemini", use_rag=True,
-        student_profile={}, role="Sinh viên",
-        prefetched_relevant_docs=sentinel_docs,
-    ))
+    list(
+        llm_integration.generate_personalized_advice(
+            student_weaknesses=["Quản lý thời gian (SV: 3, TB lớp: 7)"],
+            predicted_gpa=5.0,
+            provider="gemini",
+            use_rag=True,
+            student_profile={},
+            role="Sinh viên",
+            prefetched_relevant_docs=sentinel_docs,
+        )
+    )
 
     assert captured["relevant_docs"] is sentinel_docs, (
         "relevant_docs dùng để build prompt phải là CHÍNH object prefetched_relevant_docs "
@@ -71,12 +78,17 @@ def test_prefetched_empty_list_means_no_documents_not_fallback_to_retrieval(llm_
 
     monkeypatch.setattr(rag_service, "retrieve_unified_context", _boom)
 
-    list(llm_integration.generate_personalized_advice(
-        student_weaknesses=["Quản lý thời gian (SV: 3, TB lớp: 7)"],
-        predicted_gpa=5.0, provider="gemini", use_rag=True,
-        student_profile={}, role="Sinh viên",
-        prefetched_relevant_docs=[],
-    ))
+    list(
+        llm_integration.generate_personalized_advice(
+            student_weaknesses=["Quản lý thời gian (SV: 3, TB lớp: 7)"],
+            predicted_gpa=5.0,
+            provider="gemini",
+            use_rag=True,
+            student_profile={},
+            role="Sinh viên",
+            prefetched_relevant_docs=[],
+        )
+    )
 
 
 def test_no_prefetched_docs_falls_back_to_internal_retrieval(llm_integration, monkeypatch):
@@ -93,10 +105,15 @@ def test_no_prefetched_docs_falls_back_to_internal_retrieval(llm_integration, mo
 
     monkeypatch.setattr(rag_service, "retrieve_unified_context", _spy)
 
-    list(llm_integration.generate_personalized_advice(
-        student_weaknesses=["Quản lý thời gian (SV: 3, TB lớp: 7)"],
-        predicted_gpa=5.0, provider="gemini", use_rag=True,
-        student_profile={}, role="Sinh viên",
-    ))
+    list(
+        llm_integration.generate_personalized_advice(
+            student_weaknesses=["Quản lý thời gian (SV: 3, TB lớp: 7)"],
+            predicted_gpa=5.0,
+            provider="gemini",
+            use_rag=True,
+            student_profile={},
+            role="Sinh viên",
+        )
+    )
 
     assert len(calls) == 1

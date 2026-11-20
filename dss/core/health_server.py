@@ -17,6 +17,7 @@ starts with the container (see Dockerfile CMD) on EDUDSS_HEALTH_PORT (default 80
 Responses contain statuses, versions and revision ids only — no secrets, URLs or paths.
 Readiness results are cached briefly so probes cannot hammer the database.
 """
+
 from __future__ import annotations
 
 import json
@@ -62,24 +63,31 @@ def readyz() -> tuple[int, dict]:
     def compute():
         from dss.core.health_diagnostics import readiness
         from dss.core.runtime_mode import current_env
+
         result = readiness()
         if not streamlit_alive():
             result["status"] = "not_ready"
             result["checks"]["ui"] = {"status": "unavailable", "required": True}
         result["environment"] = current_env()
         return result
+
     result = _cached("readyz", compute)
     return (200 if result["status"] == "ready" else 503), result
 
 
 def version() -> tuple[int, dict]:
     from dss.core.release import version_document
+
     return 200, _cached("version", version_document)
 
 
-ROUTES = {"/livez": livez, "/readyz": readyz, "/version": version,
-          # aliases commonly used by load balancers / the reverse proxy prefix
-          "/healthz": livez}
+ROUTES = {
+    "/livez": livez,
+    "/readyz": readyz,
+    "/version": version,
+    # aliases commonly used by load balancers / the reverse proxy prefix
+    "/healthz": livez,
+}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -154,10 +162,12 @@ def probe(endpoint: str) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     import sys
+
     argv = sys.argv[1:] if argv is None else argv
     if argv[:1] == ["probe"] and len(argv) == 2:
         return probe(argv[1])
     from dss.security.log_redaction import install_log_redaction
+
     install_log_redaction()
     server = serve()
     server.serve_forever()

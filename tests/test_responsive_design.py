@@ -2,6 +2,7 @@
 found via LIVE Playwright screenshots at phone width (390x844), not source
 reading alone (per the audit's explicit rule: don't judge the UI only by
 reading code)."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -27,8 +28,8 @@ def test_lecturer_kpi_row_has_phone_and_tablet_breakpoints():
     assert idx_tablet_media != -1, "Thiếu breakpoint máy tính bảng cho .dss-lect-kpi-row"
     assert idx_phone_media != -1, "Thiếu breakpoint điện thoại cho .dss-lect-kpi-row"
 
-    tablet_block = css[idx_tablet_media: idx_tablet_media + 200]
-    phone_block = css[idx_phone_media: idx_phone_media + 200]
+    tablet_block = css[idx_tablet_media : idx_tablet_media + 200]
+    phone_block = css[idx_phone_media : idx_phone_media + 200]
     assert ".dss-lect-kpi-row" in tablet_block and "repeat(2" in tablet_block
     assert ".dss-lect-kpi-row" in phone_block and "grid-template-columns: 1fr" in phone_block
 
@@ -49,16 +50,24 @@ def test_bordered_card_row_equal_height_chain_covers_stlayoutwrapper():
     all 3 cards measured exactly 531.25px (see conversation for the live
     Playwright measurement)."""
     css = _MAIN_CSS.read_text(encoding="utf-8")
-    idx_base = css.find('[data-testid="stHorizontalBlock"] > [data-testid="stColumn"] > div > [data-testid="stVerticalBlock"]')
+    idx_base = css.find(
+        '[data-testid="stHorizontalBlock"] > [data-testid="stColumn"] > div > [data-testid="stVerticalBlock"]'
+    )
     assert idx_base != -1, "Luật flex chung gốc (áp cho mọi hàng thẻ) không còn tồn tại"
 
-    idx_wrapper_rule = css.find('[data-testid="stHorizontalBlock"] > [data-testid="stColumn"] > div > [data-testid="stLayoutWrapper"]')
-    assert idx_wrapper_rule != -1, "Thiếu luật mở rộng qua lớp stLayoutWrapper — hàng thẻ bo viền (st.container(border=True)) sẽ không được ép chiều cao bằng nhau"
+    idx_wrapper_rule = css.find(
+        '[data-testid="stHorizontalBlock"] > [data-testid="stColumn"] > div > [data-testid="stLayoutWrapper"]'
+    )
+    assert idx_wrapper_rule != -1, (
+        "Thiếu luật mở rộng qua lớp stLayoutWrapper — hàng thẻ bo viền (st.container(border=True)) sẽ không được ép chiều cao bằng nhau"
+    )
 
     idx_wrapper_to_block = css.find(
         '[data-testid="stHorizontalBlock"] > [data-testid="stColumn"] > div > [data-testid="stLayoutWrapper"] > [data-testid="stVerticalBlock"]'
     )
-    assert idx_wrapper_to_block != -1, "Thiếu luật lan chiều cao 100% từ stLayoutWrapper xuống khối nội dung bo viền thật sự bên trong"
+    assert idx_wrapper_to_block != -1, (
+        "Thiếu luật lan chiều cao 100% từ stLayoutWrapper xuống khối nội dung bo viền thật sự bên trong"
+    )
 
 
 def test_student_home_dashboard_cards_have_stable_keys_for_height_targeting():
@@ -66,6 +75,7 @@ def test_student_home_dashboard_cards_have_stable_keys_for_height_targeting():
     chứng độc lập bằng Playwright ngoài bộ test này) -- nếu ai đó xoá key khi
     sửa code sau này, test này báo ngay thay vì chỉ phát hiện lại bằng mắt."""
     import inspect
+
     from dss.tabs import home
 
     source = inspect.getsource(home._render_student_home_dashboard)

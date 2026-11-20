@@ -11,11 +11,12 @@ tuyệt đối/chính thức.
 Kiểm tra bằng source inspection (đúng phong cách dự án cho UI Streamlit khó
 test trực tiếp): mỗi nơi hiển thị "Mức rủi ro"/"rủi ro cao" (badge hoặc KPI)
 PHẢI đi kèm `ui_kit.RELATIVE_RISK_DISCLAIMER`."""
+
 from __future__ import annotations
 
 import inspect
 
-from dss.tabs import ai_advisor, dashboard, home, admin_reports, ui_kit
+from dss.tabs import admin_reports, ai_advisor, dashboard, home, ui_kit
 
 
 def test_relative_risk_disclaimer_constant_exists_and_is_non_trivial():

@@ -7,6 +7,7 @@ gợi ý cụm tham chiếu. `clustering.py` giờ chỉ còn UI/orchestration (
 biểu đồ, session_state) và gọi xuống đây — Y HỆT thuật toán cũ, không đổi
 tham số/kết quả (random_state=42, n_init=10, ngưỡng ±10%... giữ nguyên).
 """
+
 from __future__ import annotations
 
 from typing import Optional
@@ -23,13 +24,19 @@ from sklearn.preprocessing import StandardScaler
 
 from dss.core.data_helpers import feature_label
 
-
 # C-1: bộ từ khóa dùng để chọn cột mặc định cho phân cụm — bản cũ chỉ có tiếng
 # Anh (score/gpa/hours/point/mark/grade) nên trên dữ liệu mẫu tiếng Việt
 # (diem_giua_ky, ty_le_diem_danh, so_gio_hoc_tuan, ...) hầu như không khớp gì.
 _CLUSTER_FEATURE_KEYWORDS = [
-    "score", "gpa", "hours", "point", "mark", "grade",
-    "diem", "ty_le", "so_gio",
+    "score",
+    "gpa",
+    "hours",
+    "point",
+    "mark",
+    "grade",
+    "diem",
+    "ty_le",
+    "so_gio",
 ]
 
 
@@ -54,7 +61,8 @@ def select_default_cluster_features(
     # Loại cột định danh theo TỪ trong tên (is_identifier_column), không theo chuỗi con "id":
     # bản cũ loại nhầm video_views, midterm_score, valid_attempts.
     all_numeric_cols = [
-        c for c in all_numeric_cols
+        c
+        for c in all_numeric_cols
         if not is_identifier_column(c) and "pca" not in c.lower() and "cluster" not in c.lower()
     ]
 
@@ -63,10 +71,7 @@ def select_default_cluster_features(
         forbidden.update(str(c).lower() for c in get_leaky_target_columns(default_target))
     safe_cols = [c for c in all_numeric_cols if c.lower() not in forbidden]
 
-    candidate_cols = [
-        c for c in safe_cols
-        if any(k in c.lower() for k in _CLUSTER_FEATURE_KEYWORDS)
-    ]
+    candidate_cols = [c for c in safe_cols if any(k in c.lower() for k in _CLUSTER_FEATURE_KEYWORDS)]
     if not candidate_cols:
         candidate_cols = safe_cols[:max_fallback_features]
 
@@ -91,10 +96,12 @@ def preprocess_features(df: pd.DataFrame, selected_cols: list[str]):
     pipeline cũ trong `clustering_hybrid_tab` (Bước 1). Trả về (preprocessor đã
     fit, X_processed) — preprocessor giữ lại để dùng nhất quán về sau nếu cần."""
     df_cluster = df[selected_cols].copy()
-    preprocessor = SklearnPipeline(steps=[
-        ('imputer', KNNImputer(n_neighbors=3)),
-        ('scaler', StandardScaler()),
-    ])
+    preprocessor = SklearnPipeline(
+        steps=[
+            ('imputer', KNNImputer(n_neighbors=3)),
+            ('scaler', StandardScaler()),
+        ]
+    )
     X_processed = preprocessor.fit_transform(df_cluster)
     return preprocessor, X_processed
 
@@ -102,8 +109,11 @@ def preprocess_features(df: pd.DataFrame, selected_cols: list[str]):
 def _silhouette_score_bounded(X_processed, labels):
     """Use a reproducible estimate above 2,000 rows; exact score for small classes."""
     return silhouette_score(
-        X_processed, labels, metric="euclidean",
-        sample_size=2000 if len(X_processed) > 2000 else None, random_state=42,
+        X_processed,
+        labels,
+        metric="euclidean",
+        sample_size=2000 if len(X_processed) > 2000 else None,
+        random_state=42,
     )
 
 
@@ -250,8 +260,13 @@ def compute_cluster_quality_metrics(X_processed, labels) -> dict:
         db = float(davies_bouldin_score(X_processed, labels))
     except Exception:
         db = None
-    return {"silhouette": sil, "davies_bouldin": db, "silhouette_sample_size": min(n_samples, 2000) if sil is not None else 0,
-            "weak_structure": weak_structure_warning(sil) is not None, "warning": weak_structure_warning(sil)}
+    return {
+        "silhouette": sil,
+        "davies_bouldin": db,
+        "silhouette_sample_size": min(n_samples, 2000) if sil is not None else 0,
+        "weak_structure": weak_structure_warning(sil) is not None,
+        "warning": weak_structure_warning(sil),
+    }
 
 
 def compute_pca(X_processed):
@@ -284,10 +299,14 @@ def compute_cluster_means(df_results: pd.DataFrame, selected_cols: list[str]) ->
 
 
 def compute_strengths_weaknesses(
-    group_avg: pd.Series, overall_avg: pd.Series, *,
+    group_avg: pd.Series,
+    overall_avg: pd.Series,
+    *,
     overall_std: Optional[pd.Series] = None,
-    z_strong: float = 0.5, z_weak: float = -0.5,
-    upper_ratio: float = 1.1, lower_ratio: float = 0.9,
+    z_strong: float = 0.5,
+    z_weak: float = -0.5,
+    upper_ratio: float = 1.1,
+    lower_ratio: float = 0.9,
 ):
     """Điểm mạnh/yếu của 1 cụm so với toàn khoá cho từng đặc trưng.
 
@@ -317,9 +336,7 @@ def compute_strengths_weaknesses(
             top_col, bot_col = z_sorted.index[0], z_sorted.index[-1]
             if z_sorted.iloc[0] >= 0:
                 strengths = [top_col]
-            if z_sorted.iloc[-1] <= 0:
-                weaknesses = [bot_col]
-            elif len(z_sorted) > 1 and not weaknesses:
+            if z_sorted.iloc[-1] <= 0 or (len(z_sorted) > 1 and not weaknesses):
                 weaknesses = [bot_col]
         return strengths, weaknesses
 
@@ -335,9 +352,7 @@ def compute_strengths_weaknesses(
         bot_col = diff_sorted.index[-1]
         if diff_sorted.iloc[0] >= 0:
             strengths = [top_col]
-        if diff_sorted.iloc[-1] <= 0:
-            weaknesses = [bot_col]
-        elif len(diff_sorted) > 1 and not weaknesses:
+        if diff_sorted.iloc[-1] <= 0 or (len(diff_sorted) > 1 and not weaknesses):
             weaknesses = [bot_col]
     return strengths, weaknesses
 
@@ -424,12 +439,14 @@ def compute_intervention_plan(diff_pct_series: pd.Series, selected_cols: list[st
         else:
             priority = "Theo dõi"
         action = _build_intervention_text(feat, feat_lbl, gap_pct, priority)
-        rows.append({
-            "Chỉ số": feat_lbl,
-            "Chênh lệch so với nhóm (%)": round(gap_pct, 1),
-            "Mức ưu tiên": priority,
-            "Hành động gợi ý": action,
-        })
+        rows.append(
+            {
+                "Chỉ số": feat_lbl,
+                "Chênh lệch so với nhóm (%)": round(gap_pct, 1),
+                "Mức ưu tiên": priority,
+                "Hành động gợi ý": action,
+            }
+        )
     return pd.DataFrame(rows).sort_values(by="Chênh lệch so với nhóm (%)", ascending=True)
 
 
@@ -450,7 +467,7 @@ def find_similar_students(X_processed, cluster_positions, student_position: int,
 
     rel_idx = int(np.where(cluster_pos == student_position)[0][0])
     X_cluster = X_processed[cluster_pos]
-    sims = cosine_similarity(X_cluster[rel_idx:rel_idx + 1], X_cluster).flatten()
+    sims = cosine_similarity(X_cluster[rel_idx : rel_idx + 1], X_cluster).flatten()
     sims_rel = [(i, s) for i, s in enumerate(sims) if i != rel_idx]
     sims_rel.sort(key=lambda x: x[1], reverse=True)
 

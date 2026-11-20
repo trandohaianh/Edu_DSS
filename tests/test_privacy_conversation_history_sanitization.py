@@ -3,6 +3,7 @@ found unsanitized in the prior pass's audit. This closes it. Also confirms
 a genuine, previously-latent bug: `_STUDENT_ID_REGEX` existed in
 privacy_service.py but was NEVER applied anywhere — a real dead pattern,
 not just a theoretical gap."""
+
 from __future__ import annotations
 
 from dss.services import privacy_service
@@ -44,10 +45,7 @@ def test_self_disclosed_name_is_redacted_from_conversation_turn():
 
 
 def test_all_four_pii_categories_redacted_in_one_turn():
-    text = (
-        "Tên em là Trần Thị B, MSSV20210099, email b@example.com, "
-        "SĐT 0987654321. Em muốn hỏi về học phí."
-    )
+    text = "Tên em là Trần Thị B, MSSV20210099, email b@example.com, SĐT 0987654321. Em muốn hỏi về học phí."
     result = privacy_service.sanitize_conversation_turn_for_provider(text)
     assert "Trần Thị B" not in result
     assert "20210099" not in result

@@ -9,6 +9,7 @@ Tuyệt đối KHÔNG chỉ đánh giá chất lượng AI qua việc gọi API 
 5. Harmful / Unsupported Advice Detector: Tự động nhận diện lời khuyên độc hại, phi thực tế hoặc xúi giục gian lận
 6. Human Lecturer Rating Schema: Thang điểm 1-5 sao chuẩn sư phạm dành cho giảng viên đánh giá
 """
+
 from __future__ import annotations
 
 import re
@@ -45,7 +46,7 @@ _PROHIBITION_CUES = re.compile(
 
 
 def _is_prohibition_context(text: str, start: int, end: int) -> bool:
-    return bool(_PROHIBITION_CUES.search(text[max(0, start - 60): end + 60]))
+    return bool(_PROHIBITION_CUES.search(text[max(0, start - 60) : end + 60]))
 
 
 @dataclass
@@ -113,7 +114,11 @@ def evaluate_llm_response(
     # 1. Kiểm tra trích dẫn nguồn
     citation_res = verify_citations(response_text, retrieved_chunks)
     has_hallucinations = len(citation_res.get("hallucinated_citations", [])) > 0
-    citation_score = 1.0 if not has_hallucinations and citation_res.get("has_citations") else (0.5 if not has_hallucinations else 0.0)
+    citation_score = (
+        1.0
+        if not has_hallucinations and citation_res.get("has_citations")
+        else (0.5 if not has_hallucinations else 0.0)
+    )
 
     # 2. Phát hiện nội dung có hại
     is_harmful, harmful_issues = detect_harmful_or_unsupported_advice(response_text)
@@ -154,7 +159,5 @@ def evaluate_llm_response(
         "relevance_score": min(1.0, relevance_score),
         "citation_correctness": citation_score,
         "citation_details": citation_res,
-        "quality_index": round(
-            (groundedness_score * 0.3 + faithfulness_score * 0.3 + relevance_score * 0.4), 2
-        ),
+        "quality_index": round((groundedness_score * 0.3 + faithfulness_score * 0.3 + relevance_score * 0.4), 2),
     }

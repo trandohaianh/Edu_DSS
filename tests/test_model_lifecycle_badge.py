@@ -5,6 +5,7 @@ gộp 'candidate' (chưa từng duyệt) và 'archived' (từng Production, đã
 thế) thành cùng 1 nhãn "Lưu trữ" — mất thông tin đã có sẵn. Test khoá lại
 hành vi ĐÚNG của `_model_lifecycle_badge_text()` sau khi sửa.
 """
+
 from __future__ import annotations
 
 import inspect
@@ -52,7 +53,7 @@ def test_single_shared_definition_reused_by_warehouse_tab_and_admin_reports():
     quán giữa 2 trang cùng hiển thị 1 khái niệm. Cả 2 giờ phải dùng chung
     đúng 1 định nghĩa ở model_service.py."""
     from dss.services.model_service import model_lifecycle_badge_text
-    from dss.tabs import warehouse_tab, admin_reports
+    from dss.tabs import admin_reports, warehouse_tab
 
     assert warehouse_tab._model_lifecycle_badge_text is model_lifecycle_badge_text
     source = inspect.getsource(admin_reports)
@@ -71,13 +72,14 @@ def test_no_ui_text_claims_training_auto_promotes_to_production():
     dashboard.py và model_registry.py cũng có cùng câu sai tương tự, đã sửa
     cả 3 nơi để không còn nơi nào tuyên bố auto-promotion diễn ra."""
     import inspect
-    from dss.tabs import warehouse_tab, dashboard
+
     from dss.services import model_registry
+    from dss.tabs import dashboard, warehouse_tab
 
     for module in (warehouse_tab, dashboard, model_registry):
         source = inspect.getsource(module)
         assert "tự động thành Production" not in source, f"{module.__name__} vẫn còn câu sai"
         idx = source.find("tự động lên Production")
-        assert idx == -1 or "không" in source[max(0, idx - 40):idx].lower(), (
+        assert idx == -1 or "không" in source[max(0, idx - 40) : idx].lower(), (
             f"{module.__name__}: 'tự động lên Production' phải luôn đi kèm phủ định 'không' ngay trước nó"
         )

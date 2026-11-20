@@ -7,6 +7,7 @@ test_rag_source_governance.py — chỉ phủ hành vi CHỈ kiểm được qua
 viên không thấy ô tìm kiếm), và các tab/badge phân loại nguồn hiển thị đúng
 trên trang Quản lý tri thức.
 """
+
 from __future__ import annotations
 
 
@@ -88,7 +89,9 @@ def test_knowledge_base_shows_source_classification_breakdown(login, wait_ready)
     wait_ready(page, timeout=25)
 
     for attempt in range(3):
-        page.locator("[data-testid='stSidebar']").get_by_role("button", name="Tài liệu", exact=False).first.click(timeout=15000)
+        page.locator("[data-testid='stSidebar']").get_by_role("button", name="Tài liệu", exact=False).first.click(
+            timeout=15000
+        )
         page.wait_for_timeout(2000)
         wait_ready(page, timeout=25)
         if "Tài liệu môn học" in page.inner_text("body"):
@@ -114,7 +117,9 @@ def test_demo_tab_shows_source_category_and_honest_demo_wording(login, wait_read
     wait_ready(page, timeout=25)
 
     for attempt in range(3):
-        page.locator("[data-testid='stSidebar']").get_by_role("button", name="Tài liệu", exact=False).first.click(timeout=15000)
+        page.locator("[data-testid='stSidebar']").get_by_role("button", name="Tài liệu", exact=False).first.click(
+            timeout=15000
+        )
         page.wait_for_timeout(2000)
         wait_ready(page, timeout=25)
         if "Tài liệu môn học" in page.inner_text("body"):

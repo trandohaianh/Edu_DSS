@@ -18,6 +18,7 @@ CHÍNH XÁC provider X có hoạt động hay không, không phải nhận câu 
 provider khác bị gắn nhãn sai thành X — xem docstring của
 `check_quota_and_rate_limit` trong llm_gateway.py.
 """
+
 from __future__ import annotations
 
 import time
@@ -92,6 +93,7 @@ def _run_one_provider(
         try:
             from dss.services import token_tracker
             from dss.services.context_budget import approximate_token_count
+
             in_tok = approximate_token_count(str(student_weaknesses)) + 200
             out_tok = approximate_token_count(text)
             token_tracker.record_usage(
@@ -107,11 +109,15 @@ def _run_one_provider(
             pass
 
         if text.strip().startswith(("Lỗi", "⏳", "Provider không khả dụng")):
-            return ProviderRunResult(provider_key, provider_label, model_name, text="", error=text, elapsed_seconds=elapsed)
+            return ProviderRunResult(
+                provider_key, provider_label, model_name, text="", error=text, elapsed_seconds=elapsed
+            )
         return ProviderRunResult(provider_key, provider_label, model_name, text=text, elapsed_seconds=elapsed)
     except Exception as e:
         return ProviderRunResult(
-            provider_key, provider_label, model_name,
+            provider_key,
+            provider_label,
+            model_name,
             error=f"Lỗi không mong đợi khi gọi {provider_label}: {e}",
             elapsed_seconds=time.monotonic() - t0,
         )
@@ -161,11 +167,20 @@ def compare_providers(
     gateway = LLMGateway(llm_integration)
     try:
         gateway.check_quota_and_rate_limit(
-            user_id="compare_ai_user", role="Giảng viên / CVHT", prompt=str(student_weaknesses),
+            user_id="compare_ai_user",
+            role="Giảng viên / CVHT",
+            prompt=str(student_weaknesses),
         )
     except GatewayError as exc:
-        return [ProviderRunResult(spec["provider_key"], spec.get("provider_label", spec["provider_key"]),
-                                   spec.get("model_name", ""), error=str(exc)) for spec in provider_specs]
+        return [
+            ProviderRunResult(
+                spec["provider_key"],
+                spec.get("provider_label", spec["provider_key"]),
+                spec.get("model_name", ""),
+                error=str(exc),
+            )
+            for spec in provider_specs
+        ]
 
     max_workers = min(len(provider_specs), max(1, dss_config.MAX_CONCURRENT_REQUESTS))
     results_by_key: dict[str, ProviderRunResult] = {}
@@ -211,25 +226,48 @@ def resolve_auto_provider(llm_integration) -> Optional[dict]:
     from dss.services.llm_gateway import is_known_unhealthy
 
     label_by_key = {
-        "huggingface": "Hugging Face (Local/Cloud)", "gemini": "Google Gemini",
-        "groq": "Groq (Siêu tốc)", "ollama": "Ollama (Local)", "openai": "OpenAI (ChatGPT)",
+        "huggingface": "Hugging Face (Local/Cloud)",
+        "gemini": "Google Gemini",
+        "groq": "Groq (Siêu tốc)",
+        "ollama": "Ollama (Local)",
+        "openai": "OpenAI (ChatGPT)",
     }
     default_cfg = admin_ai_config.get_default_provider()
     if default_cfg:
         provider_key = default_cfg["provider_key"]
         model_name = default_cfg["model_name"]
-        api_key = llm_integration.get_api_key_from_secrets(provider_key) if provider_key in ("gemini", "groq", "openai") else ""
+        api_key = (
+            llm_integration.get_api_key_from_secrets(provider_key)
+            if provider_key in ("gemini", "groq", "openai")
+            else ""
+        )
         # Mục 9 — KHÔNG tự ý chọn mặc định Admin đã đặt nếu lần kiểm tra sức
         # khoẻ gần nhất (trong TTL) đã XÁC NHẬN provider đó không dùng được
         # (vd. BILLING_REQUIRED) — rơi xuống auto-detect thay vì im lặng trả
         # về 1 provider đã biết là hỏng.
-        if (provider_key == "ollama" or api_key or provider_key == "huggingface") and not is_known_unhealthy(provider_key):
-            return {"provider_key": provider_key, "model_name": model_name, "api_key": api_key, "label": label_by_key.get(provider_key, provider_key)}
+        if (provider_key == "ollama" or api_key or provider_key == "huggingface") and not is_known_unhealthy(
+            provider_key
+        ):
+            return {
+                "provider_key": provider_key,
+                "model_name": model_name,
+                "api_key": api_key,
+                "label": label_by_key.get(provider_key, provider_key),
+            }
 
     if _check_ollama_running():
-        return {"provider_key": "ollama", "model_name": AI_MODEL_CATALOG["ollama"][0], "api_key": "", "label": "Ollama (Local)"}
+        return {
+            "provider_key": "ollama",
+            "model_name": AI_MODEL_CATALOG["ollama"][0],
+            "api_key": "",
+            "label": "Ollama (Local)",
+        }
 
-    for prov_key, prov_label in [("gemini", "Google Gemini"), ("groq", "Groq (Siêu tốc)"), ("openai", "OpenAI (ChatGPT)")]:
+    for prov_key, prov_label in [
+        ("gemini", "Google Gemini"),
+        ("groq", "Groq (Siêu tốc)"),
+        ("openai", "OpenAI (ChatGPT)"),
+    ]:
         if is_known_unhealthy(prov_key):
             continue  # đã xác nhận không dùng được (vd. hết hạn mức thanh toán) — không chọn lại
         found_key = llm_integration.get_api_key_from_secrets(prov_key)
@@ -249,8 +287,8 @@ def get_gateway(llm_integration=None):
     global _GATEWAY_INSTANCE
     if _GATEWAY_INSTANCE is None:
         from dss.services.llm_gateway import LLMGateway
+
         _GATEWAY_INSTANCE = LLMGateway(llm_integration=llm_integration)
     elif llm_integration and _GATEWAY_INSTANCE.llm_integration is None:
         _GATEWAY_INSTANCE.llm_integration = llm_integration
     return _GATEWAY_INSTANCE
-

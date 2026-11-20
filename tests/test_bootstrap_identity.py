@@ -1,23 +1,25 @@
 """Real initial administrators: no demo seeds, overwrite or printed secrets."""
-from concurrent.futures import ThreadPoolExecutor
+
 import json
 import os
-from uuid import uuid4
 import warnings
+from concurrent.futures import ThreadPoolExecutor
+from uuid import uuid4
 
 import pytest
 from sqlalchemy import create_engine, func, select, text
 from sqlalchemy.orm import Session
 
-from ops import bootstrap_identity as bootstrap
 from dss.db.models import Organization, Role, User
+from ops import bootstrap_identity as bootstrap
 
 PASSWORD = "Isolated test password 2026!"
 
 
 def args(**changes):
-    values = dict(org_code="TEST", org_name="Test university", username=" Owner.Admin ",
-                  role="Admin", password=PASSWORD)
+    values = dict(
+        org_code="TEST", org_name="Test university", username=" Owner.Admin ", role="Admin", password=PASSWORD
+    )
     return values | changes
 
 
@@ -49,8 +51,10 @@ def create(engine, **changes):
 def test_only_requested_real_account_and_role_catalog(database, monkeypatch, role):
     from dss.db import seed
     from dss.services.auth_service import _verify_password
+
     def no_demo(*a, **kw):
         pytest.fail("No demo provisioning")
+
     for name in ("seed_demo_organization", "seed_demo_users", "run_seed"):
         monkeypatch.setattr(seed, name, no_demo)
     result = create(database, role=role)
@@ -67,6 +71,7 @@ def test_only_requested_real_account_and_role_catalog(database, monkeypatch, rol
 
 def test_duplicate_preserves_password_and_hash_failure_rolls_back(database, monkeypatch):
     from dss.services import auth_service
+
     create(database)
     with Session(database) as session:
         old = session.scalar(select(User)).password_hash
@@ -74,8 +79,10 @@ def test_duplicate_preserves_password_and_hash_failure_rolls_back(database, monk
         create(database, username="OWNER.ADMIN", role="Platform Admin", password="Replacement password never used!")
     with Session(database) as session:
         assert session.scalar(select(User)).password_hash == old
+
     def fail(*a, **kw):
         raise RuntimeError("Hasher unavailable")
+
     monkeypatch.setattr(auth_service, "_hash_password", fail)
     with pytest.raises(RuntimeError):
         create(database, org_code="OTHER", org_name="Other organization")
@@ -85,6 +92,7 @@ def test_duplicate_preserves_password_and_hash_failure_rolls_back(database, monk
 
 def test_local_bootstrap_and_duplicate_preserve_bytes(local):
     from dss.services.auth_service import _verify_password
+
     result = bootstrap.bootstrap_local(**args(role="Platform Admin"))
     path = local / "users.json"
     before = path.read_bytes()
@@ -126,14 +134,21 @@ def test_concurrent_local_creation_cannot_overwrite(local):
             return bootstrap.bootstrap_local(**args(password=PASSWORD + str(index)))
         except bootstrap.BootstrapError:
             return None
+
     with ThreadPoolExecutor(max_workers=2) as executor:
         assert sum(item is not None for item in executor.map(run, range(2))) == 1
     assert len(json.loads((local / "users.json").read_text(encoding="utf-8"))) == 1
 
 
-@pytest.mark.parametrize("change", [
-    {"password": "short"}, {"username": "bad user"}, {"role": "unknown"}, {"org_code": ""},
-])
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"password": "short"},
+        {"username": "bad user"},
+        {"role": "unknown"},
+        {"org_code": ""},
+    ],
+)
 def test_invalid_input_leaves_no_store(local, change):
     with pytest.raises(bootstrap.BootstrapError):
         bootstrap.bootstrap_local(**args(**change))
@@ -149,9 +164,11 @@ def test_cli_hidden_password_mismatch_and_insecure_prompt(local, monkeypatch, ca
     monkeypatch.setattr(bootstrap.getpass, "getpass", lambda label: next(responses))
     assert bootstrap.main(cli_args("--local")) == 2
     assert not (local / "users.json").exists()
+
     def insecure(label):
         warnings.warn("Echo unavailable", bootstrap.getpass.GetPassWarning)
         pytest.fail("Must not continue after insecure prompt")
+
     monkeypatch.setattr(bootstrap.getpass, "getpass", insecure)
     assert bootstrap.main(cli_args("--local")) == 2
     assert PASSWORD not in capsys.readouterr().err
@@ -166,8 +183,10 @@ def test_cli_success_or_driver_failure_never_prints_secrets(local, monkeypatch, 
     assert record["hash"] not in output.out + output.err
     assert record["salt"] not in output.out + output.err
     secret_url = "postgresql://owner:do-not-print-this@invalid/disposable"
+
     def fail(**kw):
         raise RuntimeError(secret_url + PASSWORD)
+
     monkeypatch.setattr(bootstrap, "bootstrap_postgres", fail)
     assert bootstrap.main(cli_args()) == 1
     output = capsys.readouterr()
@@ -187,15 +206,20 @@ def test_postgres_owner_bootstrap_in_explicit_disposable_database(monkeypatch):
     if not owner_url or os.getenv("EDUDSS_BOOTSTRAP_TEST_ALLOW_WRITE") != "1":
         pytest.skip("Explicit isolated owner URL and write opt-in required")
     from dss.services.auth_service import _verify_password
+
     code = "bootstrap-" + uuid4().hex
     monkeypatch.setenv("DATABASE_URL", owner_url)
     engine = create_engine(owner_url)
     try:
         result = bootstrap.bootstrap_postgres(**args(org_code=code))
         with engine.connect() as connection:
-            row = connection.execute(text(
-                "SELECT u.password_hash, u.password_salt FROM users u JOIN organizations o "
-                "ON u.organization_id=o.id WHERE o.org_code=:code"), {"code": code}).one()
+            row = connection.execute(
+                text(
+                    "SELECT u.password_hash, u.password_salt FROM users u JOIN organizations o "
+                    "ON u.organization_id=o.id WHERE o.org_code=:code"
+                ),
+                {"code": code},
+            ).one()
         assert _verify_password(PASSWORD, row.password_hash, row.password_salt)
         assert result["organization_id"] > 0
         with pytest.raises(bootstrap.BootstrapError, match="already exists"):

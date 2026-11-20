@@ -1,4 +1,5 @@
 """Durability, authorization and isolation of the pilot plan store."""
+
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
@@ -6,7 +7,8 @@ from dataclasses import replace
 
 import pytest
 
-from dss.services import auth_service, learning_plan_history as history
+from dss.services import auth_service
+from dss.services import learning_plan_history as history
 from dss.services.learning_plan import learning_plan_generator
 from dss.services.learning_profile import StudentLearningProfile
 
@@ -26,7 +28,9 @@ def history_context(monkeypatch, tmp_path):
 def _plan(course="CS101"):
     return learning_plan_generator.generate_plan(
         StudentLearningProfile.build_from_lms_records(
-            "SV1", course, {"quiz_score": 5, "assignment_score": 4},
+            "SV1",
+            course,
+            {"quiz_score": 5, "assignment_score": 4},
         )
     )
 
@@ -121,6 +125,7 @@ def test_bad_progress_and_missing_course_are_rejected(history_context):
         history.set_activity_completed("SV1", saved["plan"]["plan_id"], -1, True)
     with pytest.raises(LookupError):
         history.set_activity_completed("SV1", "unknown", 0, True)
+
 
 def test_case_distinct_student_codes_do_not_share_local_history(history_context):
     upper = history.save_learning_plan("SV1", _plan())

@@ -3,6 +3,7 @@ ai_advisor.py THẬT SỰ gọi ai_router.build_regulation_lookup_reply() trong
 luồng chat để chặn LLM tự đoán quy chế, không chỉ tồn tại như module cô lập
 (source inspection — đúng quy ước dự án cho code UI Streamlit khó test trực
 tiếp qua widget thật, cùng mẫu test_ai_advisor_gpa_router_wiring.py)."""
+
 from __future__ import annotations
 
 import inspect
@@ -30,5 +31,5 @@ def test_regulation_reply_short_circuits_before_rag_and_llm_call():
     Gateway (nơi LLM có thể tự đoán quy chế)."""
     source = inspect.getsource(ai_advisor.ai_advisor_tab)
     idx_short_circuit = source.index("if _router_short_circuit_reply is not None:")
-    block = source[idx_short_circuit: idx_short_circuit + 400]
+    block = source[idx_short_circuit : idx_short_circuit + 400]
     assert "st.rerun()" in block

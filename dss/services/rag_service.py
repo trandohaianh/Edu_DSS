@@ -8,15 +8,16 @@ Bao gồm:
    - Trạng thái `NO_RELEVANT_EVIDENCE`: Nếu không có tài liệu nào đủ độ tin cậy,
      trả về danh sách rỗng kèm mã trạng thái rõ ràng, KHÔNG ép buộc trả về tài liệu lạc đề.
 """
+
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from typing import Any, Dict, Optional
 
 import dss.config as dss_config
+from dss.core.observability import observe
 from dss.services import rag_namespaces
 from dss.services.rag_namespaces import NAMESPACE_STUDENT_LEARNING
-from dss.core.observability import observe
 
 # NHÓM F: số ứng viên lấy thêm (over-fetch) trước khi lọc theo
 # document_governance.is_document_usable — PHẢI lọc TRƯỚC khi cắt xuống top_k
@@ -118,7 +119,7 @@ def retrieve_unified_context(
         overfetch_k = min(_GOVERNANCE_OVERFETCH_CAP, max(top_k * _GOVERNANCE_OVERFETCH_MULTIPLIER, top_k))
         candidates = vstore.search(query_embedding, top_k=overfetch_k, document_ids=document_ids)
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         # NHÓM F: mọi chunk trong 1 lượt tìm phải CÙNG embedding_model — nếu
         # lẫn model (vd. tài liệu cũ được nạp bằng model khác), điểm cosine
         # similarity giữa các không gian vector khác nhau KHÔNG có ý nghĩa so
@@ -136,10 +137,7 @@ def retrieve_unified_context(
                 ),
             }
 
-        usable = [
-            c for c in candidates
-            if gov.is_document_usable(c.get("metadata") or {}, now=now)
-        ]
+        usable = [c for c in candidates if gov.is_document_usable(c.get("metadata") or {}, now=now)]
         usable = usable[:top_k]
         metric["candidate_count"] = len(candidates)
         metric["usable_count"] = len(usable)
@@ -214,9 +212,7 @@ def retrieve_documents(
     )
     with observe("rag.retrieve", top_k=top_k, backend="provider") as metric:
         try:
-            result = llm_integration.find_relevant_documents_rag(
-                **base_kwargs, runtime_documents=runtime_documents
-            )
+            result = llm_integration.find_relevant_documents_rag(**base_kwargs, runtime_documents=runtime_documents)
         except TypeError:
             result = llm_integration.find_relevant_documents_rag(**base_kwargs)
             metric["fallback"] = "signature"

@@ -4,6 +4,7 @@ và (2) `list_documents()` phải lộ ra các trường quản trị (status/do
 issuer/approved_by/uploaded_by) để trang "Chờ duyệt" đọc được — trước đây
 list_documents() chỉ trả về title/course_id/source/permission_scope/
 total_chunks/created_at, không có gì về trạng thái duyệt."""
+
 from __future__ import annotations
 
 import pytest
@@ -55,9 +56,14 @@ def test_list_documents_exposes_governance_fields(store):
 
 def test_update_document_metadata_updates_all_chunks(store):
     store.add_chunks([_make_chunk("doc_b", 1), _make_chunk("doc_b", 2)])
-    ok = store.update_document_metadata("doc_b", {
-        "status": gov.STATUS_APPROVED, "approved_by": "admin_x", "approved_at": "2026-01-01T00:00:00+00:00",
-    })
+    ok = store.update_document_metadata(
+        "doc_b",
+        {
+            "status": gov.STATUS_APPROVED,
+            "approved_by": "admin_x",
+            "approved_at": "2026-01-01T00:00:00+00:00",
+        },
+    )
     assert ok is True
     docs = store.list_documents()
     assert docs[0]["status"] == gov.STATUS_APPROVED

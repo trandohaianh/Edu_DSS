@@ -4,6 +4,7 @@ Compare mode (dss.services.llm_service).
 Không gọi API AI thật (mock provider) — chỉ kiểm chứng ĐÚNG cơ chế retry/
 concurrency/error-isolation, không phụ thuộc mạng hay quota thật.
 """
+
 from __future__ import annotations
 
 import os
@@ -20,14 +21,17 @@ from dss.services import llm_service
 # ---------------------------------------------------------------------------
 # _is_rate_limit_error / _call_with_rate_limit_retry
 # ---------------------------------------------------------------------------
-@pytest.mark.parametrize("message,expected", [
-    ("Error code: 429 - Rate limit reached", True),
-    ("google.genai.errors.ClientError: 429 RESOURCE_EXHAUSTED", True),
-    ("Too Many Requests", True),
-    ("quota exceeded for this API key", True),
-    ("Invalid API key provided", False),
-    ("model not found: gemini-x", False),
-])
+@pytest.mark.parametrize(
+    "message,expected",
+    [
+        ("Error code: 429 - Rate limit reached", True),
+        ("google.genai.errors.ClientError: 429 RESOURCE_EXHAUSTED", True),
+        ("Too Many Requests", True),
+        ("quota exceeded for this API key", True),
+        ("Invalid API key provided", False),
+        ("model not found: gemini-x", False),
+    ],
+)
 def test_is_rate_limit_error_classification(message, expected):
     assert models_mod._is_rate_limit_error(message) is expected
 
@@ -77,14 +81,15 @@ def test_call_ai_provider_yields_friendly_message_after_rate_limit_exhausted():
             def generate_content_stream(*a, **kw):
                 raise Exception("429 RESOURCE_EXHAUSTED: rate limit exceeded")
 
-    with patch.object(models_mod, "GEMINI_AVAILABLE", True), \
-         patch.object(models_mod, "genai") as fake_genai:
+    with patch.object(models_mod, "GEMINI_AVAILABLE", True), patch.object(models_mod, "genai") as fake_genai:
         fake_genai.Client.return_value = FakeClient()
         fake_genai.types.GenerateContentConfig = MagicMock()
         fake_genai.types.ThinkingConfig = MagicMock()
-        chunks = list(provider.call_ai_provider(
-            "test prompt", provider="gemini", api_key="fake-key", model_name="gemini-3.6-flash"
-        ))
+        chunks = list(
+            provider.call_ai_provider(
+                "test prompt", provider="gemini", api_key="fake-key", model_name="gemini-3.6-flash"
+            )
+        )
 
     assert len(chunks) == 1
     assert "Traceback" not in chunks[0]
@@ -107,15 +112,18 @@ def test_call_ai_provider_model_not_found_still_falls_back_immediately():
                     raise Exception("404 model not found")
                 return iter([MagicMock(text="phan hoi gia lap")])
 
-    with patch.object(models_mod, "GEMINI_AVAILABLE", True), \
-         patch.object(models_mod, "genai") as fake_genai:
+    with patch.object(models_mod, "GEMINI_AVAILABLE", True), patch.object(models_mod, "genai") as fake_genai:
         fake_genai.Client.return_value = FakeClient()
         fake_genai.types.GenerateContentConfig = MagicMock()
         fake_genai.types.ThinkingConfig = MagicMock()
-        chunks = list(provider.call_ai_provider(
-            "test prompt", provider="gemini", api_key="fake-key",
-            model_name=models_mod.AI_MODEL_CATALOG["gemini"][0],
-        ))
+        chunks = list(
+            provider.call_ai_provider(
+                "test prompt",
+                provider="gemini",
+                api_key="fake-key",
+                model_name=models_mod.AI_MODEL_CATALOG["gemini"][0],
+            )
+        )
 
     assert call_log == models_mod.AI_MODEL_CATALOG["gemini"][:2]
     assert chunks == ["phan hoi gia lap"]
@@ -162,14 +170,18 @@ def test_dotenv_fills_missing_var_from_env_file(tmp_path, monkeypatch):
     assert os.environ["SOME_OTHER_TEST_KEY"] == "from_dotenv_file"
 
 
-@pytest.mark.skipif(not dss_config._ENV_PATH.exists(), reason="app/.env chỉ tồn tại trên máy dev cục bộ, không commit vào repo")
+@pytest.mark.skipif(
+    not dss_config._ENV_PATH.exists(), reason="app/.env chỉ tồn tại trên máy dev cục bộ, không commit vào repo"
+)
 def test_provider_detection_after_dotenv_loading_real_env():
     """Trên máy có app/.env thật: sau khi dss.config đã nạp (import time), các
     biến môi trường AI PHẢI hiện diện trong os.environ (dotenv thật sự chạy)."""
     keys_in_env_file = dss_config._ENV_PATH.read_text(encoding="utf-8")
     for var_name in ("GEMINI_API_KEY", "GROQ_API_KEY", "OPENAI_API_KEY"):
         if var_name in keys_in_env_file:
-            assert os.environ.get(var_name), f"{var_name} có trong app/.env nhưng không thấy trong os.environ sau khi import dss.config"
+            assert os.environ.get(var_name), (
+                f"{var_name} có trong app/.env nhưng không thấy trong os.environ sau khi import dss.config"
+            )
 
 
 def test_gemini_model_catalog_uses_verified_current_models():
@@ -191,23 +203,32 @@ def test_groq_model_catalog_uses_verified_current_models():
     assert catalog[0] == "openai/gpt-oss-20b"  # đã xác nhận thành công qua đúng MultiAIProvider.call_ai_provider
 
 
-@pytest.mark.parametrize("model,expected_level", [
-    ("gemini-flash-latest", "LOW"),        # xác nhận qua audit: KHÔNG hỗ trợ MINIMAL
-    ("gemini-flash-lite-latest", "MINIMAL"),
-    ("gemini-pro-latest", "LOW"),
-    ("unknown-future-model-xyz", None),    # model lạ -> KHÔNG đoán, không gửi thinking_config
-])
+@pytest.mark.parametrize(
+    "model,expected_level",
+    [
+        ("gemini-flash-latest", "LOW"),  # xác nhận qua audit: KHÔNG hỗ trợ MINIMAL
+        ("gemini-flash-lite-latest", "MINIMAL"),
+        ("gemini-pro-latest", "LOW"),
+        ("unknown-future-model-xyz", None),  # model lạ -> KHÔNG đoán, không gửi thinking_config
+    ],
+)
 def test_gemini_thinking_level_explicit_per_model_not_substring_heuristic(model, expected_level):
     assert models_mod._resolve_gemini_thinking_level(model) == expected_level
 
 
-@pytest.mark.parametrize("message,expected", [
-    ("Error code: 429 - {'error': {'message': 'You have no credits remaining. Add credits to continue...', 'code': 'credit_balance_exhausted'}}", True),
-    ("400 INVALID_ARGUMENT: insufficient_quota", True),
-    ("You exceeded your current quota, please check your plan and billing details.", True),
-    ("Error code: 429 - Rate limit reached, please slow down", False),
-    ("model not found: gemini-x", False),
-])
+@pytest.mark.parametrize(
+    "message,expected",
+    [
+        (
+            "Error code: 429 - {'error': {'message': 'You have no credits remaining. Add credits to continue...', 'code': 'credit_balance_exhausted'}}",
+            True,
+        ),
+        ("400 INVALID_ARGUMENT: insufficient_quota", True),
+        ("You exceeded your current quota, please check your plan and billing details.", True),
+        ("Error code: 429 - Rate limit reached, please slow down", False),
+        ("model not found: gemini-x", False),
+    ],
+)
 def test_is_billing_required_error_classification(message, expected):
     assert models_mod._is_billing_required_error(message) is expected
 
@@ -239,12 +260,16 @@ def test_call_ai_provider_openai_billing_required_yields_friendly_message_withou
                         "'type': 'insufficient_quota', 'code': 'credit_balance_exhausted'}}"
                     )
 
-    with patch.object(models_mod, "OPENAI_AVAILABLE", True), \
-         patch.object(models_mod, "openai") as fake_openai_module:
+    with patch.object(models_mod, "OPENAI_AVAILABLE", True), patch.object(models_mod, "openai") as fake_openai_module:
         fake_openai_module.OpenAI.return_value = FakeOpenAIClient()
-        chunks = list(provider.call_ai_provider(
-            "test prompt", provider="openai", api_key="fake-key", model_name="gpt-4o-mini",
-        ))
+        chunks = list(
+            provider.call_ai_provider(
+                "test prompt",
+                provider="openai",
+                api_key="fake-key",
+                model_name="gpt-4o-mini",
+            )
+        )
 
     assert len(call_log) == 1  # KHÔNG retry billing error nhiều lần (khác rate-limit thật)
     assert len(chunks) == 1
@@ -260,20 +285,25 @@ def test_call_ai_provider_openai_billing_required_yields_friendly_message_withou
 @pytest.fixture(autouse=False)
 def _clear_health_cache():
     from dss.services import llm_gateway
+
     llm_gateway._HEALTH_CACHE.clear()
     yield
     llm_gateway._HEALTH_CACHE.clear()
 
 
-@pytest.mark.parametrize("message,expected_category", [
-    ("Error code: 429 - insufficient_quota: credit_balance_exhausted", "BILLING_REQUIRED"),
-    ("404 NOT_FOUND: models/gemini-1.5-flash is not found", "MODEL_NOT_FOUND"),
-    ("401 Unauthorized: invalid credentials", "AUTH_ERROR"),
-    ("400 INVALID_ARGUMENT: api key not valid", "INVALID_KEY"),
-    ("Connection timeout while reaching api.groq.com", "NETWORK_ERROR"),
-])
+@pytest.mark.parametrize(
+    "message,expected_category",
+    [
+        ("Error code: 429 - insufficient_quota: credit_balance_exhausted", "BILLING_REQUIRED"),
+        ("404 NOT_FOUND: models/gemini-1.5-flash is not found", "MODEL_NOT_FOUND"),
+        ("401 Unauthorized: invalid credentials", "AUTH_ERROR"),
+        ("400 INVALID_ARGUMENT: api key not valid", "INVALID_KEY"),
+        ("Connection timeout while reaching api.groq.com", "NETWORK_ERROR"),
+    ],
+)
 def test_classify_provider_error_categories(message, expected_category):
     from dss.services import llm_gateway
+
     assert llm_gateway.classify_provider_error(Exception(message)) == expected_category
 
 
@@ -283,22 +313,38 @@ def test_provider_health_to_dict_schema_has_no_key_material_field():
     key. Kiểm tra CẤU TRÚC schema để không ai vô tình thêm field kiểu
     'api_key'/'raw_key'/'secret_value' vào sau này mà không bị test bắt lỗi."""
     from dss.services import llm_gateway
+
     health = llm_gateway.ProviderHealth("gemini", True, True, model="gemini-flash-latest", category="READY", detail="")
     result = health.to_dict()
     allowed_fields = {"provider", "configured", "key_detected", "model", "category", "friendly_label", "detail"}
     assert set(result.keys()) == allowed_fields
-    forbidden_field_names = {"api_key", "raw_key", "secret", "secret_value", "token", "token_value", "traceback", "stack", "stacktrace"}
+    forbidden_field_names = {
+        "api_key",
+        "raw_key",
+        "secret",
+        "secret_value",
+        "token",
+        "token_value",
+        "traceback",
+        "stack",
+        "stacktrace",
+    }
     assert not (set(result.keys()) & forbidden_field_names)
 
 
 def test_is_known_unhealthy_true_only_after_real_negative_test(_clear_health_cache):
     from dss.services import llm_gateway
+
     # Chưa từng kiểm tra -> không bị chặn oan.
     assert llm_gateway.is_known_unhealthy("openai") is False
-    llm_gateway.record_provider_health("openai", llm_gateway.ProviderHealth("openai", True, True, category=llm_gateway.HEALTH_BILLING_REQUIRED))
+    llm_gateway.record_provider_health(
+        "openai", llm_gateway.ProviderHealth("openai", True, True, category=llm_gateway.HEALTH_BILLING_REQUIRED)
+    )
     assert llm_gateway.is_known_unhealthy("openai") is True
     # Provider READY không bị coi là unhealthy.
-    llm_gateway.record_provider_health("groq", llm_gateway.ProviderHealth("groq", True, True, category=llm_gateway.HEALTH_READY))
+    llm_gateway.record_provider_health(
+        "groq", llm_gateway.ProviderHealth("groq", True, True, category=llm_gateway.HEALTH_READY)
+    )
     assert llm_gateway.is_known_unhealthy("groq") is False
 
 
@@ -306,14 +352,17 @@ def test_automatic_selection_skips_known_unhealthy_provider(_clear_health_cache)
     """Mục 9 — Groq/Gemini READY, OpenAI BILLING_REQUIRED -> tự động chọn
     KHÔNG BAO GIỜ là OpenAI, dù OpenAI đứng cuối danh sách ưu tiên vẫn được bỏ qua
     hoàn toàn (không rơi về OpenAI dù Groq/Gemini giả lập KHÔNG có key)."""
-    from dss.services import llm_gateway
-    from dss.services import admin_ai_config
+    from dss.services import admin_ai_config, llm_gateway
 
     with patch.object(admin_ai_config, "get_default_provider", return_value=None):
-        llm_gateway.record_provider_health("openai", llm_gateway.ProviderHealth("openai", True, True, category=llm_gateway.HEALTH_BILLING_REQUIRED))
+        llm_gateway.record_provider_health(
+            "openai", llm_gateway.ProviderHealth("openai", True, True, category=llm_gateway.HEALTH_BILLING_REQUIRED)
+        )
 
         fake_llm = MagicMock()
-        fake_llm.get_api_key_from_secrets.side_effect = lambda p: "fake-groq-key" if p == "groq" else ("fake-openai-key" if p == "openai" else "")
+        fake_llm.get_api_key_from_secrets.side_effect = (
+            lambda p: "fake-groq-key" if p == "groq" else ("fake-openai-key" if p == "openai" else "")
+        )
 
         result = llm_service.resolve_auto_provider(fake_llm)
         assert result is not None
@@ -329,6 +378,7 @@ class _FakeLLMForCompare:
         self.active = 0
         self.max_active = 0
         import threading
+
         self._lock = threading.Lock()
 
     def generate_personalized_advice(self, provider, model_name, **kwargs):

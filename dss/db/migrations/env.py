@@ -2,18 +2,16 @@ import sys
 from logging.config import fileConfig
 from pathlib import Path
 
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
-
 from alembic import context
+from sqlalchemy import engine_from_config, pool
 
 # dss/db/migrations/env.py -> app/ is 4 parents up.
 _APP_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 if str(_APP_ROOT) not in sys.path:
     sys.path.insert(0, str(_APP_ROOT))
 
-from dss.db.base import Base  # noqa: E402
 from dss.db import models  # noqa: E402,F401  (import registers all tables on Base.metadata)
+from dss.db.base import Base  # noqa: E402
 from dss.db.session import _resolve_database_url  # noqa: E402
 
 # this is the Alembic Config object, which provides
@@ -78,9 +76,7 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
-        context.configure(
-            connection=connection, target_metadata=target_metadata
-        )
+        context.configure(connection=connection, target_metadata=target_metadata)
 
         with context.begin_transaction():
             context.run_migrations()

@@ -3,6 +3,7 @@ Uses fake/local providers only (no real provider spend), covering every
 named failure mode: timeout, 429, 500, connection failure, empty response,
 malformed response, A-fails-B-succeeds, A+B-fail-C-succeeds, all-fail,
 Circuit OPEN, HALF_OPEN success/failure."""
+
 from __future__ import annotations
 
 import pytest
@@ -71,11 +72,14 @@ class _ConfigurableFailureProvider:
 
 # --- Cac che do loi rieng le, tung provider don ---------------------------
 
+
 @pytest.mark.parametrize("mode", ["timeout", "429", "500", "connection_failure", "malformed"])
 def test_single_provider_raised_exception_modes_do_not_crash_and_fail_over(monkeypatch, mode):
     fake = _ConfigurableFailureProvider({"gemini": mode})
     gateway = _patch_chain(monkeypatch, fake, chain=("gemini", "groq", "groq"))
-    answer = "".join(gateway.stream_generate(prompt=f"Câu hỏi {mode}", user_id="u1", role="Sinh viên", request_type="advisor_chat"))
+    answer = "".join(
+        gateway.stream_generate(prompt=f"Câu hỏi {mode}", user_id="u1", role="Sinh viên", request_type="advisor_chat")
+    )
     assert "groq" in fake.attempts
     assert "Câu trả lời thật từ groq." in answer
 
@@ -83,7 +87,9 @@ def test_single_provider_raised_exception_modes_do_not_crash_and_fail_over(monke
 def test_empty_response_does_not_crash_and_is_treated_as_unusable(monkeypatch):
     fake = _ConfigurableFailureProvider({"gemini": "empty"})
     gateway = _patch_chain(monkeypatch, fake, chain=("gemini", "groq", "groq"))
-    answer = "".join(gateway.stream_generate(prompt="Câu hỏi empty", user_id="u1", role="Sinh viên", request_type="advisor_chat"))
+    answer = "".join(
+        gateway.stream_generate(prompt="Câu hỏi empty", user_id="u1", role="Sinh viên", request_type="advisor_chat")
+    )
     # Khong crash - hoac tra loi rong tu gemini, hoac fail over sang groq that.
     assert isinstance(answer, str)
 
@@ -91,17 +97,24 @@ def test_empty_response_does_not_crash_and_is_treated_as_unusable(monkeypatch):
 def test_friendly_error_429_string_is_not_shown_as_final_answer(monkeypatch):
     fake = _ConfigurableFailureProvider({"gemini": "friendly_429"})
     gateway = _patch_chain(monkeypatch, fake, chain=("gemini", "groq", "groq"))
-    answer = "".join(gateway.stream_generate(prompt="Câu hỏi friendly429", user_id="u1", role="Sinh viên", request_type="advisor_chat"))
+    answer = "".join(
+        gateway.stream_generate(
+            prompt="Câu hỏi friendly429", user_id="u1", role="Sinh viên", request_type="advisor_chat"
+        )
+    )
     assert "groq" in fake.attempts
     assert "Câu trả lời thật từ groq." in answer
 
 
 # --- Chuoi that: A fail -> B succeeds --------------------------------------
 
+
 def test_provider_a_fails_provider_b_succeeds(monkeypatch):
     fake = _ConfigurableFailureProvider({"gemini": "timeout"})
     gateway = _patch_chain(monkeypatch, fake, chain=("gemini", "groq", "groq"))
-    answer = "".join(gateway.stream_generate(prompt="A fails B ok", user_id="u1", role="Sinh viên", request_type="advisor_chat"))
+    answer = "".join(
+        gateway.stream_generate(prompt="A fails B ok", user_id="u1", role="Sinh viên", request_type="advisor_chat")
+    )
     assert fake.attempts[0] == "gemini"
     assert "groq" in fake.attempts
     assert "Câu trả lời thật từ groq." in answer
@@ -109,10 +122,13 @@ def test_provider_a_fails_provider_b_succeeds(monkeypatch):
 
 # --- A+B fail -> C (demo) thanh cong ----------------------------------------
 
+
 def test_both_configured_providers_fail_falls_through_to_demo(monkeypatch):
     fake = _ConfigurableFailureProvider({"gemini": "500", "groq": "connection_failure"})
     gateway = _patch_chain(monkeypatch, fake, chain=("gemini", "groq", "groq"))
-    answer = "".join(gateway.stream_generate(prompt="A and B fail", user_id="u1", role="Sinh viên", request_type="advisor_chat"))
+    answer = "".join(
+        gateway.stream_generate(prompt="A and B fail", user_id="u1", role="Sinh viên", request_type="advisor_chat")
+    )
     # Ca 2 provider that (gemini, groq) deu bi thu va that bai -> con lai demo mode
     # (khong nam trong "chain" fake, la nhanh cuoi cung cua gateway that).
     assert "gemini" in fake.attempts
@@ -122,12 +138,15 @@ def test_both_configured_providers_fail_falls_through_to_demo(monkeypatch):
 
 # --- Circuit OPEN / HALF_OPEN (da co tu truoc, xac nhan lai o day) --------
 
+
 def test_circuit_opens_after_repeated_real_exception_failures(monkeypatch):
     fake = _ConfigurableFailureProvider({"gemini": "timeout"})
     gateway = _patch_chain(monkeypatch, fake, chain=("gemini", "groq", "groq"))
     for i in range(cb._FAILURE_THRESHOLD):
         fake.attempts.clear()
-        "".join(gateway.stream_generate(prompt=f"vòng {i}", user_id="u1", role="Sinh viên", request_type="advisor_chat"))
+        "".join(
+            gateway.stream_generate(prompt=f"vòng {i}", user_id="u1", role="Sinh viên", request_type="advisor_chat")
+        )
     assert cb.get_state("gemini") == cb.STATE_OPEN
 
     fake.attempts.clear()
@@ -146,7 +165,11 @@ def test_half_open_probe_success_closes_circuit(monkeypatch):
         # trùng sẽ bị cache hit từ lượt "demo" thành công của 1 test TRƯỚC
         # đó, khiến fake provider không được gọi lại (đúng lỗi P0 đã fix ở
         # phiên trước, nay lại làm sai LỆCH kết quả TEST nếu không cẩn thận).
-        "".join(gateway.stream_generate(prompt=f"half-open-success vòng {i}", user_id="u1", role="Sinh viên", request_type="advisor_chat"))
+        "".join(
+            gateway.stream_generate(
+                prompt=f"half-open-success vòng {i}", user_id="u1", role="Sinh viên", request_type="advisor_chat"
+            )
+        )
     assert cb.get_state("gemini") == cb.STATE_OPEN
 
     # gemini het loi (mo phong provider da hoi phuc that)
@@ -157,7 +180,11 @@ def test_half_open_probe_success_closes_circuit(monkeypatch):
     real_monotonic = _time.monotonic
     monkeypatch.setattr(_time, "monotonic", lambda: real_monotonic() + cb._COOLDOWN_SECONDS + 1)
     fake.attempts.clear()
-    answer = "".join(gateway.stream_generate(prompt="half-open-success thu lai sau cooldown", user_id="u1", role="Sinh viên", request_type="advisor_chat"))
+    answer = "".join(
+        gateway.stream_generate(
+            prompt="half-open-success thu lai sau cooldown", user_id="u1", role="Sinh viên", request_type="advisor_chat"
+        )
+    )
     assert "gemini" in fake.attempts, "HALF_OPEN phai cho thu lai provider."
     assert "Câu trả lời thật từ gemini." in answer
     assert cb.get_state("gemini") == cb.STATE_CLOSED
@@ -169,7 +196,11 @@ def test_half_open_probe_failure_reopens_circuit_immediately(monkeypatch):
     fake = _ConfigurableFailureProvider({"gemini": "timeout"})
     gateway = _patch_chain(monkeypatch, fake, chain=("gemini", "groq", "groq"))
     for i in range(cb._FAILURE_THRESHOLD):
-        "".join(gateway.stream_generate(prompt=f"half-open-failure vòng {i}", user_id="u1", role="Sinh viên", request_type="advisor_chat"))
+        "".join(
+            gateway.stream_generate(
+                prompt=f"half-open-failure vòng {i}", user_id="u1", role="Sinh viên", request_type="advisor_chat"
+            )
+        )
     assert cb.get_state("gemini") == cb.STATE_OPEN
 
     # circuit_breaker.py dung time.monotonic() (KHONG PHAI time.time()) de
@@ -178,7 +209,11 @@ def test_half_open_probe_failure_reopens_circuit_immediately(monkeypatch):
     monkeypatch.setattr(_time, "monotonic", lambda: real_monotonic() + cb._COOLDOWN_SECONDS + 1)
     fake.attempts.clear()
     # gemini van loi (probe that bai)
-    "".join(gateway.stream_generate(prompt="half-open-failure probe fail", user_id="u1", role="Sinh viên", request_type="advisor_chat"))
+    "".join(
+        gateway.stream_generate(
+            prompt="half-open-failure probe fail", user_id="u1", role="Sinh viên", request_type="advisor_chat"
+        )
+    )
     assert "gemini" in fake.attempts, (
         "Phai THAT SU vao duoc HALF_OPEN va thu lai gemini (khong phai circuit "
         "chi don gian chua bao gio roi khoi OPEN)."

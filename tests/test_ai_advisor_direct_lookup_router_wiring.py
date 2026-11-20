@@ -2,6 +2,7 @@
 ai_router.build_direct_data_lookup_reply() trong luồng chat, chặn LLM cho
 câu hỏi tra cứu dữ liệu trực tiếp (source-inspection, cùng quy ước với các
 test wiring khác trong phiên này)."""
+
 from __future__ import annotations
 
 import inspect
@@ -26,7 +27,7 @@ def test_direct_lookup_uses_only_the_current_authenticated_students_own_row():
     student_id nào khác đọc từ nội dung câu hỏi) — an toàn cross-student."""
     source = inspect.getsource(ai_advisor.ai_advisor_tab)
     idx = source.index("student_row=student_data_llm_filtered")
-    block = source[max(0, idx - 200): idx + 50]
+    block = source[max(0, idx - 200) : idx + 50]
     assert "_question" in block
 
 
@@ -34,5 +35,5 @@ def test_direct_lookup_included_in_short_circuit_condition():
     source = inspect.getsource(ai_advisor.ai_advisor_tab)
     assert "_gpa_reply or _regulation_reply or _rule_check_reply or _direct_lookup_reply" in source
     idx_short_circuit = source.index("if _router_short_circuit_reply is not None:")
-    block = source[idx_short_circuit: idx_short_circuit + 400]
+    block = source[idx_short_circuit : idx_short_circuit + 400]
     assert "st.rerun()" in block

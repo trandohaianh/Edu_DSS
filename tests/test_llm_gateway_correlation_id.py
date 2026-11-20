@@ -3,6 +3,7 @@
 phải kèm 1 "Mã sự cố" (correlation ID) ngắn, để Admin/hỗ trợ tra được đúng
 log kỹ thuật của lượt gọi đó — mà KHÔNG lộ bất kỳ chi tiết kỹ thuật nào
 (exception message, API key, path) ra UI."""
+
 from __future__ import annotations
 
 import re
@@ -28,9 +29,14 @@ def test_no_configured_provider_error_includes_correlation_id(monkeypatch):
     monkeypatch.setenv("DSS_FALLBACK_2", "openai")
 
     gateway = LLMGateway(llm_integration=None)
-    full_answer = "".join(gateway.stream_generate(
-        prompt="Câu hỏi bất kỳ", user_id="sv_test", role="Sinh viên", request_type="advisor_chat",
-    ))
+    full_answer = "".join(
+        gateway.stream_generate(
+            prompt="Câu hỏi bất kỳ",
+            user_id="sv_test",
+            role="Sinh viên",
+            request_type="advisor_chat",
+        )
+    )
 
     assert "Mã sự cố: AI-" in full_answer
     correlation_id = re.search(r"Mã sự cố: AI-([0-9a-f]{8})", full_answer)
@@ -52,9 +58,14 @@ def test_correlation_id_error_message_leaks_no_technical_detail(monkeypatch):
     monkeypatch.setenv("DSS_FALLBACK_2", "openai")
 
     gateway = LLMGateway(llm_integration=None)
-    full_answer = "".join(gateway.stream_generate(
-        prompt="Câu hỏi bất kỳ", user_id="sv_test", role="Sinh viên", request_type="advisor_chat",
-    ))
+    full_answer = "".join(
+        gateway.stream_generate(
+            prompt="Câu hỏi bất kỳ",
+            user_id="sv_test",
+            role="Sinh viên",
+            request_type="advisor_chat",
+        )
+    )
 
     lowered = full_answer.lower()
     for leak in ("traceback", "site-packages", "d:\\klt", "api_key=", "secret", ".py\", line"):

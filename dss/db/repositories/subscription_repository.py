@@ -4,6 +4,7 @@ Real existing runtime being cut over: `dss/services/subscription_service.py`
 (single JSON file, `data_warehouse/subscription.json`). Wired behind
 `dss.core.persistence_config.is_postgres_enabled("SUBSCRIPTION")`.
 """
+
 from __future__ import annotations
 
 from datetime import date, datetime
@@ -52,14 +53,18 @@ def get_or_create_subscription(organization_id: int, defaults: Optional[dict[str
         return _row_to_dict(session, row)
 
 
-def update_status(organization_id: int, status: str, plan: Optional[str] = None, max_students: Optional[int] = None) -> dict[str, Any]:
+def update_status(
+    organization_id: int, status: str, plan: Optional[str] = None, max_students: Optional[int] = None
+) -> dict[str, Any]:
     valid_statuses = ("ACTIVE", "EXPIRED", "SUSPENDED")
     if status not in valid_statuses:
         raise ValueError(f"Trạng thái không hợp lệ: {status}. Hợp lệ: {valid_statuses}")
     with tenant_session_scope(organization_id) as session:
         row = session.query(Subscription).filter_by(organization_id=organization_id).one_or_none()
         if row is None:
-            raise ValueError(f"No subscription row for organization {organization_id} — call get_or_create_subscription first")
+            raise ValueError(
+                f"No subscription row for organization {organization_id} — call get_or_create_subscription first"
+            )
         row.status = status
         if plan:
             row.plan = plan

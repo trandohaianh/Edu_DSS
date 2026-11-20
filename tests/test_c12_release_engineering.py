@@ -1,6 +1,7 @@
 """C1.2 release engineering: schema contract, release identity, operator endpoints,
 readiness semantics, migration pre-check, release manifest verification, release-gate
 exit codes, and the artifact/deploy contracts. No network, no Docker, no provider keys."""
+
 from __future__ import annotations
 
 import hashlib
@@ -34,6 +35,7 @@ def _heads_by_scanning_migration_files() -> set[str]:
 
 def test_schema_contract_head_is_derived_from_the_migration_graph():
     from dss.db import schema_contract
+
     assert set(schema_contract.expected_heads()) == _heads_by_scanning_migration_files()
     assert len(schema_contract.expected_heads()) == 1
     assert schema_contract.expected_head() == schema_contract.expected_heads()[0]
@@ -42,10 +44,12 @@ def test_schema_contract_head_is_derived_from_the_migration_graph():
 def test_schema_contract_tables_come_from_metadata():
     from dss.db import schema_contract
     from dss.db.base import Base
+
     tables = schema_contract.expected_tables()
     assert "alembic_version" in tables
     assert set(Base.metadata.tables) <= tables
     from dss.platform.models import PlatformBase
+
     assert tables == frozenset(set(Base.metadata.tables) | set(PlatformBase.metadata.tables) | {"alembic_version"})
 
 
@@ -78,6 +82,7 @@ def test_no_hard_coded_schema_snapshot_in_ci_or_backup_test():
 
 def test_schema_report_flags_empty_and_stale_databases(monkeypatch):
     from dss.db import schema_contract as sc
+
     head = list(sc.expected_heads())
     monkeypatch.setattr(sc, "database_tables", lambda engine: set())
     monkeypatch.setattr(sc, "database_revisions", lambda engine: [])
@@ -106,6 +111,7 @@ def test_release_identity_is_canonical_and_contains_no_secrets(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "sk-" + "x" * 40)
     monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg2://u:secretpw@db:5432/x")
     from dss.core import release
+
     release._git_sha.cache_clear()
     ident = release.release_identity()
     version = (APP / "VERSION").read_text(encoding="utf-8").strip()
@@ -115,6 +121,7 @@ def test_release_identity_is_canonical_and_contains_no_secrets(monkeypatch):
     assert ident["git_sha"] == "a" * 40
     assert ident["build_time"] == "2026-01-01T00:00:00Z"
     from dss.db.schema_contract import expected_heads
+
     assert ident["alembic_head"] == list(expected_heads())
     lock = APP / "requirements.lock.txt"
     assert ident["dependency_lock"] == "sha256:" + hashlib.sha256(lock.read_bytes()).hexdigest()
@@ -128,6 +135,7 @@ def test_release_identity_is_canonical_and_contains_no_secrets(monkeypatch):
 
 def test_rag_config_version_is_stable_and_sensitive_to_config(monkeypatch):
     from dss.core import release
+
     first = release.rag_config_version()
     assert first == release.rag_config_version()
     monkeypatch.setattr(release, "EMBEDDING_DIM", 768)
@@ -137,10 +145,13 @@ def test_rag_config_version_is_stable_and_sensitive_to_config(monkeypatch):
 # ------------------------------------------------------------------ readiness semantics
 def _stub_readiness(monkeypatch, **overrides):
     from dss.core import health_diagnostics as hd
+
     ready = {"status": "ready", "required": True}
     defaults = {
         "production_configuration_diagnostic": {"status": "ready", "required": False},
-        "postgres_diagnostic": ready, "pgvector_diagnostic": ready, "migration_diagnostic": ready,
+        "postgres_diagnostic": ready,
+        "pgvector_diagnostic": ready,
+        "migration_diagnostic": ready,
         "ai_configuration_diagnostic": {"status": "not_configured", "required": False},
         "model_artifact_diagnostic": {"status": "not_available", "required": False},
         "privacy_key_diagnostic": {"status": "ready", "required": False},
@@ -158,12 +169,18 @@ def test_readiness_does_not_depend_on_optional_ai_providers(monkeypatch):
     assert result["checks"]["ai_configuration"] == {"status": "not_configured", "required": False}
 
 
-@pytest.mark.parametrize("check,value", [
-    ("migration_diagnostic", {"status": "incompatible", "required": True}),
-    ("production_configuration_diagnostic", {"status": "incomplete", "required": True, "missing": ["EDUDSS_PSEUDONYM_KEY"]}),
-    ("privacy_key_diagnostic", {"status": "not_configured", "required": True}),
-    ("postgres_diagnostic", {"status": "unavailable", "required": True}),
-])
+@pytest.mark.parametrize(
+    "check,value",
+    [
+        ("migration_diagnostic", {"status": "incompatible", "required": True}),
+        (
+            "production_configuration_diagnostic",
+            {"status": "incomplete", "required": True, "missing": ["EDUDSS_PSEUDONYM_KEY"]},
+        ),
+        ("privacy_key_diagnostic", {"status": "not_configured", "required": True}),
+        ("postgres_diagnostic", {"status": "unavailable", "required": True}),
+    ],
+)
 def test_readiness_fails_on_required_dependency(monkeypatch, check, value):
     hd = _stub_readiness(monkeypatch, **{check: value})
     assert hd.readiness()["status"] == "not_ready"
@@ -171,6 +188,7 @@ def test_readiness_fails_on_required_dependency(monkeypatch, check, value):
 
 def test_production_configuration_reports_names_only(monkeypatch):
     from dss.core import health_diagnostics as hd
+
     monkeypatch.setenv("EDUDSS_ENV", "production")
     monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg2://u:pw@h/db")
     monkeypatch.delenv("EDUDSS_ORGANIZATION_ID", raising=False)
@@ -184,13 +202,20 @@ def test_production_configuration_reports_names_only(monkeypatch):
 def test_migration_diagnostic_detects_incompatible_schema(monkeypatch):
     from dss.core import health_diagnostics as hd
     from dss.db import schema_contract, session
+
     monkeypatch.setattr(session, "is_database_configured", lambda: True)
     monkeypatch.setattr(session, "get_engine", lambda: object())
-    monkeypatch.setattr(schema_contract, "schema_report",
-                        lambda engine: {"compatible": False, "database_revision": ["old"], "expected_head": ["new"]})
+    monkeypatch.setattr(
+        schema_contract,
+        "schema_report",
+        lambda engine: {"compatible": False, "database_revision": ["old"], "expected_head": ["new"]},
+    )
     assert hd.migration_diagnostic()["status"] == "incompatible"
-    monkeypatch.setattr(schema_contract, "schema_report",
-                        lambda engine: {"compatible": True, "database_revision": ["new"], "expected_head": ["new"]})
+    monkeypatch.setattr(
+        schema_contract,
+        "schema_report",
+        lambda engine: {"compatible": True, "database_revision": ["new"], "expected_head": ["new"]},
+    )
     assert hd.migration_diagnostic()["status"] == "ready"
 
 
@@ -219,6 +244,7 @@ def test_release_gate_retries_on_transient_postgres_startup_errors(monkeypatch):
 @pytest.fixture()
 def health_server(monkeypatch):
     from dss.core import health_server as hs
+
     monkeypatch.setattr(hs, "_CACHE_SECONDS", 0)
     hs._cache.clear()
     server = hs.serve(port=0, host="127.0.0.1")
@@ -241,6 +267,7 @@ def test_livez_reflects_only_the_ui_process(health_server, monkeypatch):
     hs, base = health_server
     monkeypatch.setattr(hs, "streamlit_alive", lambda: True)
     from dss.core import health_diagnostics
+
     monkeypatch.setattr(health_diagnostics, "readiness", lambda: pytest.fail("livez must not check dependencies"))
     code, headers, body = _get(base + "/livez")
     assert code == 200 and body["status"] == "alive"
@@ -252,13 +279,17 @@ def test_livez_reflects_only_the_ui_process(health_server, monkeypatch):
 def test_readyz_status_codes(health_server, monkeypatch):
     hs, base = health_server
     from dss.core import health_diagnostics
+
     monkeypatch.setattr(hs, "streamlit_alive", lambda: True)
     monkeypatch.setattr(health_diagnostics, "readiness", lambda: {"status": "ready", "checks": {}})
     code, _, body = _get(base + "/readyz")
     assert code == 200 and body["status"] == "ready" and "environment" in body
     hs._cache.clear()
-    monkeypatch.setattr(health_diagnostics, "readiness",
-                        lambda: {"status": "not_ready", "checks": {"migrations": {"status": "incompatible"}}})
+    monkeypatch.setattr(
+        health_diagnostics,
+        "readiness",
+        lambda: {"status": "not_ready", "checks": {"migrations": {"status": "incompatible"}}},
+    )
     assert _get(base + "/readyz")[0] == 503
     hs._cache.clear()
     monkeypatch.setattr(health_diagnostics, "readiness", lambda: {"status": "ready", "checks": {}})
@@ -270,8 +301,9 @@ def test_readyz_status_codes(health_server, monkeypatch):
 def test_version_endpoint_and_unknown_route(health_server, monkeypatch):
     hs, base = health_server
     from dss.core import release
+
     monkeypatch.setattr(release, "runtime_state", lambda: {"database": None})
-    release.release_identity()   # warm the heavy dss.config import outside the HTTP timeout
+    release.release_identity()  # warm the heavy dss.config import outside the HTTP timeout
     code, _, body = _get(base + "/version")
     assert code == 200 and body["release"]["product"] == "EduDSS"
     assert _get(base + "/nope")[0] == 404
@@ -292,6 +324,7 @@ def test_probe_cli_exit_codes(health_server, monkeypatch, capsys):
 # ------------------------------------------------------------------ migration pre-check
 def _load_tool(name):
     import importlib.util
+
     spec = importlib.util.spec_from_file_location(name, APP / "tools" / f"{name}.py")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -299,8 +332,9 @@ def _load_tool(name):
 
 
 def test_migration_precheck_refuses_unknown_revision(monkeypatch, capsys):
-    from ops import migration_check as mc
     from dss.db.schema_contract import expected_heads
+    from ops import migration_check as mc
+
     base = {"expected_head": list(expected_heads()), "missing_tables": [], "unexpected_tables": [], "pending": []}
     monkeypatch.setattr(mc, "status", lambda: {**base, "database_revision": ["ffffffffffff"], "at_head": False})
     assert mc.precheck() == 2
@@ -313,6 +347,7 @@ def test_migration_precheck_refuses_unknown_revision(monkeypatch, capsys):
 
 def test_migration_roundtrip_refused_without_confirmation_or_in_production(monkeypatch):
     from ops import migration_check as mc
+
     monkeypatch.setattr(mc, "_engine", lambda: pytest.fail("must not connect"))
     assert mc.roundtrip(False) == 2
     monkeypatch.setenv("EDUDSS_ENV", "production")
@@ -321,6 +356,7 @@ def test_migration_roundtrip_refused_without_confirmation_or_in_production(monke
 
 def test_downgrade_audit_marks_destructive_migrations():
     from ops import migration_check as mc
+
     audit = mc.pending_revisions([])
     assert audit, "every migration must be listed for an empty database"
     assert any(item["downgrade_destroys_data"] for item in audit)
@@ -329,8 +365,14 @@ def test_downgrade_audit_marks_destructive_migrations():
 # ------------------------------------------------------------------ release manifest
 def test_release_manifest_verify_detects_mismatch():
     rm = _load_tool("release_manifest")
-    release = {"version": "1.0.0-rc.1", "git_sha": "abc", "dependency_lock": "sha256:1", "alembic_head": ["h"],
-               "config_schema_version": "2", "rag_config_version": "ragcfg-1"}
+    release = {
+        "version": "1.0.0-rc.1",
+        "git_sha": "abc",
+        "dependency_lock": "sha256:1",
+        "alembic_head": ["h"],
+        "config_schema_version": "2",
+        "rag_config_version": "ragcfg-1",
+    }
     manifest = {"release": release}
     good = {"release": dict(release), "runtime": {"database": {"at_head": True}}}
     assert rm.verify(manifest, good) == []
@@ -364,6 +406,7 @@ def test_release_gate_returns_nonzero_when_a_mandatory_gate_fails(monkeypatch, t
             if name == "container_smoke":
                 ctx["app_port"] = 1
             return True, {}
+
         return gate
 
     for name in rg.MANDATORY + rg.ADVISORY:
@@ -373,7 +416,7 @@ def test_release_gate_returns_nonzero_when_a_mandatory_gate_fails(monkeypatch, t
     monkeypatch.setitem(rg.GATES, "migrations", lambda ctx: (False, {}))
     assert rg.main([]) == 1
     monkeypatch.setitem(rg.GATES, "migrations", passing("migrations"))
-    monkeypatch.setitem(rg.GATES, "dependency_audit", lambda ctx: (None, {}))   # advisory, offline
+    monkeypatch.setitem(rg.GATES, "dependency_audit", lambda ctx: (None, {}))  # advisory, offline
     assert rg.main([]) == 0
     summary = json.loads(sorted((tmp_path / "reports" / "release_gate").glob("release-gate-*.json"))[-1].read_text())
     assert summary["gates"]["dependency_audit"]["status"] == "UNAVAILABLE"
@@ -390,15 +433,21 @@ def test_dockerfile_pins_base_by_digest_and_enforces_the_lock():
 
 
 def test_lock_is_fully_pinned_and_cpu_only():
-    lines = [l.strip() for l in (APP / "requirements.lock.txt").read_text(encoding="utf-8").splitlines()
-             if l.strip() and not l.startswith("#")]
+    lines = [
+        l.strip()
+        for l in (APP / "requirements.lock.txt").read_text(encoding="utf-8").splitlines()
+        if l.strip() and not l.startswith("#")
+    ]
     assert len(lines) > 50
     assert all(re.fullmatch(r"[A-Za-z0-9_.\-\[\]]+==[^=\s]+", l) for l in lines), "every entry must be an exact pin"
     names = {l.split("==")[0].lower() for l in lines}
     assert not any(n.startswith(("nvidia-", "triton")) for n in names)
     assert "torch==2.10.0+cpu" in lines
-    direct = [l for l in (APP / "requirements.txt").read_text(encoding="utf-8").splitlines()
-              if l.strip() and not l.startswith(("#", "-"))]
+    direct = [
+        l
+        for l in (APP / "requirements.txt").read_text(encoding="utf-8").splitlines()
+        if l.strip() and not l.startswith(("#", "-"))
+    ]
     for req in direct:
         name = re.split(r"[<>=!~\[; ]", req.strip(), 1)[0].lower().replace("_", "-")
         assert name in {n.replace("_", "-") for n in names}, f"{name} missing from lock"
@@ -407,7 +456,7 @@ def test_lock_is_fully_pinned_and_cpu_only():
 def test_production_compose_runs_one_immutable_image_and_never_builds():
     compose = (APP / "deploy" / "production" / "docker-compose.prod.yml").read_text(encoding="utf-8")
     assert "build:" not in compose
-    assert compose.count("image: ${EDUDSS_IMAGE:?") == 2   # migrate + app: same artifact
+    assert compose.count("image: ${EDUDSS_IMAGE:?") == 2  # migrate + app: same artifact
     assert "ops.migration_check precheck" in compose
     deploy = (APP / "deploy" / "production" / "remote_deploy.sh").read_text(encoding="utf-8")
     assert "@sha256:" in deploy and "refusing mutable image reference" in deploy

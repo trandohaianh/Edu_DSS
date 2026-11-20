@@ -1,6 +1,7 @@
 """dss/db/repositories/cms_repository.py — real PostgreSQL integration tests
 (Phase 1B, migration order item 10). Skipped (not faked) without a database.
 """
+
 from __future__ import annotations
 
 import uuid
@@ -30,13 +31,30 @@ def org_id():
 
 def _sample_lesson(lesson_id="lesson_x", course_id="CS301"):
     return {
-        "lesson_id": lesson_id, "course_id": course_id, "topic_id": "clustering",
-        "lecturer_id": "gv001", "title": "K-Means", "learning_outcome": "Hieu K-Means",
-        "difficulty": "Standard", "ai_enabled": True, "official_source": True,
-        "current_document_id": "doc_1", "supplementary_allowed": False,
-        "socratic_allowed": True, "quiz_allowed": True, "quiz_requires_approval": True,
+        "lesson_id": lesson_id,
+        "course_id": course_id,
+        "topic_id": "clustering",
+        "lecturer_id": "gv001",
+        "title": "K-Means",
+        "learning_outcome": "Hieu K-Means",
+        "difficulty": "Standard",
+        "ai_enabled": True,
+        "official_source": True,
+        "current_document_id": "doc_1",
+        "supplementary_allowed": False,
+        "socratic_allowed": True,
+        "quiz_allowed": True,
+        "quiz_requires_approval": True,
         "excluded_document_ids": [],
-        "versions": [{"document_id": "doc_1", "version": 1, "uploaded_at": "2026-01-01T00:00:00Z", "uploaded_by": "gv001", "source_file": "slide.pdf"}],
+        "versions": [
+            {
+                "document_id": "doc_1",
+                "version": 1,
+                "uploaded_at": "2026-01-01T00:00:00Z",
+                "uploaded_by": "gv001",
+                "source_file": "slide.pdf",
+            }
+        ],
     }
 
 
@@ -70,7 +88,9 @@ def test_lesson_versions_are_synced(org_id):
 def test_upsert_quiz_stores_questions_as_json(org_id):
     lesson_row_id = repo.upsert_lesson(org_id, _sample_lesson())
     quiz = {
-        "queue_id": "q1", "course_id": "CS301", "status": "PENDING_LECTURER_APPROVAL",
+        "queue_id": "q1",
+        "course_id": "CS301",
+        "status": "PENDING_LECTURER_APPROVAL",
         "blueprint": {"questions": [{"question_text": "What is K?", "options": ["A", "B"], "correct_answer_index": 0}]},
     }
     quiz_id = repo.upsert_quiz(org_id, lesson_row_id, "q1", quiz)
@@ -78,6 +98,7 @@ def test_upsert_quiz_stores_questions_as_json(org_id):
 
     from dss.db.models import CmsQuiz
     from dss.db.session import session_scope
+
     with session_scope() as session:
         row = session.get(CmsQuiz, quiz_id)
         assert len(row.questions) == 1
@@ -85,11 +106,20 @@ def test_upsert_quiz_stores_questions_as_json(org_id):
 
 
 def test_record_interaction_and_count(org_id):
-    repo.record_interaction(org_id, {
-        "student_pseudonym": "anon_abc", "course_id": "CS301", "lesson_id": "lesson_x",
-        "topic_id": "clustering", "question": "What is K-Means?", "explanation_level": "Standard",
-        "has_cms_content": True, "misconception_label": None, "quiz_correct": True,
-    })
+    repo.record_interaction(
+        org_id,
+        {
+            "student_pseudonym": "anon_abc",
+            "course_id": "CS301",
+            "lesson_id": "lesson_x",
+            "topic_id": "clustering",
+            "question": "What is K-Means?",
+            "explanation_level": "Standard",
+            "has_cms_content": True,
+            "misconception_label": None,
+            "quiz_correct": True,
+        },
+    )
     assert repo.count_interactions(org_id) == 1
 
 
@@ -106,9 +136,9 @@ def test_interactions_never_store_real_student_identity(org_id):
 def test_import_from_local_empty_stores_is_a_noop(org_id, monkeypatch):
     from dss.services import cms_lecture_repository, learning_explainer
 
-    monkeypatch.setattr(cms_lecture_repository, "list_lessons", lambda: [])
-    monkeypatch.setattr(learning_explainer, "_load_quiz_queue", lambda: [])
-    monkeypatch.setattr(learning_explainer, "_load_interaction_log", lambda: [])
+    monkeypatch.setattr(cms_lecture_repository, "list_lessons", list)
+    monkeypatch.setattr(learning_explainer, "_load_quiz_queue", list)
+    monkeypatch.setattr(learning_explainer, "_load_interaction_log", list)
 
     result = repo.import_from_local(org_id)
     assert result == {"lessons_imported": 0, "quizzes_imported": 0, "interactions_imported": 0}
@@ -119,8 +149,8 @@ def test_import_from_local_is_idempotent_for_lessons(org_id, monkeypatch):
 
     lesson = cms_lecture_repository.CMSLesson.from_dict(_sample_lesson())
     monkeypatch.setattr(cms_lecture_repository, "list_lessons", lambda: [lesson])
-    monkeypatch.setattr(learning_explainer, "_load_quiz_queue", lambda: [])
-    monkeypatch.setattr(learning_explainer, "_load_interaction_log", lambda: [])
+    monkeypatch.setattr(learning_explainer, "_load_quiz_queue", list)
+    monkeypatch.setattr(learning_explainer, "_load_interaction_log", list)
 
     first = repo.import_from_local(org_id)
     second = repo.import_from_local(org_id)
@@ -133,12 +163,20 @@ def test_import_from_local_skips_quiz_with_no_matching_lesson(org_id, monkeypatc
     present in this import batch is skipped, not guessed at or crashed on."""
     from dss.services import cms_lecture_repository, learning_explainer
 
-    monkeypatch.setattr(cms_lecture_repository, "list_lessons", lambda: [])
+    monkeypatch.setattr(cms_lecture_repository, "list_lessons", list)
     monkeypatch.setattr(
-        learning_explainer, "_load_quiz_queue",
-        lambda: [{"queue_id": "q_orphan", "lesson_id": "no_such_lesson", "course_id": "CS301", "status": "PENDING_LECTURER_APPROVAL"}],
+        learning_explainer,
+        "_load_quiz_queue",
+        lambda: [
+            {
+                "queue_id": "q_orphan",
+                "lesson_id": "no_such_lesson",
+                "course_id": "CS301",
+                "status": "PENDING_LECTURER_APPROVAL",
+            }
+        ],
     )
-    monkeypatch.setattr(learning_explainer, "_load_interaction_log", lambda: [])
+    monkeypatch.setattr(learning_explainer, "_load_interaction_log", list)
 
     result = repo.import_from_local(org_id)
     assert result["quizzes_imported"] == 0  # orphaned quiz skipped, not crashed on
@@ -147,10 +185,11 @@ def test_import_from_local_skips_quiz_with_no_matching_lesson(org_id, monkeypatc
 def test_import_from_local_interactions_are_append_only_on_repeat(org_id, monkeypatch):
     from dss.services import cms_lecture_repository, learning_explainer
 
-    monkeypatch.setattr(cms_lecture_repository, "list_lessons", lambda: [])
-    monkeypatch.setattr(learning_explainer, "_load_quiz_queue", lambda: [])
+    monkeypatch.setattr(cms_lecture_repository, "list_lessons", list)
+    monkeypatch.setattr(learning_explainer, "_load_quiz_queue", list)
     monkeypatch.setattr(
-        learning_explainer, "_load_interaction_log",
+        learning_explainer,
+        "_load_interaction_log",
         lambda: [{"student_pseudonym": "anon_1", "course_id": "CS301", "question": "Q1"}],
     )
 
@@ -172,8 +211,8 @@ def test_import_from_local_never_cross_assigns_tenant(org_id, monkeypatch):
 
     lesson = cms_lecture_repository.CMSLesson.from_dict(_sample_lesson())
     monkeypatch.setattr(cms_lecture_repository, "list_lessons", lambda: [lesson])
-    monkeypatch.setattr(learning_explainer, "_load_quiz_queue", lambda: [])
-    monkeypatch.setattr(learning_explainer, "_load_interaction_log", lambda: [])
+    monkeypatch.setattr(learning_explainer, "_load_quiz_queue", list)
+    monkeypatch.setattr(learning_explainer, "_load_interaction_log", list)
 
     repo.import_from_local(org_id)
     assert len(repo.list_lessons(org_id)) == 1

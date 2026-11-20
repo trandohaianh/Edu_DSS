@@ -14,6 +14,7 @@ Two layers, deliberately separate:
 
 Neither contains secrets, credentials, hostnames or filesystem paths.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -30,7 +31,7 @@ LOCK_FILE = APP_ROOT / "requirements.lock.txt"
 
 # Version of the environment-variable contract (dss/core/runtime_mode.py + deploy/production).
 # Bump when a required variable is added/renamed so operators can match config to release.
-CONFIG_SCHEMA_VERSION = "2"   # 1 = pre-C1.1, 2 = EDUDSS_ENV + EDUDSS_PSEUDONYM_KEY contract
+CONFIG_SCHEMA_VERSION = "2"  # 1 = pre-C1.1, 2 = EDUDSS_ENV + EDUDSS_PSEUDONYM_KEY contract
 
 LEGACY_EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 # Mô hình đa ngôn ngữ cùng số chiều (384) nên dùng chung bảng pgvector/Chroma; phải RE-INDEX khi đổi
@@ -61,10 +62,16 @@ def _git_sha() -> str:
     if baked:
         return baked
     try:
-        sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=APP_ROOT, capture_output=True,
-                             text=True, timeout=5, check=True).stdout.strip()
-        dirty = subprocess.run(["git", "status", "--porcelain", "--untracked-files=no"], cwd=APP_ROOT,
-                               capture_output=True, text=True, timeout=5).stdout.strip()
+        sha = subprocess.run(
+            ["git", "rev-parse", "HEAD"], cwd=APP_ROOT, capture_output=True, text=True, timeout=5, check=True
+        ).stdout.strip()
+        dirty = subprocess.run(
+            ["git", "status", "--porcelain", "--untracked-files=no"],
+            cwd=APP_ROOT,
+            capture_output=True,
+            text=True,
+            timeout=5,
+        ).stdout.strip()
         return sha + ("+dirty" if dirty else "")
     except (OSError, subprocess.SubprocessError):
         return "unknown"
@@ -79,6 +86,7 @@ def _file_fingerprint(path: Path) -> Optional[str]:
 
 def rag_configuration() -> Dict[str, Any]:
     from dss import config as dss_config
+
     return {
         "embedding_model": EMBEDDING_MODEL,
         "embedding_dim": EMBEDDING_DIM,
@@ -96,11 +104,14 @@ def rag_config_version() -> str:
 
 def release_identity() -> Dict[str, Any]:
     from dss.db.schema_contract import expected_heads
+
     version = app_version()
     return {
         "product": "EduDSS",
         "version": version,
-        "release_channel": "release-candidate" if "-rc" in version else ("development" if "+" in version else "release"),
+        "release_channel": "release-candidate"
+        if "-rc" in version
+        else ("development" if "+" in version else "release"),
         "git_sha": _git_sha(),
         "build_time": os.environ.get("EDUDSS_BUILD_TIME", "").strip() or "unbuilt (developer checkout)",
         "image": os.environ.get("EDUDSS_IMAGE_REF", "").strip() or None,
@@ -116,6 +127,7 @@ def _production_models() -> Dict[str, str]:
     """{dataset::target -> training_id} of models promoted to production in THIS deployment."""
     try:
         from dss.core.data_root import get_data_root
+
         path = get_data_root() / "metadata" / "_production_index.json"
         data = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
         return {str(k): str(v) for k, v in data.items()} if isinstance(data, dict) else {}
@@ -125,29 +137,39 @@ def _production_models() -> Dict[str, str]:
 
 def _rag_index_fingerprint(engine) -> Dict[str, Any]:
     from sqlalchemy import text
+
     org = os.environ.get("EDUDSS_ORGANIZATION_ID", "").strip()
     with engine.begin() as conn:
         if org:
             conn.execute(text("SET LOCAL app.organization_id = :o"), {"o": org})
-        rows = conn.execute(text(
-            "SELECT document_id, COALESCE(content_hash, ''), status FROM rag_documents "
-            "WHERE is_current ORDER BY document_id")).fetchall()
+        rows = conn.execute(
+            text(
+                "SELECT document_id, COALESCE(content_hash, ''), status FROM rag_documents "
+                "WHERE is_current ORDER BY document_id"
+            )
+        ).fetchall()
     approved = [r for r in rows if r[2] == "APPROVED"]
     digest = hashlib.sha256("|".join(f"{r[0]}:{r[1]}" for r in approved).encode("utf-8")).hexdigest()[:16]
-    return {"documents_current": len(rows), "documents_approved": len(approved),
-            "approved_fingerprint": f"rag-{digest}" if approved else None}
+    return {
+        "documents_current": len(rows),
+        "documents_approved": len(approved),
+        "approved_fingerprint": f"rag-{digest}" if approved else None,
+    }
 
 
 def runtime_state() -> Dict[str, Any]:
     state: Dict[str, Any] = {"production_models": _production_models(), "database": None, "rag_index": None}
     try:
         from dss.db.session import get_engine, is_database_configured
+
         if is_database_configured():
             from dss.db.schema_contract import schema_report
+
             engine = get_engine()
             report = schema_report(engine)
-            state["database"] = {k: report[k] for k in ("database_revision", "expected_head", "at_head",
-                                                          "missing_tables", "compatible")}
+            state["database"] = {
+                k: report[k] for k in ("database_revision", "expected_head", "at_head", "missing_tables", "compatible")
+            }
             try:
                 state["rag_index"] = _rag_index_fingerprint(engine)
             except Exception:

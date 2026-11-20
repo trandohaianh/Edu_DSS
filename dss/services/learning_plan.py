@@ -2,24 +2,30 @@
 
 Recommendations and review dates are policy, never measured outcomes.
 """
+
 from __future__ import annotations
 
 import uuid
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
 
 from dss.core.runtime_mode import synthetic_data_allowed
 from dss.services.diagnosis_engine import (
-    CATEGORY_INSUFFICIENT_DATA, CATEGORY_MASTERY_ON_TRACK, diagnosis_engine,
+    CATEGORY_INSUFFICIENT_DATA,
+    CATEGORY_MASTERY_ON_TRACK,
+    diagnosis_engine,
 )
-from dss.services.learning_profile import StudentLearningProfile, observed_number, observed_mapping
+from dss.services.learning_profile import StudentLearningProfile, observed_mapping, observed_number
 from dss.services.resource_catalog import resource_catalog
 
 _LEGACY_DEMO_RESOURCE_IDS = {
-    "res_math_calc_01", "res_prog_python_01", "res_time_pomodoro_01",
-    "res_db_sql_01", "res_ml_eval_01",
+    "res_math_calc_01",
+    "res_prog_python_01",
+    "res_time_pomodoro_01",
+    "res_db_sql_01",
+    "res_ml_eval_01",
 }
 
 
@@ -40,7 +46,8 @@ def _resource_id_for_topic(item: Any, course_id: str, topic_id: str) -> Optional
     if not isinstance(resource_id, str) or not resource_id.strip():
         return None
     demo = (
-        item.get("is_demo") is True or resource_id in _LEGACY_DEMO_RESOURCE_IDS
+        item.get("is_demo") is True
+        or resource_id in _LEGACY_DEMO_RESOURCE_IDS
         or _key(item.get("data_source")) in {"demo", "synthetic", "seed"}
     )
     if demo and not synthetic_data_allowed():
@@ -58,11 +65,13 @@ def _resource_id_for_topic(item: Any, course_id: str, topic_id: str) -> Optional
 
 def _resources_for_topic(course_id: str, topic_id: str, extra_resources=()) -> List[str]:
     """Return all eligible exact matches in stable order, never a global first N."""
-    return sorted({
-        resource_id
-        for item in [*resource_catalog.list_approved_resources(), *extra_resources]
-        if (resource_id := _resource_id_for_topic(item, course_id, topic_id)) is not None
-    })
+    return sorted(
+        {
+            resource_id
+            for item in [*resource_catalog.list_approved_resources(), *extra_resources]
+            if (resource_id := _resource_id_for_topic(item, course_id, topic_id)) is not None
+        }
+    )
 
 
 @dataclass
@@ -102,17 +111,26 @@ class StudentLearningPlan:
 
 
 class LearningPlanGenerator:
-    def generate_plan(self, profile: StudentLearningProfile, version: int = 1,
-                      validity_days: int = 21, *,
-                      approved_resources: Optional[List[Dict[str, Any]]] = None) -> StudentLearningPlan:
+    def generate_plan(
+        self,
+        profile: StudentLearningProfile,
+        version: int = 1,
+        validity_days: int = 21,
+        *,
+        approved_resources: Optional[List[Dict[str, Any]]] = None,
+    ) -> StudentLearningPlan:
         if isinstance(version, bool) or not isinstance(version, int) or version < 1:
             raise ValueError("version must be a positive integer")
         if isinstance(validity_days, bool) or not isinstance(validity_days, int) or validity_days < 1:
             raise ValueError("validity_days must be a positive integer")
         diagnoses = diagnosis_engine.diagnose_student(profile)
         actionable = [
-            diagnosis for diagnosis in diagnoses
-            if any(hyp.category not in {CATEGORY_INSUFFICIENT_DATA, CATEGORY_MASTERY_ON_TRACK} for hyp in diagnosis.hypotheses)
+            diagnosis
+            for diagnosis in diagnoses
+            if any(
+                hyp.category not in {CATEGORY_INSUFFICIENT_DATA, CATEGORY_MASTERY_ON_TRACK}
+                for hyp in diagnosis.hypotheses
+            )
         ]
         quiz = observed_number(profile.academic.quiz_average, maximum=10)
         assignment = observed_number(profile.academic.assignment_average, maximum=10)
@@ -128,8 +146,10 @@ class LearningPlanGenerator:
 
         evidence = []
         for label, value, suffix in (
-            ("Điểm quiz", quiz, "/10"), ("Điểm bài tập", assignment, "/10"),
-            ("Điểm thi", exam, "/10"), ("Tỷ lệ trả lời đúng", accuracy, ""),
+            ("Điểm quiz", quiz, "/10"),
+            ("Điểm bài tập", assignment, "/10"),
+            ("Điểm thi", exam, "/10"),
+            ("Tỷ lệ trả lời đúng", accuracy, ""),
             ("Tần suất luyện tập", practice, " lần/tuần"),
             ("Thời lượng phiên học quan sát", session, " phút"),
             ("Tốc độ học được ghi nhận", velocity, ""),
@@ -146,7 +166,9 @@ class LearningPlanGenerator:
             strengths.append(f"Điểm quiz được ghi nhận: {quiz:.1f}/10")
         if active is not None and active >= 15:
             strengths.append(f"Có {active} ngày hoạt động được ghi nhận trong tháng")
-        strengths += [f"Chủ đề {topic} có điểm {value:g}/10" for topic, value in sorted(topic_scores.items()) if value >= 7.5]
+        strengths += [
+            f"Chủ đề {topic} có điểm {value:g}/10" for topic, value in sorted(topic_scores.items()) if value >= 7.5
+        ]
         weaknesses = [diagnosis.issue for diagnosis in actionable]
         missing = list(dict.fromkeys(item for diagnosis in diagnoses for item in diagnosis.missing_evidence))
 
@@ -182,31 +204,49 @@ class LearningPlanGenerator:
             resource_ids = _resources_for_topic(profile.course_id, topic, approved_resources or ())
             if not resource_ids:
                 missing.append(f"Học liệu đã duyệt đúng học phần {profile.course_id} và chủ đề {topic}")
-            activities.append(PlanActivity(
-                objective=f"Đánh giá lại và củng cố chủ đề {topic}",
-                method=("Ôn tập học liệu đã duyệt; trao đổi với giảng viên về bài đánh giá lại."
-                        if resource_ids else "Đề nghị giảng viên chọn học liệu và bài đánh giá phù hợp với chủ đề."),
-                duration_minutes=duration if resource_ids else None,
-                frequency_per_week=frequency if resource_ids else None,
-                approved_resource_ids=resource_ids,
-                reason=reason,
-                expected_outcome="Có kết quả đánh giá mới theo cùng chủ đề để xem xét bước học tiếp theo.",
-            ))
+            activities.append(
+                PlanActivity(
+                    objective=f"Đánh giá lại và củng cố chủ đề {topic}",
+                    method=(
+                        "Ôn tập học liệu đã duyệt; trao đổi với giảng viên về bài đánh giá lại."
+                        if resource_ids
+                        else "Đề nghị giảng viên chọn học liệu và bài đánh giá phù hợp với chủ đề."
+                    ),
+                    duration_minutes=duration if resource_ids else None,
+                    frequency_per_week=frequency if resource_ids else None,
+                    approved_resource_ids=resource_ids,
+                    reason=reason,
+                    expected_outcome="Có kết quả đánh giá mới theo cùng chủ đề để xem xét bước học tiếp theo.",
+                )
+            )
         if not activities:
             missing.append("Kết quả đánh giá có gắn chủ đề hoặc chuẩn đầu ra của học phần")
-            activities.append(PlanActivity(
-                objective=f"Thu thập bằng chứng theo chủ đề của học phần {profile.course_id}",
-                method="Đề nghị giảng viên chọn bài đánh giá đầu vào hoặc đánh giá bổ sung theo chủ đề.",
-                duration_minutes=None, frequency_per_week=None, approved_resource_ids=[],
-                reason=("Các quan sát hiện có chưa xác định được chủ đề cần hỗ trợ."
-                        if evidence else "Chưa có quan sát học tập hợp lệ để tạo hoạt động cá nhân hóa."),
-                expected_outcome="Ghi nhận kết quả theo chủ đề trước khi đề xuất học liệu và lịch học.",
-            ))
+            activities.append(
+                PlanActivity(
+                    objective=f"Thu thập bằng chứng theo chủ đề của học phần {profile.course_id}",
+                    method="Đề nghị giảng viên chọn bài đánh giá đầu vào hoặc đánh giá bổ sung theo chủ đề.",
+                    duration_minutes=None,
+                    frequency_per_week=None,
+                    approved_resource_ids=[],
+                    reason=(
+                        "Các quan sát hiện có chưa xác định được chủ đề cần hỗ trợ."
+                        if evidence
+                        else "Chưa có quan sát học tập hợp lệ để tạo hoạt động cá nhân hóa."
+                    ),
+                    expected_outcome="Ghi nhận kết quả theo chủ đề trước khi đề xuất học liệu và lịch học.",
+                )
+            )
 
         metrics: Dict[str, Any] = {}
-        scheduled = [activity for activity in activities if activity.duration_minutes is not None and activity.frequency_per_week is not None]
+        scheduled = [
+            activity
+            for activity in activities
+            if activity.duration_minutes is not None and activity.frequency_per_week is not None
+        ]
         if scheduled and len(scheduled) == len(activities):
-            metrics["weekly_study_hours_target"] = round(sum(activity.duration_minutes * activity.frequency_per_week for activity in scheduled) / 60, 1)
+            metrics["weekly_study_hours_target"] = round(
+                sum(activity.duration_minutes * activity.frequency_per_week for activity in scheduled) / 60, 1
+            )
             metrics["target_practice_sessions_per_week"] = sum(activity.frequency_per_week for activity in scheduled)
             metrics["schedule_policy"] = "observed_baseline_v1_unvalidated"
         used_resource_ids = {resource_id for activity in activities for resource_id in activity.approved_resource_ids}
@@ -215,27 +255,36 @@ class LearningPlanGenerator:
             if not isinstance(item, dict):
                 continue
             resource_id = item.get("resource_id")
-            if isinstance(resource_id, str) and resource_id in used_resource_ids and any(
-                _resource_id_for_topic(item, profile.course_id, topic) == resource_id for topic in targets
+            if (
+                isinstance(resource_id, str)
+                and resource_id in used_resource_ids
+                and any(_resource_id_for_topic(item, profile.course_id, topic) == resource_id for topic in targets)
             ):
                 resource_details[resource_id] = {
-                    key: item[key] for key in ("title", "lesson_id", "document_id")
+                    key: item[key]
+                    for key in ("title", "lesson_id", "document_id")
                     if key in item and isinstance(item[key], str)
                 }
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         return StudentLearningPlan(
-            plan_id=f"plan_{uuid.uuid4().hex[:12]}", student_pseudonym=profile.student_pseudonym,
-            version=version, created_at=now.isoformat(),
+            plan_id=f"plan_{uuid.uuid4().hex[:12]}",
+            student_pseudonym=profile.student_pseudonym,
+            version=version,
+            created_at=now.isoformat(),
             valid_until=(now + timedelta(days=validity_days)).isoformat(),
-            strengths=strengths, weaknesses=weaknesses,
+            strengths=strengths,
+            weaknesses=weaknesses,
             diagnoses=[diagnosis.to_dict() for diagnosis in diagnoses],
-            priority_topics=list(targets), activities=activities,
+            priority_topics=list(targets),
+            activities=activities,
             assessment_plan="Đối chiếu kết quả đánh giá theo chủ đề; giảng viên xác nhận bước hỗ trợ tiếp theo.",
-            success_metrics=metrics, evidence_used=evidence,
+            success_metrics=metrics,
+            evidence_used=evidence,
             # Hằng số legacy để tương thích; không phải độ tin cậy đo được, không hiển thị như phần trăm.
             confidence=0.85,
             next_review_at=(now + timedelta(days=min(14, validity_days))).isoformat(),
-            course_id=profile.course_id, missing_evidence=list(dict.fromkeys(missing)),
+            course_id=profile.course_id,
+            missing_evidence=list(dict.fromkeys(missing)),
             resource_details=resource_details,
         )
 
@@ -257,8 +306,7 @@ class LearningPlanGenerator:
             "Không biến thiếu dữ liệu thành điểm yếu, không bịa nguyên nhân, thời lượng, KPI, URL hoặc kết quả tiến bộ. "
             "Lịch học là đề xuất theo quy tắc, không phải quan sát hay cam kết hiệu quả.\n"
             f"Học phần: {plan.course_id}\nBằng chứng: {'; '.join(plan.evidence_used) or 'Chưa có'}\n"
-            f"Dữ liệu cần bổ sung: {'; '.join(plan.missing_evidence) or 'Không ghi nhận'}\n"
-            + "\n".join(activities)
+            f"Dữ liệu cần bổ sung: {'; '.join(plan.missing_evidence) or 'Không ghi nhận'}\n" + "\n".join(activities)
         )
 
 

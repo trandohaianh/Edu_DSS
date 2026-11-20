@@ -3,6 +3,7 @@
 using a REAL embedding model end to end (Phase 12A's own report flagged
 this as incomplete on the original branch — completed here).
 """
+
 from __future__ import annotations
 
 import io
@@ -66,9 +67,9 @@ def test_real_embedding_pgvector_insert_and_retrieval(org_id, monkeypatch):
     """Step 16 continued: real embedding -> real pgvector insert -> real
     pgvector retrieval, observed throughout, no raw vector/document leak."""
     from dss.core.models import MultiAIProvider
-    from dss.services.vector_store import PgVectorStore
-    from dss.services.chunking_service import DocumentChunk
     from dss.db.session import _resolve_database_url
+    from dss.services.chunking_service import DocumentChunk
+    from dss.services.vector_store import PgVectorStore
 
     stream = _capture_structured_logs(monkeypatch)
     provider = MultiAIProvider()
@@ -81,14 +82,28 @@ def test_real_embedding_pgvector_insert_and_retrieval(org_id, monkeypatch):
 
     store = PgVectorStore(_resolve_database_url(), organization_id=org_id)
     assert store.is_available()
-    store.add_chunks([
-        DocumentChunk(chunk_id="real_emb_a", document_id="doc_a", course_id="CS301",
-                      content=content_a, token_count=15, metadata={"title": "K-Means", "source": "test"},
-                      embedding=list(emb_a)),
-        DocumentChunk(chunk_id="real_emb_b", document_id="doc_b", course_id="CS999",
-                      content=content_b, token_count=12, metadata={"title": "Pomodoro", "source": "test"},
-                      embedding=list(emb_b)),
-    ])
+    store.add_chunks(
+        [
+            DocumentChunk(
+                chunk_id="real_emb_a",
+                document_id="doc_a",
+                course_id="CS301",
+                content=content_a,
+                token_count=15,
+                metadata={"title": "K-Means", "source": "test"},
+                embedding=list(emb_a),
+            ),
+            DocumentChunk(
+                chunk_id="real_emb_b",
+                document_id="doc_b",
+                course_id="CS999",
+                content=content_b,
+                token_count=12,
+                metadata={"title": "Pomodoro", "source": "test"},
+                embedding=list(emb_b),
+            ),
+        ]
+    )
 
     # Query semantically closer to content_a using the SAME real model.
     query_embedding = provider.get_embedding("How does K-Means clustering work?")
@@ -118,10 +133,10 @@ def test_rag_security_composition_with_observability(org_id, monkeypatch):
     context limits must hold, and logs must not contain the raw malicious
     or private document text."""
     from dss.core.models import MultiAIProvider
-    from dss.services.vector_store import PgVectorStore
-    from dss.services.chunking_service import DocumentChunk
-    from dss.security.prompt_boundary import AI_SYSTEM_POLICY, render_retrieved_context
     from dss.db.session import _resolve_database_url
+    from dss.security.prompt_boundary import AI_SYSTEM_POLICY, render_retrieved_context
+    from dss.services.chunking_service import DocumentChunk
+    from dss.services.vector_store import PgVectorStore
 
     stream = _capture_structured_logs(monkeypatch)
     provider = MultiAIProvider()
@@ -134,12 +149,19 @@ def test_rag_security_composition_with_observability(org_id, monkeypatch):
     assert malicious_embedding is not None
 
     store = PgVectorStore(_resolve_database_url(), organization_id=org_id)
-    store.add_chunks([DocumentChunk(
-        chunk_id="obs_malicious_1", document_id="doc_obs_attack", course_id="CS301",
-        content=malicious_content, token_count=20,
-        metadata={"title": "K-Means notes", "source": "student_upload"},
-        embedding=list(malicious_embedding),
-    )])
+    store.add_chunks(
+        [
+            DocumentChunk(
+                chunk_id="obs_malicious_1",
+                document_id="doc_obs_attack",
+                course_id="CS301",
+                content=malicious_content,
+                token_count=20,
+                metadata={"title": "K-Means notes", "source": "student_upload"},
+                embedding=list(malicious_embedding),
+            )
+        ]
+    )
 
     query_embedding = provider.get_embedding("How does K-Means clustering work?")
     results = store.search(list(query_embedding), top_k=5)
@@ -152,7 +174,10 @@ def test_rag_security_composition_with_observability(org_id, monkeypatch):
     assert 'trust="untrusted"' in context_block
 
     prompt, _, _, _ = provider._prepare_personalized_advice_prompt(
-        ["weak in K-Means"], 6.0, results, student_profile={"risk_level": "cao"},
+        ["weak in K-Means"],
+        6.0,
+        results,
+        student_profile={"risk_level": "cao"},
     )
     assert "Ignore all previous instructions" not in prompt
     assert AI_SYSTEM_POLICY in prompt
@@ -161,6 +186,7 @@ def test_rag_security_composition_with_observability(org_id, monkeypatch):
     # Tenant isolation still holds with observability active.
     from dss.db.models import Organization
     from dss.db.session import session_scope
+
     with session_scope() as session:
         other = Organization(org_code=f"OBS_OTHER_{uuid.uuid4().hex[:8]}", name="Other Org")
         session.add(other)
@@ -224,9 +250,9 @@ def test_correlation_id_traces_streamlit_action_through_rag_and_pgvector(org_id,
     granularity; a background thread started mid-script would need its own
     explicit correlation_scope()."""
     from dss.core import observability
-    from dss.services.vector_store import PgVectorStore
-    from dss.services.chunking_service import DocumentChunk
     from dss.db.session import _resolve_database_url
+    from dss.services.chunking_service import DocumentChunk
+    from dss.services.vector_store import PgVectorStore
 
     stream = _capture_structured_logs(monkeypatch)
 
@@ -234,11 +260,19 @@ def test_correlation_id_traces_streamlit_action_through_rag_and_pgvector(org_id,
     rerun_id = observability.new_correlation_id()
 
     store = PgVectorStore(_resolve_database_url(), organization_id=org_id)
-    store.add_chunks([DocumentChunk(
-        chunk_id="corr_test_1", document_id="doc_corr", course_id="CS301",
-        content="Correlation trace content.", token_count=5,
-        metadata={"title": "t", "source": "s"}, embedding=[0.001] * 383 + [1.0],
-    )])
+    store.add_chunks(
+        [
+            DocumentChunk(
+                chunk_id="corr_test_1",
+                document_id="doc_corr",
+                course_id="CS301",
+                content="Correlation trace content.",
+                token_count=5,
+                metadata={"title": "t", "source": "s"},
+                embedding=[0.001] * 383 + [1.0],
+            )
+        ]
+    )
     store.search([0.001] * 383 + [1.0], top_k=1)
 
     events = [json.loads(line) for line in stream.getvalue().splitlines()]

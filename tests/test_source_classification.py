@@ -5,6 +5,7 @@ Nguyên tắc kiểm thử cốt lõi: phân loại phải dựa trên PROVENANC
 + lecturer_id cho CMS, source_verified cho tài liệu demo đã kiểm chứng), không
 được suy đoán từ nội dung văn bản, và một tài liệu chưa từng qua quy trình phê
 duyệt cấp tổ chức thật KHÔNG BAO GIỜ được gán INSTITUTION_APPROVED."""
+
 from __future__ import annotations
 
 from dss.services import source_classification as sc
@@ -20,7 +21,8 @@ def test_verified_academic_reference_is_supplementary_not_course_material():
     nhưng KHÔNG gắn với môn học/giảng viên cụ thể nào -> supplementary,
     không phải course material."""
     doc = {
-        "id": "doc_003", "source_verified": True,
+        "id": "doc_003",
+        "source_verified": True,
         "reference": "Kỹ thuật Pomodoro — Francesco Cirillo...",
     }
     assert sc.classify_document(doc) == sc.SUPPLEMENTARY_REFERENCE

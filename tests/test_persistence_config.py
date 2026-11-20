@@ -10,6 +10,7 @@ tests/test_user_repository.py for its full integration coverage; SUBSCRIPTION
 remains unwired via this gate (see dss/core/persistence_config.py's own
 docstring for why).
 """
+
 from __future__ import annotations
 
 import pytest

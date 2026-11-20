@@ -10,6 +10,7 @@ Kiểm chứng các yêu cầu bắt buộc:
    nâng cấp Skill Profile, tự động tính lại Career Readiness và cập nhật khuyến nghị.
 7. Toàn bộ quá trình vận hành dựa trên structured data, không phụ thuộc vào LLM.
 """
+
 from __future__ import annotations
 
 import pytest

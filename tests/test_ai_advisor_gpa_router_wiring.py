@@ -2,6 +2,7 @@
 ai_advisor.py THẬT SỰ gọi ai_router/gpa_calculator trong luồng chat, không
 chỉ tồn tại như module cô lập chưa ai dùng tới (source inspection — đúng
 quy ước dự án cho code UI Streamlit khó test trực tiếp qua widget thật)."""
+
 from __future__ import annotations
 
 import inspect
@@ -41,5 +42,5 @@ def test_gpa_reply_short_circuits_before_rag_and_llm_call():
     source = inspect.getsource(ai_advisor.ai_advisor_tab)
     assert "_gpa_reply or _regulation_reply" in source
     idx_short_circuit = source.index("if _router_short_circuit_reply is not None:")
-    block = source[idx_short_circuit: idx_short_circuit + 400]
+    block = source[idx_short_circuit : idx_short_circuit + 400]
     assert "st.rerun()" in block

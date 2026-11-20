@@ -4,9 +4,10 @@ Kiểm tra bộ lọc CỨNG is_document_usable (chỉ tài liệu APPROVED th�
 duyệt, chưa hết hạn, đã tới hiệu lực, nội dung không bị sửa sau khi duyệt mới
 được dùng làm căn cứ trích dẫn) và quy tắc thẩm quyền duyệt theo vai trò/loại
 tài liệu."""
+
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 
 from dss.services import document_governance as gov
 
@@ -49,20 +50,20 @@ def test_approved_with_approver_is_usable():
 
 
 def test_expired_document_not_usable():
-    past = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
+    past = (datetime.now(UTC) - timedelta(days=1)).isoformat()
     meta = _approved_meta(expires_at=past)
     assert gov.is_document_usable(meta) is False
 
 
 def test_not_yet_effective_document_not_usable():
-    future = (datetime.now(timezone.utc) + timedelta(days=1)).isoformat()
+    future = (datetime.now(UTC) + timedelta(days=1)).isoformat()
     meta = _approved_meta(effective_from=future)
     assert gov.is_document_usable(meta) is False
 
 
 def test_document_within_effective_window_is_usable():
-    past = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
-    future = (datetime.now(timezone.utc) + timedelta(days=1)).isoformat()
+    past = (datetime.now(UTC) - timedelta(days=1)).isoformat()
+    future = (datetime.now(UTC) + timedelta(days=1)).isoformat()
     meta = _approved_meta(effective_from=past, expires_at=future)
     assert gov.is_document_usable(meta) is True
 
@@ -99,7 +100,9 @@ def test_student_can_never_approve():
 
 def test_default_governance_metadata_always_starts_pending_review():
     meta = gov.default_governance_metadata(
-        doc_type="bai_giang", issuer="Khoa CNTT", official_ref="QD-123",
+        doc_type="bai_giang",
+        issuer="Khoa CNTT",
+        official_ref="QD-123",
         content_hash="h1",
     )
     assert meta["status"] == gov.STATUS_PENDING_REVIEW
@@ -109,7 +112,10 @@ def test_default_governance_metadata_always_starts_pending_review():
 
 def test_default_governance_metadata_normalizes_unknown_doc_type():
     meta = gov.default_governance_metadata(
-        doc_type="loai_khong_ton_tai", issuer="", official_ref=None, content_hash="h1",
+        doc_type="loai_khong_ton_tai",
+        issuer="",
+        official_ref=None,
+        content_hash="h1",
     )
     assert meta["doc_type"] == gov.DOC_TYPE_HUONG_DAN_HOC_TAP
 

@@ -1,11 +1,13 @@
 """Centralized target management, alias canonicalization, leakage guard,
 and temporal/longitudinal dataset helpers for EduDSS.
 """
+
 from __future__ import annotations
 
 import logging
 import re
-from typing import Any, Tuple, List, Set, Optional
+from typing import Any, List, Optional, Set, Tuple
+
 import numpy as np
 import pandas as pd
 
@@ -83,7 +85,7 @@ LEGITIMATE_PREDICTORS = {
     "study_hours",
 }
 
-ID_KEYWORDS = ["id", "code", "ma_", "_id", "stt", "no."]   # giữ để tương thích; dùng is_identifier_column()
+ID_KEYWORDS = ["id", "code", "ma_", "_id", "stt", "no."]  # giữ để tương thích; dùng is_identifier_column()
 
 _ID_EXACT = {"id", "uid", "uuid", "mssv", "masv", "msv", "stt"}
 
@@ -103,8 +105,12 @@ def is_id_like(name) -> bool:
     tokens = _name_tokens(name)
     if not tokens:
         return False
-    return "id" in tokens or tokens[-1] in _ID_EXACT or "".join(tokens) in _ID_EXACT or \
-        (tokens[0] == "ma" and len(tokens) == 2 and tokens[1] in ("sv", "sinhvien", "hs"))
+    return (
+        "id" in tokens
+        or tokens[-1] in _ID_EXACT
+        or "".join(tokens) in _ID_EXACT
+        or (tokens[0] == "ma" and len(tokens) == 2 and tokens[1] in ("sv", "sinhvien", "hs"))
+    )
 
 
 def is_identifier_column(name) -> bool:
@@ -113,6 +119,7 @@ def is_identifier_column(name) -> bool:
     if not tokens:
         return False
     return is_id_like(name) or bool({"code", "stt", "no"} & set(tokens)) or (tokens[0] == "ma" and len(tokens) > 1)
+
 
 # ============================================================================
 # CLASSIFICATION BINS & LABELS (Prototype / Business Grouping)
@@ -145,9 +152,7 @@ HEURISTIC_OVERFIT_DIFF_SEVERE = 0.15
 DEFAULT_TARGET_PREFERENCE = ["diem_ky_sau", "xep_loai", "final_score", "grade", "gpa"]
 
 
-def infer_default_target_column(
-    df: pd.DataFrame, preference_order: Optional[List[str]] = None
-) -> str:
+def infer_default_target_column(df: pd.DataFrame, preference_order: Optional[List[str]] = None) -> str:
     """Suy luận cột target mặc định, ưu tiên các canonical target quen thuộc
     (diem_ky_sau, xep_loai, ...); fallback về cột đầu tiên nếu không khớp cột nào.
 
@@ -177,9 +182,7 @@ def infer_problem_type(target_series: pd.Series) -> Optional[str]:
     n_samples = max(len(target_series), 1)
     n_unique = int(target_series.nunique(dropna=True))
     is_numeric = pd.api.types.is_numeric_dtype(target_series)
-    is_integer_like = is_numeric and np.allclose(
-        pd.to_numeric(target_series, errors="coerce").dropna() % 1, 0
-    )
+    is_integer_like = is_numeric and np.allclose(pd.to_numeric(target_series, errors="coerce").dropna() % 1, 0)
     cls_unique_threshold = max(20, int(0.05 * n_samples))
     if (
         target_series.dtype == "object"
@@ -244,7 +247,9 @@ def canonicalize_columns(
 
     if has_grade and not has_xep_loai:
         df_out = df_out.rename(columns={LEGACY_ALIAS_CLASSIFICATION: CANONICAL_TARGET_CLASSIFICATION})
-        actions.append(f"Renamed alias '{LEGACY_ALIAS_CLASSIFICATION}' to canonical '{CANONICAL_TARGET_CLASSIFICATION}'")
+        actions.append(
+            f"Renamed alias '{LEGACY_ALIAS_CLASSIFICATION}' to canonical '{CANONICAL_TARGET_CLASSIFICATION}'"
+        )
     elif has_grade and has_xep_loai:
         s_grade = df_out[LEGACY_ALIAS_CLASSIFICATION].astype(str).str.strip().str.lower()
         s_xl = df_out[CANONICAL_TARGET_CLASSIFICATION].astype(str).str.strip().str.lower()
@@ -272,7 +277,9 @@ def canonicalize_columns(
     elif has_fs and has_dks:
         s_fs = pd.to_numeric(df_out[LEGACY_ALIAS_REGRESSION], errors="coerce")
         s_dks = pd.to_numeric(df_out[CANONICAL_TARGET_REGRESSION], errors="coerce")
-        is_same = np.allclose(s_fs.dropna(), s_dks.dropna(), atol=1e-3, rtol=1e-3) and (len(s_fs.dropna()) == len(s_dks.dropna()) == len(df_out))
+        is_same = np.allclose(s_fs.dropna(), s_dks.dropna(), atol=1e-3, rtol=1e-3) and (
+            len(s_fs.dropna()) == len(s_dks.dropna()) == len(df_out)
+        )
         if not is_same:
             msg = (
                 f"Xung đột dữ liệu (Data inconsistency): Cả '{LEGACY_ALIAS_REGRESSION}' và "
@@ -367,7 +374,16 @@ def filter_leakage_features(
 # ============================================================================
 # TEMPORAL & LONGITUDINAL HELPERS
 # ============================================================================
-TEMPORAL_KEYWORDS = ["semester", "hoc_ky", "ky_hoc", "nam_hoc", "year", "timestamp", "time", "date"]   # giữ để tương thích
+TEMPORAL_KEYWORDS = [
+    "semester",
+    "hoc_ky",
+    "ky_hoc",
+    "nam_hoc",
+    "year",
+    "timestamp",
+    "time",
+    "date",
+]  # giữ để tương thích
 
 # Tên cột được coi là mốc thời gian/học kỳ — so khớp NGUYÊN TÊN theo từ (bỏ tiền tố "ma"/"so"
 # và hậu tố "id"/"no"/"code"... nếu có), không theo chuỗi con: bản cũ dùng `"time" in name`
@@ -375,9 +391,24 @@ TEMPORAL_KEYWORDS = ["semester", "hoc_ky", "ky_hoc", "nam_hoc", "year", "timesta
 # thời gian rồi ml_hub ép split "temporal" theo cột đó. Cũng vì vậy "mid_term_score",
 # "ngay_sinh", "date_of_birth", "semester_gpa" KHÔNG được coi là mốc thời gian.
 _TEMPORAL_NAMES = {
-    ("hoc", "ky"), ("hocky",), ("ky", "hoc"), ("kyhoc",), ("ky",),
-    ("semester",), ("term",), ("nam", "hoc"), ("namhoc",), ("academic", "year"), ("school", "year"),
-    ("timestamp",), ("date",), ("ngay",), ("thoi", "gian"), ("year",), ("time",), ("period",),
+    ("hoc", "ky"),
+    ("hocky",),
+    ("ky", "hoc"),
+    ("kyhoc",),
+    ("ky",),
+    ("semester",),
+    ("term",),
+    ("nam", "hoc"),
+    ("namhoc",),
+    ("academic", "year"),
+    ("school", "year"),
+    ("timestamp",),
+    ("date",),
+    ("ngay",),
+    ("thoi", "gian"),
+    ("year",),
+    ("time",),
+    ("period",),
 }
 _TEMPORAL_PREFIX_STRIP = {"ma", "so"}
 _TEMPORAL_SUFFIX_STRIP = {"id", "no", "code", "idx", "index", "number", "so"}
@@ -439,10 +470,10 @@ def prepare_longitudinal_dataset(
     df_sorted = df.sort_values(by=[student_id_col, time_col]).copy()
     # Shift outcome of next semester for the same student
     df_sorted[target_future_col] = df_sorted.groupby(student_id_col)[effective_score].shift(-1)
-    
+
     if drop_na_target:
         df_sorted = df_sorted.dropna(subset=[target_future_col]).copy()
-        
+
     if target_future_col == CANONICAL_TARGET_REGRESSION and "xep_loai" not in df_sorted.columns:
         valid_mask = ~df_sorted[target_future_col].isna()
         df_sorted.loc[valid_mask, "xep_loai"] = score_to_xep_loai(df_sorted.loc[valid_mask, target_future_col])

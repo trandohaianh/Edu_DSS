@@ -23,6 +23,7 @@ retention     (daily)   keep EDUDSS_BACKUP_KEEP_DAYS of backups (default 7), tri
 
 Nothing here reads prompts, answers or names; student data is only aggregated.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -35,7 +36,7 @@ import tempfile
 import threading
 import time
 import traceback
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 
 APP_ROOT = Path(__file__).resolve().parents[1]
@@ -45,15 +46,29 @@ if str(APP_ROOT) not in sys.path:
 JOBS = ("kpi_snapshot", "data_quality", "backup", "retention")
 _BACKUP_EXCLUDE_DIRS = {"logs", "backups", "ops", "security"}
 _SECRET_SUFFIXES = (".env", ".pem", ".key")
-SCORE_COLUMNS_0_10 = ("diem_ky_nay", "diem_giua_ky", "diem_du_an", "diem_thong_ke", "diem_xu_ly_du_lieu",
-                      "diem_truc_quan_hoa", "diem_machine_learning", "diem_lap_trinh", "diem_ky_sau", "final_score")
-RANGES = {**{c: (0.0, 10.0) for c in SCORE_COLUMNS_0_10}, "ty_le_diem_danh": (0.0, 1.0),
-          "so_gio_hoc_tuan": (0.0, 80.0), "gpa_previous": (0.0, 4.0)}
+SCORE_COLUMNS_0_10 = (
+    "diem_ky_nay",
+    "diem_giua_ky",
+    "diem_du_an",
+    "diem_thong_ke",
+    "diem_xu_ly_du_lieu",
+    "diem_truc_quan_hoa",
+    "diem_machine_learning",
+    "diem_lap_trinh",
+    "diem_ky_sau",
+    "final_score",
+)
+RANGES = {
+    **dict.fromkeys(SCORE_COLUMNS_0_10, (0.0, 10.0)),
+    "ty_le_diem_danh": (0.0, 1.0),
+    "so_gio_hoc_tuan": (0.0, 80.0),
+    "gpa_previous": (0.0, 4.0),
+}
 DRIFT_FEATURES = ("diem_ky_nay", "ty_le_diem_danh", "so_gio_hoc_tuan", "diem_giua_ky", "gpa_previous")
 
 
 def now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def data_root() -> Path:
@@ -109,9 +124,16 @@ def save_infra_cost(month: str, provider: str, item: str, amount_usd: float, not
     if not (0 <= amount < 1_000_000) or not provider.strip() or not item.strip():
         raise ValueError("Khoản chi phí không hợp lệ.")
     rows = load_infra_costs()
-    entry = {"id": max([r.get("id", 0) for r in rows] + [0]) + 1, "month": month, "provider": provider.strip()[:80],
-             "item": item.strip()[:120], "amount_usd": round(amount, 2), "note": note.strip()[:200],
-             "created_by": actor[:64], "created_at": now().isoformat()}
+    entry = {
+        "id": max([r.get("id", 0) for r in rows] + [0]) + 1,
+        "month": month,
+        "provider": provider.strip()[:80],
+        "item": item.strip()[:120],
+        "amount_usd": round(amount, 2),
+        "note": note.strip()[:200],
+        "created_by": actor[:64],
+        "created_at": now().isoformat(),
+    }
     rows.append(entry)
     infra_costs_path().write_text(json.dumps(rows, ensure_ascii=False, indent=2), encoding="utf-8")
     return entry
@@ -142,10 +164,13 @@ def compute_kpis() -> dict:
     t = now()
     today, month = t.strftime("%Y-%m-%d"), t.strftime("%Y-%m")
     records = token_tracker._load_all_records()
+
     def in_period(r, prefix):
         return str(r.get("timestamp", "")).startswith(prefix)
+
     month_rows = [r for r in records if in_period(r, month)]
     today_rows = [r for r in month_rows if in_period(r, today)]
+
     def agg(rows):
         billed = [r for r in rows if not r.get("cache_hit")]
         tokens = sum(int(r.get("total_tokens", 0)) for r in billed)
@@ -161,6 +186,7 @@ def compute_kpis() -> dict:
             "active_ai_users": len(users),
             "cost_per_active_user_usd": round(cost / len(users), 6) if users else 0.0,
         }
+
     detail = {
         "accounts_by_role": auth_service.count_users_by_role(),
         "ai_today": agg(today_rows),
@@ -192,11 +218,13 @@ def _psi(expected, actual, bins: int = 10) -> float:
 def check_dataframe(df, name: str) -> dict:
     """Data-quality rules for a student-performance table (pure function, unit-tested)."""
     issues, severity = [], "ok"
+
     def flag(level, msg):
         nonlocal severity
         issues.append({"level": level, "message": msg})
         if level == "fail" or (level == "warn" and severity == "ok"):
             severity = level
+
     rows = len(df)
     if rows == 0:
         flag("fail", "bảng rỗng")
@@ -222,13 +250,21 @@ def check_dataframe(df, name: str) -> dict:
             if bad:
                 out_of_range[col] = bad
                 flag("fail" if bad / rows > 0.01 else "warn", f"{col}: {bad} giá trị ngoài [{lo}, {hi}]")
-    return {"dataset": name, "rows": rows, "columns": len(df.columns), "missing_rate": missing,
-            "out_of_range": out_of_range, "severity": severity, "issues": issues[:30]}
+    return {
+        "dataset": name,
+        "rows": rows,
+        "columns": len(df.columns),
+        "missing_rate": missing,
+        "out_of_range": out_of_range,
+        "severity": severity,
+        "issues": issues[:30],
+    }
 
 
 def _reference_frame():
-    import pandas as pd
     import warnings
+
+    import pandas as pd
 
     pinned = ops_dir() / "reference_dataset.csv"
     if pinned.exists():
@@ -252,22 +288,37 @@ def job_data_quality() -> tuple[str, dict]:
         loaded = wh.load_dataset(dataset_id)
         df = loaded[0] if isinstance(loaded, tuple) else loaded
         if df is None or not hasattr(df, "columns"):
-            reports.append({"dataset": str(dataset_id), "severity": "fail", "issues": [{"level": "fail", "message": "không đọc được"}]})
+            reports.append(
+                {
+                    "dataset": str(dataset_id),
+                    "severity": "fail",
+                    "issues": [{"level": "fail", "message": "không đọc được"}],
+                }
+            )
             continue
         reports.append(check_dataframe(df, str(dataset_id)))
         newest = newest if newest is not None else df
     reference, reference_kind = _reference_frame()
-    if newest is None:                       # demo without saved datasets: check the generator itself
+    if newest is None:  # demo without saved datasets: check the generator itself
         newest = reference
         reports.append(check_dataframe(reference, "synthetic_generator"))
-    drift = {c: round(_psi(reference[c], newest[c]), 4) for c in DRIFT_FEATURES if c in newest.columns and c in reference.columns}
+    drift = {
+        c: round(_psi(reference[c], newest[c]), 4)
+        for c in DRIFT_FEATURES
+        if c in newest.columns and c in reference.columns
+    }
     max_psi = max(drift.values()) if drift else 0.0
     severity_rank = {"ok": 0, "warn": 1, "fail": 2}
     worst = max((r.get("severity", "ok") for r in reports), key=lambda s: severity_rank.get(s, 2), default="ok")
     if max_psi >= 0.25:
         worst = "fail" if worst == "fail" else "warn"
-    detail = {"datasets": reports, "drift_reference": reference_kind, "drift_psi": drift,
-              "drift_max_psi": round(max_psi, 4), "worst_severity": worst}
+    detail = {
+        "datasets": reports,
+        "drift_reference": reference_kind,
+        "drift_psi": drift,
+        "drift_max_psi": round(max_psi, 4),
+        "worst_severity": worst,
+    }
     _append_jsonl(ops_dir() / "data_quality.jsonl", {"at": now().isoformat(), **detail})
     return ("ok" if worst != "fail" else "degraded"), detail
 
@@ -301,23 +352,30 @@ def job_backup() -> tuple[str, dict]:
 
         db_meta = backup_recovery.backup(target / "postgres")
         manifest_file = target / "postgres" / db_meta["archive"].replace(".dump", ".backup.json")
-        backup_recovery.verify(manifest_file)          # raises on any checksum/size mismatch
+        backup_recovery.verify(manifest_file)  # raises on any checksum/size mismatch
         detail["postgres"] = {"verified": True, "size_bytes": db_meta["size_bytes"]}
     archive = target / "data_root.tar.gz"
     from ops.backup_recovery import checksum
 
     files: dict[str, str] = {}
+
     def include(info: tarfile.TarInfo):
         kept = _backup_filter(info)
         if kept is not None and kept.isfile():
             files[kept.name] = checksum(root.parent / kept.name.replace("data_root", root.name, 1))
         return kept
+
     with tarfile.open(archive, "w:gz") as tar:
         tar.add(root, arcname="data_root", filter=include)
     provenance = non_db_recovery.build_manifest(root, APP_ROOT, backup_id=f"nondb-{stamp}")
     provenance.pop("artifact_directories", None)
-    manifest = {"backup_id": f"nondb-{stamp}", "archive": archive.name, "archive_sha256": checksum(archive),
-                "files": files, "provenance": provenance}
+    manifest = {
+        "backup_id": f"nondb-{stamp}",
+        "archive": archive.name,
+        "archive_sha256": checksum(archive),
+        "files": files,
+        "provenance": provenance,
+    }
     (target / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8")
     # Restore drill: extract into scratch space and re-verify every file checksum.
     with tempfile.TemporaryDirectory(prefix="edudss-restore-") as scratch:
@@ -331,11 +389,22 @@ def job_backup() -> tuple[str, dict]:
             elif checksum(path) != digest:
                 mismatched.append(name)
     status = "VERIFIED" if not missing and not mismatched else "CORRUPTED_OR_INCOMPLETE"
-    drill = {"status": status, "verified_count": len(files) - len(missing) - len(mismatched),
-             "missing": missing, "mismatches": mismatched}
-    detail.update({"archive_bytes": archive.stat().st_size, "files": len(files),
-                   "restore_drill": drill["status"], "restore_verified_files": drill["verified_count"],
-                   "restore_missing": len(drill["missing"]), "restore_mismatches": len(drill["mismatches"])})
+    drill = {
+        "status": status,
+        "verified_count": len(files) - len(missing) - len(mismatched),
+        "missing": missing,
+        "mismatches": mismatched,
+    }
+    detail.update(
+        {
+            "archive_bytes": archive.stat().st_size,
+            "files": len(files),
+            "restore_drill": drill["status"],
+            "restore_verified_files": drill["verified_count"],
+            "restore_missing": len(drill["missing"]),
+            "restore_mismatches": len(drill["mismatches"]),
+        }
+    )
     return ("ok" if drill["status"] == "VERIFIED" else "failed"), detail
 
 
@@ -347,7 +416,7 @@ def job_retention() -> tuple[str, dict]:
     if root.exists():
         for child in sorted(root.iterdir()):
             try:
-                stamp = datetime.strptime(child.name, "%Y%m%dT%H%M%SZ").replace(tzinfo=timezone.utc)
+                stamp = datetime.strptime(child.name, "%Y%m%dT%H%M%SZ").replace(tzinfo=UTC)
             except ValueError:
                 continue
             if stamp < cutoff and child.is_dir():
@@ -372,8 +441,12 @@ def job_retention() -> tuple[str, dict]:
     return "ok", detail
 
 
-_RUNNERS = {"kpi_snapshot": job_kpi_snapshot, "data_quality": job_data_quality, "backup": job_backup,
-            "retention": job_retention}
+_RUNNERS = {
+    "kpi_snapshot": job_kpi_snapshot,
+    "data_quality": job_data_quality,
+    "backup": job_backup,
+    "retention": job_retention,
+}
 _lock = threading.Lock()
 
 
@@ -385,10 +458,19 @@ def run_job(name: str, trigger: str = "manual") -> dict:
         try:
             status, detail = _RUNNERS[name]()
         except Exception as exc:
-            status, detail = "failed", {"error": type(exc).__name__, "message": str(exc)[:300],
-                                        "trace": traceback.format_exc(limit=3)[-800:]}
-    record = {"job": name, "trigger": trigger, "status": status, "started_at": started,
-              "finished_at": time.time(), "duration_s": round(time.time() - started, 3), "detail": detail}
+            status, detail = (
+                "failed",
+                {"error": type(exc).__name__, "message": str(exc)[:300], "trace": traceback.format_exc(limit=3)[-800:]},
+            )
+    record = {
+        "job": name,
+        "trigger": trigger,
+        "status": status,
+        "started_at": started,
+        "finished_at": time.time(),
+        "duration_s": round(time.time() - started, 3),
+        "detail": detail,
+    }
     _append_jsonl(ops_dir() / "pipeline_runs.jsonl", record)
     return record
 
@@ -407,12 +489,12 @@ def last_runs() -> dict[str, dict]:
 
 def schedule_forever() -> None:
     """Hourly KPI; data quality, backup and retention once a day at EDUDSS_PIPELINE_DAILY_AT (UTC HH:MM)."""
-    daily_at = os.environ.get("EDUDSS_PIPELINE_DAILY_AT", "19:30")   # 02:30 giờ Việt Nam
+    daily_at = os.environ.get("EDUDSS_PIPELINE_DAILY_AT", "19:30")  # 02:30 giờ Việt Nam
     hh, mm = (int(x) for x in daily_at.split(":"))
     print(f"[pipeline] scheduler started: hourly kpi_snapshot, daily jobs at {daily_at} UTC", flush=True)
     run_job("kpi_snapshot", "startup")
     latest = last_runs()
-    if "backup" not in latest:                      # first boot: produce a backup right away
+    if "backup" not in latest:  # first boot: produce a backup right away
         for job in ("data_quality", "backup"):
             run_job(job, "startup")
     next_hourly = time.time() + 3600

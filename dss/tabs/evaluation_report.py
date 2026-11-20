@@ -8,6 +8,7 @@ Hai phần, tách bạch nguồn số liệu:
    bởi `reports/portfolio/evidence/run_portfolio_eval.py`. Không tự tính —
    nếu snapshot không có, ghi chú ngắn trung thực.
 """
+
 from __future__ import annotations
 
 import json
@@ -66,46 +67,69 @@ def _classification(snap: dict) -> None:
         "Phân loại xếp loại học tập",
         subtitle=f"Mô hình tốt nhất theo F1-macro: {best} · {cls['test_size']} sinh viên trong tập kiểm tra.",
     )
-    ui_kit.kpi_row([
-        ("Accuracy", fmt3(m["accuracy"])),
-        ("Precision (macro)", fmt3(m["precision_macro"])),
-        ("Recall (macro)", fmt3(m["recall_macro"])),
-        ("F1-score (macro)", fmt3(m["f1_macro"])),
-    ])
+    ui_kit.kpi_row(
+        [
+            ("Accuracy", fmt3(m["accuracy"])),
+            ("Precision (macro)", fmt3(m["precision_macro"])),
+            ("Recall (macro)", fmt3(m["recall_macro"])),
+            ("F1-score (macro)", fmt3(m["f1_macro"])),
+        ]
+    )
     col_cmp, col_cm = st.columns([1.1, 1], gap="medium")
     with col_cmp:
         with st.container(border=True):
             ui_kit.card_title("So sánh mô hình (F1-macro, cùng tập kiểm tra)")
             rows = sorted(cls["models"].items(), key=lambda kv: kv[1]["f1_macro"])
-            fig = go.Figure(go.Bar(
-                x=[v["f1_macro"] for _, v in rows], y=[k for k, _ in rows], orientation="h",
-                marker_color=[_BAR if k == best else _BAR_MUTED for k, _ in rows],
-                text=[fmt3(v["f1_macro"]) for _, v in rows], textposition="auto",
-                hovertemplate="%{y}: %{x:.3f}<extra></extra>",
-            ))
+            fig = go.Figure(
+                go.Bar(
+                    x=[v["f1_macro"] for _, v in rows],
+                    y=[k for k, _ in rows],
+                    orientation="h",
+                    marker_color=[_BAR if k == best else _BAR_MUTED for k, _ in rows],
+                    text=[fmt3(v["f1_macro"]) for _, v in rows],
+                    textposition="auto",
+                    hovertemplate="%{y}: %{x:.3f}<extra></extra>",
+                )
+            )
             fig.update_layout(height=260, margin=dict(t=8, b=8, l=8, r=8), xaxis=dict(range=[0, 1]))
             st.plotly_chart(fig, width="stretch", key="eval_model_compare", config={"displayModeBar": False})
-            table = pd.DataFrame([
-                {"Mô hình": k, "Accuracy": fmt3(v["accuracy"]), "Precision": fmt3(v["precision_macro"]),
-                 "Recall": fmt3(v["recall_macro"]), "F1-macro": fmt3(v["f1_macro"])}
-                for k, v in sorted(cls["models"].items(), key=lambda kv: -kv[1]["f1_macro"])
-            ])
+            table = pd.DataFrame(
+                [
+                    {
+                        "Mô hình": k,
+                        "Accuracy": fmt3(v["accuracy"]),
+                        "Precision": fmt3(v["precision_macro"]),
+                        "Recall": fmt3(v["recall_macro"]),
+                        "F1-macro": fmt3(v["f1_macro"]),
+                    }
+                    for k, v in sorted(cls["models"].items(), key=lambda kv: -kv[1]["f1_macro"])
+                ]
+            )
             st.dataframe(table, hide_index=True, width="stretch")
     with col_cm:
         with st.container(border=True):
             ui_kit.card_title(f"Ma trận nhầm lẫn — {best}")
             labels = cls["class_labels"]
             cm = m["confusion_matrix"]
-            fig = px.imshow(cm, x=labels, y=labels, text_auto=True, color_continuous_scale="Blues",
-                            labels=dict(x="Dự đoán", y="Thực tế", color="Số SV"))
+            fig = px.imshow(
+                cm,
+                x=labels,
+                y=labels,
+                text_auto=True,
+                color_continuous_scale="Blues",
+                labels=dict(x="Dự đoán", y="Thực tế", color="Số SV"),
+            )
             fig.update_layout(height=330, margin=dict(t=8, b=8, l=8, r=8), coloraxis_showscale=False)
             st.plotly_chart(fig, width="stretch", key="eval_confusion", config={"displayModeBar": False})
             dist = cls.get("class_distribution_full", {})
             if dist:
                 rare = [f"{k}: {v}" for k, v in dist.items() if v < 20]
                 if rare:
-                    st.caption("Lớp rất ít mẫu trong toàn bộ dữ liệu (" + ", ".join(rare)
-                               + ") — chỉ số macro dao động mạnh theo vài mẫu.")
+                    st.caption(
+                        "Lớp rất ít mẫu trong toàn bộ dữ liệu ("
+                        + ", ".join(rare)
+                        + ") — chỉ số macro dao động mạnh theo vài mẫu."
+                    )
 
 
 def _regression(snap: dict) -> None:
@@ -121,10 +145,12 @@ def _regression(snap: dict) -> None:
         "R² cao phản ánh cách dữ liệu mô phỏng được sinh (điểm kỳ sau ≈ tổ hợp tuyến tính của các đặc trưng "
         "cộng nhiễu nhỏ) — không phải bằng chứng dự đoán chính xác trên sinh viên thật."
     )
-    table = pd.DataFrame([
-        {"Mô hình": k, "MAE": fmt3(v["mae"]), "RMSE": fmt3(v["rmse"]), "R²": fmt3(v["r2"])}
-        for k, v in sorted(reg["models"].items(), key=lambda kv: kv[1]["rmse"])
-    ])
+    table = pd.DataFrame(
+        [
+            {"Mô hình": k, "MAE": fmt3(v["mae"]), "RMSE": fmt3(v["rmse"]), "R²": fmt3(v["r2"])}
+            for k, v in sorted(reg["models"].items(), key=lambda kv: kv[1]["rmse"])
+        ]
+    )
     st.dataframe(table, hide_index=True, width="stretch")
 
 
@@ -134,8 +160,13 @@ def _clustering(snap: dict) -> None:
         "Phân cụm sinh viên (K-Means)",
         subtitle="Phân khúc theo độ tương đồng dữ liệu — công cụ khám phá, không phải phân loại chính thức.",
     )
-    ui_kit.kpi_row([("Số cụm (K)", str(cl["k_selected"])), ("Silhouette", fmt3(cl["silhouette"])),
-                    ("Davies-Bouldin", fmt3(cl["davies_bouldin"]))])
+    ui_kit.kpi_row(
+        [
+            ("Số cụm (K)", str(cl["k_selected"])),
+            ("Silhouette", fmt3(cl["silhouette"])),
+            ("Davies-Bouldin", fmt3(cl["davies_bouldin"])),
+        ]
+    )
     col_dist, col_sweep = st.columns(2, gap="medium")
     with col_dist:
         with st.container(border=True):
@@ -143,10 +174,15 @@ def _clustering(snap: dict) -> None:
             sizes = cl["cluster_sizes"]
             pct = cl["cluster_pct"]
             keys = sorted(sizes, key=lambda k: int(k))
-            fig = go.Figure(go.Bar(
-                x=[f"Cụm {k}" for k in keys], y=[sizes[k] for k in keys], marker_color=_BAR,
-                text=[f"{sizes[k]} ({pct[k]:.1f}%)" for k in keys], textposition="auto",
-            ))
+            fig = go.Figure(
+                go.Bar(
+                    x=[f"Cụm {k}" for k in keys],
+                    y=[sizes[k] for k in keys],
+                    marker_color=_BAR,
+                    text=[f"{sizes[k]} ({pct[k]:.1f}%)" for k in keys],
+                    textposition="auto",
+                )
+            )
             fig.update_layout(height=260, margin=dict(t=8, b=8, l=8, r=8))
             st.plotly_chart(fig, width="stretch", key="eval_cluster_sizes", config={"displayModeBar": False})
     with col_sweep:
@@ -155,9 +191,18 @@ def _clustering(snap: dict) -> None:
             sweep = cl.get("silhouette_sweep_k2_8", {})
             if sweep:
                 ks = sorted(sweep, key=int)
-                fig = go.Figure(go.Scatter(x=[int(k) for k in ks], y=[sweep[k] for k in ks], mode="lines+markers",
-                                           line=dict(color=_BAR), hovertemplate="K=%{x}: %{y:.3f}<extra></extra>"))
-                fig.update_layout(height=260, margin=dict(t=8, b=8, l=8, r=8), xaxis_title="K", yaxis_title="Silhouette")
+                fig = go.Figure(
+                    go.Scatter(
+                        x=[int(k) for k in ks],
+                        y=[sweep[k] for k in ks],
+                        mode="lines+markers",
+                        line=dict(color=_BAR),
+                        hovertemplate="K=%{x}: %{y:.3f}<extra></extra>",
+                    )
+                )
+                fig.update_layout(
+                    height=260, margin=dict(t=8, b=8, l=8, r=8), xaxis_title="K", yaxis_title="Silhouette"
+                )
                 st.plotly_chart(fig, width="stretch", key="eval_cluster_sweep", config={"displayModeBar": False})
             st.caption(f"K mặc định của hệ thống: {cl.get('k_rule', '—')}. Silhouette thấp cho thấy cấu trúc cụm yếu.")
 
@@ -168,7 +213,7 @@ def _explainability(snap: dict) -> None:
     ui_kit.subsection_header(
         "Giải thích mô hình (SHAP)",
         subtitle=f"Mức đóng góp trung bình |SHAP| của từng đặc trưng vào điểm dự đoán — mô hình {shap_block.get('model', '—')}. "
-                 "SHAP mô tả đóng góp vào dự đoán, không phải quan hệ nhân quả.",
+        "SHAP mô tả đóng góp vào dự đoán, không phải quan hệ nhân quả.",
     )
     top = shap_block.get("top", [])
     if not top:
@@ -179,10 +224,16 @@ def _explainability(snap: dict) -> None:
         with st.container(border=True):
             ui_kit.card_title("Mức đóng góp trung bình |SHAP| (hồi quy)")
             rows = list(reversed(top[:10]))
-            fig = go.Figure(go.Bar(
-                x=[r["mean_abs_shap"] for r in rows], y=[feature_label(r["feature"]) for r in rows],
-                orientation="h", marker_color=_BAR, text=[fmt3(r["mean_abs_shap"]) for r in rows], textposition="auto",
-            ))
+            fig = go.Figure(
+                go.Bar(
+                    x=[r["mean_abs_shap"] for r in rows],
+                    y=[feature_label(r["feature"]) for r in rows],
+                    orientation="h",
+                    marker_color=_BAR,
+                    text=[fmt3(r["mean_abs_shap"]) for r in rows],
+                    textposition="auto",
+                )
+            )
             fig.update_layout(height=360, margin=dict(t=8, b=8, l=8, r=8))
             st.plotly_chart(fig, width="stretch", key="eval_shap", config={"displayModeBar": False})
     with col_imp:
@@ -190,8 +241,12 @@ def _explainability(snap: dict) -> None:
             imp = exp.get("classification", {})
             ui_kit.card_title(f"Độ quan trọng đặc trưng — {imp.get('model', 'phân loại')}")
             if imp.get("top"):
-                table = pd.DataFrame([{"Đặc trưng": feature_label(r["feature"]),
-                                       "Độ quan trọng": f"{r['importance_pct']:.1f}%"} for r in imp["top"][:10]])
+                table = pd.DataFrame(
+                    [
+                        {"Đặc trưng": feature_label(r["feature"]), "Độ quan trọng": f"{r['importance_pct']:.1f}%"}
+                        for r in imp["top"][:10]
+                    ]
+                )
                 st.dataframe(table, hide_index=True, width="stretch")
             else:
                 ui_kit.empty_state("Mô hình không cung cấp độ quan trọng đặc trưng.")
@@ -226,8 +281,10 @@ def _session_results() -> bool:
     if failed:
         st.caption("Mô hình huấn luyện lỗi: " + "; ".join(f"{k} ({str(v)[:80]})" for k, v in failed.items()))
     if metrics_df.empty:
-        ui_kit.empty_state("Không có chỉ số hợp lệ cho lượt huấn luyện này.",
-                           hint="Kiểm tra Target/Features hoặc giảm số fold CV rồi huấn luyện lại.")
+        ui_kit.empty_state(
+            "Không có chỉ số hợp lệ cho lượt huấn luyện này.",
+            hint="Kiểm tra Target/Features hoặc giảm số fold CV rồi huấn luyện lại.",
+        )
         return True
 
     rank_col, asc = resolve_ranking_col(metrics_df, hub_type)
@@ -252,7 +309,8 @@ def _session_results() -> bool:
             with pd.ExcelWriter(out, engine="xlsxwriter") as writer:
                 ranked.to_excel(writer, sheet_name="Metrics")
             st.download_button(
-                "Tải bảng chỉ số (.xlsx)", data=out.getvalue(),
+                "Tải bảng chỉ số (.xlsx)",
+                data=out.getvalue(),
                 file_name=f"training_report_{datetime.now():%Y%m%d_%H%M}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 key="eval_session_export",
@@ -260,12 +318,17 @@ def _session_results() -> bool:
     with col_chart:
         with st.container(border=True):
             ui_kit.card_title(rank_col)
-            fig = go.Figure(go.Bar(
-                x=ranked[rank_col], y=ranked.index.astype(str), orientation="h",
-                marker_color=[_BAR if k == best else _BAR_MUTED for k in ranked.index],
-                text=[fmt3(v) for v in ranked[rank_col]], textposition="auto",
-                hovertemplate="%{y}: %{x:.4f}<extra></extra>",
-            ))
+            fig = go.Figure(
+                go.Bar(
+                    x=ranked[rank_col],
+                    y=ranked.index.astype(str),
+                    orientation="h",
+                    marker_color=[_BAR if k == best else _BAR_MUTED for k in ranked.index],
+                    text=[fmt3(v) for v in ranked[rank_col]],
+                    textposition="auto",
+                    hovertemplate="%{y}: %{x:.4f}<extra></extra>",
+                )
+            )
             fig.update_layout(height=260, margin=dict(t=8, b=8, l=8, r=8), yaxis=dict(autorange="reversed"))
             st.plotly_chart(fig, width="stretch", key="eval_session_rank", config={"displayModeBar": False})
 
@@ -288,25 +351,44 @@ def _session_results() -> bool:
             y_hat = np.asarray(y_pred, dtype=float)
             lo, hi = float(min(y_true.min(), y_hat.min())), float(max(y_true.max(), y_hat.max()))
             fig = go.Figure()
-            fig.add_trace(go.Scatter(
-                x=y_true, y=y_hat, mode="markers", marker=dict(color=_BAR, opacity=0.6),
-                hovertemplate="Thực tế %{x:.2f} · Dự đoán %{y:.2f}<extra></extra>",
-            ))
-            fig.add_trace(go.Scatter(x=[lo, hi], y=[lo, hi], mode="lines",
-                                     line=dict(color=_BAR_MUTED, dash="dash"), hoverinfo="skip"))
-            fig.update_layout(height=380, margin=dict(t=8, b=8, l=8, r=8), showlegend=False,
-                              xaxis_title="Thực tế", yaxis_title="Dự đoán")
+            fig.add_trace(
+                go.Scatter(
+                    x=y_true,
+                    y=y_hat,
+                    mode="markers",
+                    marker=dict(color=_BAR, opacity=0.6),
+                    hovertemplate="Thực tế %{x:.2f} · Dự đoán %{y:.2f}<extra></extra>",
+                )
+            )
+            fig.add_trace(
+                go.Scatter(
+                    x=[lo, hi], y=[lo, hi], mode="lines", line=dict(color=_BAR_MUTED, dash="dash"), hoverinfo="skip"
+                )
+            )
+            fig.update_layout(
+                height=380,
+                margin=dict(t=8, b=8, l=8, r=8),
+                showlegend=False,
+                xaxis_title="Thực tế",
+                yaxis_title="Dự đoán",
+            )
             st.plotly_chart(fig, width="stretch", key="eval_session_scatter", config={"displayModeBar": False})
             st.caption("Điểm càng gần đường chéo, dự đoán càng sát thực tế.")
         else:
             from sklearn.metrics import confusion_matrix
+
             y_true = [str(v) for v in y_test]
             y_hat = [str(v) for v in _decode_clf_pred(y_pred)]
             labels = sorted(set(y_true) | set(y_hat))
             ui_kit.card_title(f"Ma trận nhầm lẫn — {model}")
-            fig = px.imshow(confusion_matrix(y_true, y_hat, labels=labels), x=labels, y=labels,
-                            text_auto=True, color_continuous_scale="Blues",
-                            labels=dict(x="Dự đoán", y="Thực tế", color="Số SV"))
+            fig = px.imshow(
+                confusion_matrix(y_true, y_hat, labels=labels),
+                x=labels,
+                y=labels,
+                text_auto=True,
+                color_continuous_scale="Blues",
+                labels=dict(x="Dự đoán", y="Thực tế", color="Số SV"),
+            )
             fig.update_layout(height=360, margin=dict(t=8, b=8, l=8, r=8), coloraxis_showscale=False)
             st.plotly_chart(fig, width="stretch", key="eval_session_cm", config={"displayModeBar": False})
     return True
@@ -318,8 +400,10 @@ def evaluation_report_tab() -> None:
         subtitle="Chỉ số của lượt huấn luyện gần nhất và báo cáo đánh giá đã xác minh của EduDSS.",
     )
     if not _session_results():
-        ui_kit.empty_state("Chưa huấn luyện mô hình nào trong phiên này.",
-                           hint="Sang tab Huấn luyện mô hình, chọn Target/Features và bấm Tiến hành.")
+        ui_kit.empty_state(
+            "Chưa huấn luyện mô hình nào trong phiên này.",
+            hint="Sang tab Huấn luyện mô hình, chọn Target/Features và bấm Tiến hành.",
+        )
 
     snap = load_snapshot()
     if not snap:

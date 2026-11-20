@@ -1,4 +1,5 @@
 """Boundaries for untrusted RAG text and student context sent to AI providers."""
+
 from __future__ import annotations
 
 import html
@@ -7,7 +8,6 @@ import os
 import re
 
 from dss.security.log_redaction import redact_text
-
 
 AI_SYSTEM_POLICY = (
     "You are an academic advisor. Follow application rules and the user's learning request. "

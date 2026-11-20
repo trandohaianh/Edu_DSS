@@ -1,6 +1,7 @@
 """Real tests for Workstream D's non-DB recovery manifest (§4.1) — actual
 files on disk, actual SHA-256 checksums, actual corruption detection. No
 database required."""
+
 from __future__ import annotations
 
 from pathlib import Path

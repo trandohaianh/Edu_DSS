@@ -4,6 +4,7 @@ Dedicated deployments resolve the school on the server. Local SQLite is for
 development; production requires the explicit PostgreSQL selector and never
 falls back after a database failure. This is not shared-runtime tenancy.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -81,8 +82,9 @@ def _local_connection():
 @contextmanager
 def _postgres_records(school: str, student_id: str, *, write: bool = False, create_owner: bool = False):
     from sqlalchemy import text
-    from dss.db.models import Recommendation, Student
     from sqlalchemy.dialects.postgresql import insert
+
+    from dss.db.models import Recommendation, Student
     from dss.db.session import tenant_session_scope
 
     organization_id = int(school)
@@ -90,24 +92,42 @@ def _postgres_records(school: str, student_id: str, *, write: bool = False, crea
     with tenant_session_scope(organization_id) as session:
         if write:
             # Serialize all plan writes for this owner, including progress/retries.
-            key = int.from_bytes(hashlib.blake2b(
-                f"{school}:{student_id}:learning_plans".encode(), digest_size=8,
-            ).digest(), "big", signed=True)
+            key = int.from_bytes(
+                hashlib.blake2b(
+                    f"{school}:{student_id}:learning_plans".encode(),
+                    digest_size=8,
+                ).digest(),
+                "big",
+                signed=True,
+            )
             session.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": key})
             if create_owner:
-                session.execute(insert(Student).values(
-                    organization_id=organization_id, student_code=student_id, full_name=student_id,
-                ).on_conflict_do_nothing(index_elements=["organization_id", "student_code"]))
-                resolved_student_id = session.query(Student.id).filter_by(
-                    organization_id=organization_id, student_code=student_id,
-                ).scalar()
+                session.execute(
+                    insert(Student)
+                    .values(
+                        organization_id=organization_id,
+                        student_code=student_id,
+                        full_name=student_id,
+                    )
+                    .on_conflict_do_nothing(index_elements=["organization_id", "student_code"])
+                )
+                resolved_student_id = (
+                    session.query(Student.id)
+                    .filter_by(
+                        organization_id=organization_id,
+                        student_code=student_id,
+                    )
+                    .scalar()
+                )
         query = (
             session.query(Recommendation)
             .join(Student, Student.id == Recommendation.student_id)
-            .filter(Recommendation.organization_id == organization_id,
-                    Student.organization_id == organization_id,
-                    Student.student_code == student_id,
-                    Recommendation.recommendation_type == _RECORD_TYPE)
+            .filter(
+                Recommendation.organization_id == organization_id,
+                Student.organization_id == organization_id,
+                Student.student_code == student_id,
+                Recommendation.recommendation_type == _RECORD_TYPE,
+            )
             .order_by(Recommendation.id.desc())
         )
         yield session, query.all(), resolved_student_id
@@ -115,8 +135,7 @@ def _postgres_records(school: str, student_id: str, *, write: bool = False, crea
 
 def _same_plan(saved: dict, candidate: dict) -> bool:
     # Versions are assigned by the store, never by the caller.
-    return ({k: v for k, v in saved.items() if k != "version"}
-            == {k: v for k, v in candidate.items() if k != "version"})
+    return {k: v for k, v in saved.items() if k != "version"} == {k: v for k, v in candidate.items() if k != "version"}
 
 
 def _new_payload(plan, records: list[dict]) -> dict:
@@ -126,12 +145,14 @@ def _new_payload(plan, records: list[dict]) -> dict:
             if not _same_plan(record["plan"], candidate):
                 raise ValueError("A saved plan cannot be changed; generate a new version.")
             return record
-    next_version = max(
-        (int(r["plan"]["version"]) for r in records
-         if r["plan"].get("course_id") == plan.course_id), default=0,
-    ) + 1
-    return {"schema_version": 1, "plan": replace(plan, version=next_version).to_dict(),
-            "completion": {}}
+    next_version = (
+        max(
+            (int(r["plan"]["version"]) for r in records if r["plan"].get("course_id") == plan.course_id),
+            default=0,
+        )
+        + 1
+    )
+    return {"schema_version": 1, "plan": replace(plan, version=next_version).to_dict(), "completion": {}}
 
 
 def save_learning_plan(student_id: str, plan) -> dict[str, Any]:
@@ -142,15 +163,20 @@ def save_learning_plan(student_id: str, plan) -> dict[str, Any]:
         raise PermissionError("The plan belongs to a different student.")
     if is_postgres_enabled("LEARNING_PLANS"):
         from dss.db.models import Recommendation
+
         with _postgres_records(school, student_id, write=True, create_owner=True) as (session, rows, student_pk):
             records = [_decode(row.content) for row in rows]
             payload = _new_payload(plan, records)
             if not any(r["plan"]["plan_id"] == plan.plan_id for r in records):
-                session.add(Recommendation(
-                    organization_id=int(school), student_id=student_pk,
-                    recommendation_type=_RECORD_TYPE, content=_encode(payload),
-                    generated_by="structured-rule-policy-v1",
-                ))
+                session.add(
+                    Recommendation(
+                        organization_id=int(school),
+                        student_id=student_pk,
+                        recommendation_type=_RECORD_TYPE,
+                        content=_encode(payload),
+                        generated_by="structured-rule-policy-v1",
+                    )
+                )
             return payload
     with _local_connection() as connection:
         connection.execute("BEGIN IMMEDIATE")
@@ -164,8 +190,15 @@ def save_learning_plan(student_id: str, plan) -> dict[str, Any]:
             stored = payload["plan"]
             connection.execute(
                 "INSERT INTO pilot_learning_plans VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (school, owner, stored["course_id"], stored["plan_id"],
-                 stored["version"], stored["created_at"], _encode(payload)),
+                (
+                    school,
+                    owner,
+                    stored["course_id"],
+                    stored["plan_id"],
+                    stored["version"],
+                    stored["created_at"],
+                    _encode(payload),
+                ),
             )
         connection.commit()
         return payload
@@ -198,8 +231,11 @@ def set_activity_completed(student_id: str, plan_id: str, activity_index: int, c
 
     def update(payload):
         activities = payload["plan"].get("activities", [])
-        if (not isinstance(activity_index, int) or isinstance(activity_index, bool)
-                or not 0 <= activity_index < len(activities)):
+        if (
+            not isinstance(activity_index, int)
+            or isinstance(activity_index, bool)
+            or not 0 <= activity_index < len(activities)
+        ):
             raise ValueError("Unknown learning activity.")
         payload.setdefault("completion", {})[str(activity_index)] = completed
         return payload

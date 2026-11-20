@@ -4,16 +4,18 @@ Quản lý thông tin gói thuê bao tổ chức (Trường Đại học/Viện 
 hiệu lực (ACTIVE, EXPIRED, SUSPENDED) và chặn truy cập (Entitlement Gate) khi hết hạn.
 Không hỗ trợ dùng thử miễn phí theo chính sách thương mại SaaS của Section 36 & 37.
 """
+
 from __future__ import annotations
 
 import json
 import os
 import threading
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import streamlit as st
+
 from dss.core.data_root import get_data_root
 from dss.core.logging_config import get_logger
 from dss.core.persistence_config import is_postgres_enabled
@@ -26,6 +28,7 @@ def _sub_path() -> Path:
     """PERF-002: tính lại mỗi lần gọi, không cache mức module (xem dss/core/data_root.py)."""
     return get_data_root() / "subscription.json"
 
+
 DEFAULT_ORGANIZATION_SUBSCRIPTION: Dict[str, Any] = {
     "org_id": "org_univ_01",
     "org_name": "Trường Đại học Khoa học Tự nhiên - ĐHQG",
@@ -35,7 +38,7 @@ DEFAULT_ORGANIZATION_SUBSCRIPTION: Dict[str, Any] = {
     "admin_contact": "admin@edudss.edu.vn",
     "created_at": "2025-01-01T00:00:00Z",
     "activated_at": "2025-01-01T00:00:00Z",
-    "expires_at": (datetime.now(timezone.utc) + timedelta(days=365)).isoformat(),
+    "expires_at": (datetime.now(UTC) + timedelta(days=365)).isoformat(),
     "max_students": 5000,
     "max_courses": 150,
     "features_enabled": [
@@ -53,9 +56,7 @@ DEFAULT_ORGANIZATION_SUBSCRIPTION: Dict[str, Any] = {
 def _current_organization_id() -> int:
     raw = os.environ.get("EDUDSS_ORGANIZATION_ID", "").strip()
     if not raw:
-        raise RuntimeError(
-            "EDUDSS_ORGANIZATION_ID is required when EDUDSS_SUBSCRIPTION_STORE=postgres."
-        )
+        raise RuntimeError("EDUDSS_ORGANIZATION_ID is required when EDUDSS_SUBSCRIPTION_STORE=postgres.")
     return int(raw)
 
 
@@ -66,6 +67,7 @@ def get_organization_subscription() -> Dict[str, Any]:
     thật DUY NHẤT — không đọc/ghi đúp vào subscription.json cục bộ."""
     if is_postgres_enabled("SUBSCRIPTION"):
         from dss.db.repositories import subscription_repository
+
         return subscription_repository.get_or_create_subscription(
             _current_organization_id(), defaults=DEFAULT_ORGANIZATION_SUBSCRIPTION
         )
@@ -76,7 +78,7 @@ def get_organization_subscription() -> Dict[str, Any]:
             _save_subscription(DEFAULT_ORGANIZATION_SUBSCRIPTION)
         return dict(DEFAULT_ORGANIZATION_SUBSCRIPTION)
     try:
-        with open(sub_path, "r", encoding="utf-8") as f:
+        with open(sub_path, encoding="utf-8") as f:
             data = json.load(f)
             return data if isinstance(data, dict) else dict(DEFAULT_ORGANIZATION_SUBSCRIPTION)
     except Exception as e:
@@ -112,6 +114,7 @@ def update_subscription_status(
 
     if is_postgres_enabled("SUBSCRIPTION"):
         from dss.db.repositories import subscription_repository
+
         org_id = _current_organization_id()
         subscription_repository.get_or_create_subscription(org_id, defaults=DEFAULT_ORGANIZATION_SUBSCRIPTION)
         subscription_repository.update_status(org_id, status=status, plan=plan, max_students=max_students)
@@ -126,7 +129,7 @@ def update_subscription_status(
             sub["expires_at"] = expires_at
         if max_students is not None:
             sub["max_students"] = max_students
-        sub["updated_at"] = datetime.now(timezone.utc).isoformat()
+        sub["updated_at"] = datetime.now(UTC).isoformat()
         return _save_subscription(sub)
 
 
@@ -140,16 +143,22 @@ def check_entitlement(feature_key: Optional[str] = None) -> Tuple[bool, Optional
 
     # 1. Kiểm tra trạng thái thuê bao
     if status == "EXPIRED":
-        return False, "Thời hạn thuê bao dịch vụ EduDSS của Tổ chức đã hết hạn. Vui lòng liên hệ Quản trị viên trường để gia hạn hợp đồng."
+        return (
+            False,
+            "Thời hạn thuê bao dịch vụ EduDSS của Tổ chức đã hết hạn. Vui lòng liên hệ Quản trị viên trường để gia hạn hợp đồng.",
+        )
     if status == "SUSPENDED":
-        return False, "Tài khoản dịch vụ EduDSS của Tổ chức hiện đang tạm ngưng do bảo trì hợp đồng hoặc vi phạm chính sách."
+        return (
+            False,
+            "Tài khoản dịch vụ EduDSS của Tổ chức hiện đang tạm ngưng do bảo trì hợp đồng hoặc vi phạm chính sách.",
+        )
 
     # 2. Kiểm tra ngày hết hạn
     expires_str = sub.get("expires_at")
     if expires_str:
         try:
             exp_date = datetime.fromisoformat(expires_str.replace("Z", "+00:00"))
-            if datetime.now(timezone.utc) > exp_date:
+            if datetime.now(UTC) > exp_date:
                 # Tự động cập nhật thành EXPIRED
                 update_subscription_status("EXPIRED")
                 return False, "Hợp đồng dịch vụ EduDSS đã kết thúc vào ngày " + exp_date.strftime("%d/%m/%Y") + "."
@@ -170,8 +179,11 @@ def consume_ai_request_quota() -> int | None:
     if not is_postgres_enabled("SUBSCRIPTION"):
         return None
     from dss.db.repositories.quota_repository import consume, subscription_limit
-    organization_id=_current_organization_id()
-    return consume(organization_id,"AI_REQUESTS_MONTH",subscription_limit(organization_id,"max_ai_requests_month"),1)
+
+    organization_id = _current_organization_id()
+    return consume(
+        organization_id, "AI_REQUESTS_MONTH", subscription_limit(organization_id, "max_ai_requests_month"), 1
+    )
 
 
 def render_subscription_gate(current_role: str) -> bool:

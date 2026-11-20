@@ -1,10 +1,13 @@
 """School enrollment transactions and capacity enforcement."""
+
 from concurrent.futures import ThreadPoolExecutor
+
 import pytest
 from sqlalchemy.exc import IntegrityError
+
+from dss.platform import store
 from dss.platform.context import Actor
 from dss.platform.models import ClassEnrollment, Program, SchoolAllocation
-from dss.platform import store
 from dss.services import classroom_service as classes
 
 ADMIN = Actor("1", "admin", "Admin")
@@ -55,20 +58,28 @@ def test_roster_is_atomic_and_distinct_across_classes():
 def test_concurrent_enrollment_never_oversubscribes():
     row = classroom()
     allocate(2)
+
     def enroll(index):
         try:
             classes.enroll_student(ADMIN, row["id"], "SV" + str(index))
             return True
         except ValueError:
             return False
+
     with ThreadPoolExecutor(max_workers=8) as executor:
         assert sum(executor.map(enroll, range(8))) == 2
     assert len(classes.list_class_roster(ADMIN, row["id"])) == 2
 
 
-@pytest.mark.parametrize("allocation_status,program_status", [
-    ("suspended", "active"), ("revoked", "active"), ("active", "paused"), ("active", "closed"),
-])
+@pytest.mark.parametrize(
+    "allocation_status,program_status",
+    [
+        ("suspended", "active"),
+        ("revoked", "active"),
+        ("active", "paused"),
+        ("active", "closed"),
+    ],
+)
 def test_disabled_allocations_preserve_reads_and_block_writes(allocation_status, program_status):
     row = classroom()
     classes.enroll_student(ADMIN, row["id"], "SV1")

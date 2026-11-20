@@ -9,6 +9,7 @@ dss/db/__init__.py). `record()` must never raise or block a caller (e.g.
 `model_registry.promote()`) just because Postgres isn't configured; it logs a
 warning via the existing technical logger and returns `False` instead.
 """
+
 from __future__ import annotations
 
 import os
@@ -37,7 +38,9 @@ def record(
     if not is_database_configured():
         _logger.warning(
             "AuditLogRepository.record() skipped (no PostgreSQL configured): action=%s target=%s:%s",
-            action, target_type, target_id,
+            action,
+            target_type,
+            target_id,
         )
         return False
     try:
@@ -57,9 +60,7 @@ def record(
             )
         return True
     except Exception:
-        _logger.exception(
-            "AuditLogRepository.record() failed: action=%s target=%s:%s", action, target_type, target_id
-        )
+        _logger.exception("AuditLogRepository.record() failed: action=%s target=%s:%s", action, target_type, target_id)
         return False
 
 

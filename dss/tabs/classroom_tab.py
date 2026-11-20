@@ -1,4 +1,5 @@
 """Classroom workspace: official assignments, formative assessments and saved plans."""
+
 from __future__ import annotations
 
 import csv
@@ -10,8 +11,8 @@ import uuid
 import streamlit as st
 
 from dss.platform.context import current_actor
-from dss.services import classroom_service as classes
 from dss.services import classroom_learning_service as learning
+from dss.services import classroom_service as classes
 
 _logger = logging.getLogger(__name__)
 
@@ -67,18 +68,29 @@ def _question_editor(prefix, questions):
         st.markdown(f"**Câu {index + 1}**")
         topic = st.text_input("Chủ đề", value=question.get("topic_id", ""), key=key + "_topic")
         text = st.text_area("Nội dung câu hỏi", value=question.get("text", ""), key=key + "_text")
-        choices = st.text_area("Các lựa chọn, mỗi dòng một lựa chọn",
-            value="\n".join(question.get("options", [])), key=key + "_options")
-        position = st.number_input("Đáp án đúng (số thứ tự từ 1)",
-            min_value=1, max_value=8, value=question.get("correct_answer_index", 0) + 1,
-            key=key + "_correct")
-        explanation = st.text_area("Giải thích đáp án (tùy chọn)",
-            value=question.get("explanation", ""), key=key + "_explanation")
-        result.append(dict(
-            question_id=question.get("question_id", f"q{index + 1}"), topic_id=topic,
-            text=text, options=[line.strip() for line in choices.splitlines() if line.strip()],
-            correct_answer_index=int(position) - 1, explanation=explanation,
-        ))
+        choices = st.text_area(
+            "Các lựa chọn, mỗi dòng một lựa chọn", value="\n".join(question.get("options", [])), key=key + "_options"
+        )
+        position = st.number_input(
+            "Đáp án đúng (số thứ tự từ 1)",
+            min_value=1,
+            max_value=8,
+            value=question.get("correct_answer_index", 0) + 1,
+            key=key + "_correct",
+        )
+        explanation = st.text_area(
+            "Giải thích đáp án (tùy chọn)", value=question.get("explanation", ""), key=key + "_explanation"
+        )
+        result.append(
+            dict(
+                question_id=question.get("question_id", f"q{index + 1}"),
+                topic_id=topic,
+                text=text,
+                options=[line.strip() for line in choices.splitlines() if line.strip()],
+                correct_answer_index=int(position) - 1,
+                explanation=explanation,
+            )
+        )
     return result
 
 
@@ -88,13 +100,19 @@ def _author_assessments(actor, class_id, assessments):
         count = st.number_input("Số câu hỏi", min_value=1, max_value=100, value=1, key="question_count_" + class_id)
         with st.form("assessment_compose_" + class_id):
             title = st.text_input("Tên bài đánh giá", key="compose_title_" + class_id)
-            maximum = st.number_input("Lượt làm tối đa", min_value=1, max_value=100, value=3, key="compose_maximum_" + class_id)
-            questions = _question_editor("compose_" + class_id, [{"question_id": f"q{i + 1}"} for i in range(int(count))])
+            maximum = st.number_input(
+                "Lượt làm tối đa", min_value=1, max_value=100, value=3, key="compose_maximum_" + class_id
+            )
+            questions = _question_editor(
+                "compose_" + class_id, [{"question_id": f"q{i + 1}"} for i in range(int(count))]
+            )
             if st.form_submit_button("Lưu bài đánh giá nháp"):
                 learning.create_assessment(actor, class_id, title, questions, max_attempts=int(maximum))
                 st.rerun()
     with st.expander("Nhập hàng loạt câu hỏi JSON"):
-        st.caption("Dùng khi trường đã có bộ câu hỏi xuất theo cấu trúc question_id, topic_id, text, options, correct_answer_index (bắt đầu từ 0), explanation.")
+        st.caption(
+            "Dùng khi trường đã có bộ câu hỏi xuất theo cấu trúc question_id, topic_id, text, options, correct_answer_index (bắt đầu từ 0), explanation."
+        )
         with st.form("assessment_create_" + class_id):
             title = st.text_input("Tên bài nhập")
             questions = st.text_area("Danh sách câu hỏi JSON", height=180)
@@ -110,17 +128,25 @@ def _author_assessments(actor, class_id, assessments):
                 with st.form("edit_draft_" + assessment_id):
                     title = st.text_input("Tên bản nháp", value=assessment["title"], key="draft_title_" + assessment_id)
                     questions = _question_editor("draft_" + assessment_id, assessment["questions"])
-                    maximum = st.number_input("Lượt làm tối đa", min_value=1, max_value=100,
-                        value=assessment["max_attempts"], key="draft_maximum_" + assessment_id)
+                    maximum = st.number_input(
+                        "Lượt làm tối đa",
+                        min_value=1,
+                        max_value=100,
+                        value=assessment["max_attempts"],
+                        key="draft_maximum_" + assessment_id,
+                    )
                     if st.form_submit_button("Lưu thay đổi bản nháp"):
-                        learning.update_assessment_draft(actor, assessment_id, questions,
-                            title=title, max_attempts=int(maximum))
+                        learning.update_assessment_draft(
+                            actor, assessment_id, questions, title=title, max_attempts=int(maximum)
+                        )
                         st.rerun()
                 if st.button("Xuất bản", key="publish_" + assessment_id):
                     learning.publish_assessment(actor, assessment_id)
                     st.rerun()
             else:
-                if assessment["status"] == "published" and st.button("Đóng bài đánh giá", key="close_assessment_" + assessment_id):
+                if assessment["status"] == "published" and st.button(
+                    "Đóng bài đánh giá", key="close_assessment_" + assessment_id
+                ):
                     learning.close_assessment(actor, assessment_id)
                     st.rerun()
                 st.caption("Chỉnh sửa dưới đây tạo bản nháp mới; bài đã xuất bản được giữ nguyên.")
@@ -137,15 +163,24 @@ def _show_attempts(actor, class_id, assessments):
         return attempts
     by_id = {item["id"]: item for item in assessments}
     st.subheader("Kết quả đã lưu")
-    st.dataframe([{
-        "Bài đánh giá": by_id.get(item["assessment_id"], {}).get("title", "Bài đã lưu"),
-        "Phiên bản": by_id.get(item["assessment_id"], {}).get("version"),
-        "Thời điểm": item["submitted_at"], "Điểm / 10": item["score"],
-        "Số câu đúng": item["correct_count"], "Tổng số câu": item["total_count"],
-    } for item in attempts], hide_index=True)
+    st.dataframe(
+        [
+            {
+                "Bài đánh giá": by_id.get(item["assessment_id"], {}).get("title", "Bài đã lưu"),
+                "Phiên bản": by_id.get(item["assessment_id"], {}).get("version"),
+                "Thời điểm": item["submitted_at"],
+                "Điểm / 10": item["score"],
+                "Số câu đúng": item["correct_count"],
+                "Tổng số câu": item["total_count"],
+            }
+            for item in attempts
+        ],
+        hide_index=True,
+    )
     st.caption("Kết quả từng chủ đề trong lượt làm mới nhất:")
-    st.dataframe([{"Chủ đề": topic, "Điểm / 10": score}
-                  for topic, score in attempts[0]["topic_scores"].items()], hide_index=True)
+    st.dataframe(
+        [{"Chủ đề": topic, "Điểm / 10": score} for topic, score in attempts[0]["topic_scores"].items()], hide_index=True
+    )
     return attempts
 
 
@@ -155,9 +190,12 @@ def _take_assessment(actor, class_id, assessments, attempts):
         st.info("Chưa có bài đánh giá đang mở.")
         return
     by_id = {item["id"]: item for item in published}
-    assessment_id = st.selectbox("Chọn bài đánh giá", list(by_id),
+    assessment_id = st.selectbox(
+        "Chọn bài đánh giá",
+        list(by_id),
         format_func=lambda key: f"{by_id[key]['title']} · v{by_id[key]['version']}",
-        key="assessment_pick_" + actor.school_id + "_" + actor.username + "_" + class_id)
+        key="assessment_pick_" + actor.school_id + "_" + actor.username + "_" + class_id,
+    )
     assessment = by_id[assessment_id]
     done = [item for item in attempts if item["assessment_id"] == assessment_id]
     st.caption(f"Đã dùng {len(done)}/{assessment['max_attempts']} lượt. Kết quả dùng để hỗ trợ học tập.")
@@ -183,11 +221,15 @@ def _take_assessment(actor, class_id, assessments, attempts):
     with st.form("take_" + token_key):
         answers = []
         for index, question in enumerate(assessment["questions"]):
-            answers.append(st.radio(
-                f"{index + 1}. {question['text']}", range(len(question["options"])),
-                format_func=lambda option, choices=question["options"]: choices[option],
-                index=None, key=f"{token_key}_answer_{index}",
-            ))
+            answers.append(
+                st.radio(
+                    f"{index + 1}. {question['text']}",
+                    range(len(question["options"])),
+                    format_func=lambda option, choices=question["options"]: choices[option],
+                    index=None,
+                    key=f"{token_key}_answer_{index}",
+                )
+            )
         if st.form_submit_button("Nộp bài và cập nhật kế hoạch"):
             if any(answer is None for answer in answers):
                 st.warning("Hãy trả lời đủ các câu trước khi nộp.")
@@ -204,9 +246,12 @@ def _show_plans(actor, class_id):
         st.caption("Sau bài đánh giá đầu tiên, kế hoạch sẽ được lưu theo kết quả từng chủ đề.")
         return
     by_id = {item["id"]: item for item in plans}
-    selected = st.selectbox("Phiên bản kế hoạch", list(by_id),
+    selected = st.selectbox(
+        "Phiên bản kế hoạch",
+        list(by_id),
         format_func=lambda key: f"v{by_id[key]['version']} · {by_id[key]['created_at'][:10]}",
-        key="plan_pick_" + actor.school_id + "_" + actor.username + "_" + class_id)
+        key="plan_pick_" + actor.school_id + "_" + actor.username + "_" + class_id,
+    )
     record = by_id[selected]
     plan = record["plan"]
     for message in plan.get("missing_evidence", []):
@@ -249,17 +294,37 @@ def _staff_progress(actor, class_id):
     left.metric("Sinh viên trong lớp", progress["student_count"])
     middle.metric("Đã có bài làm", progress["assessed_students"])
     right.metric("Lượt làm", progress["attempt_count"])
-    st.dataframe([{
-        "Mã sinh viên": item["student_code"], "Lượt làm": item["attempt_count"],
-        "Điểm lượt mới nhất": item["latest_score"], "Thời điểm": item["latest_submitted_at"],
-        "Phiên bản kế hoạch": item["plan_version"], "Hoạt động hoàn thành": item["completed_activities"],
-        "Tổng hoạt động": item["total_activities"], "Cần xem xét hỗ trợ": item["needs_review"],
-    } for item in progress["students"]], hide_index=True)
-    st.caption("Chủ đề dùng kết quả mới nhất đã ghi nhận của từng sinh viên. Chưa có bài làm được giữ là chưa có dữ liệu.")
+    st.dataframe(
+        [
+            {
+                "Mã sinh viên": item["student_code"],
+                "Lượt làm": item["attempt_count"],
+                "Điểm lượt mới nhất": item["latest_score"],
+                "Thời điểm": item["latest_submitted_at"],
+                "Phiên bản kế hoạch": item["plan_version"],
+                "Hoạt động hoàn thành": item["completed_activities"],
+                "Tổng hoạt động": item["total_activities"],
+                "Cần xem xét hỗ trợ": item["needs_review"],
+            }
+            for item in progress["students"]
+        ],
+        hide_index=True,
+    )
+    st.caption(
+        "Chủ đề dùng kết quả mới nhất đã ghi nhận của từng sinh viên. Chưa có bài làm được giữ là chưa có dữ liệu."
+    )
     if progress["topic_summary"]:
-        st.dataframe([{"Chủ đề": topic, "Điểm trung bình / 10": values["average_score"],
-                       "Sinh viên có kết quả": values["observed_students"]}
-                      for topic, values in progress["topic_summary"].items()], hide_index=True)
+        st.dataframe(
+            [
+                {
+                    "Chủ đề": topic,
+                    "Điểm trung bình / 10": values["average_score"],
+                    "Sinh viên có kết quả": values["observed_students"],
+                }
+                for topic, values in progress["topic_summary"].items()
+            ],
+            hide_index=True,
+        )
     with st.expander("Theo dõi hỗ trợ sinh viên"):
         roster = classes.list_class_roster(actor, class_id)
         if roster:
@@ -298,9 +363,12 @@ def classroom_tab():
             st.info("Chưa có lớp học được phân công hoặc ghi danh cho tài khoản này.")
             return
         by_id = {row["id"]: row for row in rows}
-        class_id = st.selectbox("Lớp học", list(by_id),
+        class_id = st.selectbox(
+            "Lớp học",
+            list(by_id),
             format_func=lambda key: f"{by_id[key]['code']} · {by_id[key]['title']} · {by_id[key]['term']}",
-            key="classroom_pick")
+            key="classroom_pick",
+        )
         classroom = by_id[class_id]
         st.caption(f"Học phần {classroom['course_id']} · Trạng thái {classroom['status']}")
         if actor.role == classes.ADMIN:

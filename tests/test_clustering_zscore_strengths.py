@@ -3,6 +3,7 @@ TÁN thật của từng đặc trưng (z-score), không phải tỷ lệ ±10% 
 phương sai. Test dựng 1 tình huống mà logic ratio cũ và z-score cho ra kết
 luận KHÁC NHAU để chứng minh z-score thực sự thay đổi hành vi, không chỉ
 thêm tham số không dùng tới."""
+
 from __future__ import annotations
 
 import pandas as pd
@@ -26,12 +27,12 @@ def test_high_variance_feature_not_flagged_strong_by_small_relative_gap():
     # so_gio_tu_hoc: z=(22.4-20.0)/12.0~=0.2 (duoi nguong); ty_le_diem_danh: z=0.8 (vuot nguong)
 
     strengths, weaknesses = clustering_service.compute_strengths_weaknesses(
-        group_avg, overall_avg, overall_std=overall_std,
+        group_avg,
+        overall_avg,
+        overall_std=overall_std,
     )
     assert "ty_le_diem_danh" in strengths, "z=0.8 phai duoc coi la diem manh."
-    assert "so_gio_tu_hoc" not in strengths, (
-        "z-score ~0.2 (< 0.5) KHÔNG được coi là điểm mạnh dù vượt ratio ±10% cũ."
-    )
+    assert "so_gio_tu_hoc" not in strengths, "z-score ~0.2 (< 0.5) KHÔNG được coi là điểm mạnh dù vượt ratio ±10% cũ."
 
 
 def test_low_variance_feature_flagged_strong_by_small_relative_gap():
@@ -43,11 +44,11 @@ def test_low_variance_feature_flagged_strong_by_small_relative_gap():
     overall_std = pd.Series({"ty_le_diem_danh": 0.05})  # (0.92-0.85)/0.05 = 1.4
 
     strengths, weaknesses = clustering_service.compute_strengths_weaknesses(
-        group_avg, overall_avg, overall_std=overall_std,
+        group_avg,
+        overall_avg,
+        overall_std=overall_std,
     )
-    assert "ty_le_diem_danh" in strengths, (
-        "z-score 1.4 (> 0.5) PHẢI được coi là điểm mạnh thật sự."
-    )
+    assert "ty_le_diem_danh" in strengths, "z-score 1.4 (> 0.5) PHẢI được coi là điểm mạnh thật sự."
 
 
 def test_zero_std_column_treated_as_typical_not_crash():
@@ -58,7 +59,9 @@ def test_zero_std_column_treated_as_typical_not_crash():
     overall_std = pd.Series({"constant_col": 0.0, "varying_col": 1.0})
 
     strengths, weaknesses = clustering_service.compute_strengths_weaknesses(
-        group_avg, overall_avg, overall_std=overall_std,
+        group_avg,
+        overall_avg,
+        overall_std=overall_std,
     )
     assert "constant_col" not in strengths and "constant_col" not in weaknesses
     assert "varying_col" in strengths
@@ -82,7 +85,9 @@ def test_zscore_fallback_finds_relative_strength_when_nothing_crosses_threshold(
     overall_std = pd.Series({"a": 1.0, "b": 1.0})  # z = +0.1 / -0.1, cả 2 đều dưới 0.5
 
     strengths, weaknesses = clustering_service.compute_strengths_weaknesses(
-        group_avg, overall_avg, overall_std=overall_std,
+        group_avg,
+        overall_avg,
+        overall_std=overall_std,
     )
     assert len(strengths) > 0 and len(weaknesses) > 0
     assert strengths[0] == "a"

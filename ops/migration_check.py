@@ -15,6 +15,7 @@ rollback is therefore "restore the pre-deploy backup" or "ship a forward fix" �
 `alembic downgrade` against live data. `roundtrip` exists to prove the migration graph is
 mechanically reversible on a disposable database, nothing more.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -31,6 +32,7 @@ if str(APP_ROOT) not in sys.path:
 
 def _engine():
     from sqlalchemy import create_engine
+
     url = os.environ.get("DATABASE_URL", "").strip()
     if not url:
         raise SystemExit("DATABASE_URL is required")
@@ -40,7 +42,9 @@ def _engine():
 def _script_directory():
     from alembic.config import Config
     from alembic.script import ScriptDirectory
+
     from dss.db.schema_contract import ALEMBIC_INI
+
     return ScriptDirectory.from_config(Config(str(ALEMBIC_INI)))
 
 
@@ -57,13 +61,19 @@ def pending_revisions(current: list[str]) -> list[dict]:
     if current and current[0] == head:
         return []
     revisions = list(script.iterate_revisions(head, base if base != "base" else "base"))
-    return [{"revision": r.revision, "message": (r.doc or "").strip().splitlines()[0][:100] if r.doc else "",
-             "downgrade_destroys_data": _destructive_downgrade(r)}
-            for r in reversed([r for r in revisions if r.revision != base])]
+    return [
+        {
+            "revision": r.revision,
+            "message": (r.doc or "").strip().splitlines()[0][:100] if r.doc else "",
+            "downgrade_destroys_data": _destructive_downgrade(r),
+        }
+        for r in reversed([r for r in revisions if r.revision != base])
+    ]
 
 
 def status() -> dict:
     from dss.db.schema_contract import schema_report
+
     report = schema_report(_engine())
     report["pending"] = pending_revisions(report["database_revision"])
     return report
@@ -78,23 +88,39 @@ def precheck() -> int:
     if len(current) > 1:
         return _out({"ok": False, "reason": "multiple revisions in database", **report}, 2)
     if current and current[0] not in known:
-        return _out({"ok": False, "reason": "database revision is unknown to this code "
-                     "(database is AHEAD of this release or from another branch) — do not deploy", **report}, 2)
+        return _out(
+            {
+                "ok": False,
+                "reason": "database revision is unknown to this code "
+                "(database is AHEAD of this release or from another branch) — do not deploy",
+                **report,
+            },
+            2,
+        )
     return _out({"ok": True, "action": "none" if report["at_head"] else "upgrade", **report}, 0)
 
 
 def verify() -> int:
     report = status()
-    return _out({"ok": report["compatible"] and not report["unexpected_tables"], **report},
-                0 if report["compatible"] and not report["unexpected_tables"] else 1)
+    return _out(
+        {"ok": report["compatible"] and not report["unexpected_tables"], **report},
+        0 if report["compatible"] and not report["unexpected_tables"] else 1,
+    )
 
 
 def roundtrip(confirmed: bool) -> int:
     from dss.core.runtime_mode import is_production
     from dss.db.schema_contract import database_tables
+
     if not confirmed or is_production():
-        return _out({"ok": False, "reason": "roundtrip destroys data; needs --confirm-disposable-database "
-                     "and a non-production environment"}, 2)
+        return _out(
+            {
+                "ok": False,
+                "reason": "roundtrip destroys data; needs --confirm-disposable-database "
+                "and a non-production environment",
+            },
+            2,
+        )
     engine = _engine()
     if database_tables(engine) - {"alembic_version"}:
         before = status()
@@ -102,7 +128,9 @@ def roundtrip(confirmed: bool) -> int:
             return _out({"ok": False, "reason": "database is not at head"}, 2)
     from alembic import command
     from alembic.config import Config
+
     from dss.db.schema_contract import ALEMBIC_INI, assert_schema_matches
+
     config = Config(str(ALEMBIC_INI))
     command.upgrade(config, "head")
     assert_schema_matches(engine)

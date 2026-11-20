@@ -3,6 +3,7 @@
   định độ chính xác và chạy vẫn nhanh;
 - dữ liệu lớn (>= tuning.LARGE_DATA_ROWS): lưới GỌN (8 / 4) + tối đa 3 fold —
   đo trên 20.000 SV, chọn cùng tham số tốt nhất với lưới đầy đủ."""
+
 from __future__ import annotations
 
 import ast
@@ -11,9 +12,9 @@ import itertools
 
 import pytest
 
+from dss.config import LIGHTGBM_AVAILABLE, XGBOOST_AVAILABLE
 from dss.core import trainers, tuning
 from dss.core.trainers import ClassificationTrainer, RegressionTrainer
-from dss.config import XGBOOST_AVAILABLE, LIGHTGBM_AVAILABLE
 
 
 def _combination_count(grid: dict) -> int:
@@ -30,9 +31,14 @@ def test_random_forest_regressor_full_and_compact_grids():
 
 def test_compact_grid_is_subset_of_full_grid():
     trainer = RegressionTrainer()
-    full, compact = trainer.param_grids["Random Forest Regressor"], trainer._compact_param_grids["Random Forest Regressor"]
+    full, compact = (
+        trainer.param_grids["Random Forest Regressor"],
+        trainer._compact_param_grids["Random Forest Regressor"],
+    )
     assert all(set(v) <= set(full[k]) for k, v in compact.items())
-    assert all(set(v) <= set(trainers.RF_CLASSIFIER_GRID_FULL[k]) for k, v in trainers.RF_CLASSIFIER_GRID_COMPACT.items())
+    assert all(
+        set(v) <= set(trainers.RF_CLASSIFIER_GRID_FULL[k]) for k, v in trainers.RF_CLASSIFIER_GRID_COMPACT.items()
+    )
 
 
 def test_linear_regression_has_no_grid_search():
@@ -46,11 +52,14 @@ def test_regression_trainer_has_single_source_of_truth_for_param_grids():
     assert source.count("'model__n_estimators'") == 4
 
 
-@pytest.mark.parametrize("model_name,expected_combinations,requires", [
-    ("Random Forest Regressor", 12, None),
-    ("XGBoost Regressor", 4, "xgboost"),
-    ("LightGBM Regressor", 4, "lightgbm"),
-])
+@pytest.mark.parametrize(
+    "model_name,expected_combinations,requires",
+    [
+        ("Random Forest Regressor", 12, None),
+        ("XGBoost Regressor", 4, "xgboost"),
+        ("LightGBM Regressor", 4, "lightgbm"),
+    ],
+)
 def test_exact_combination_counts_for_all_boosting_models(model_name, expected_combinations, requires):
     if requires == "xgboost" and not XGBOOST_AVAILABLE:
         pytest.skip("xgboost không cài trong môi trường này")
@@ -65,8 +74,9 @@ def test_exact_combination_counts_for_all_boosting_models(model_name, expected_c
 def test_large_data_fit_count_is_bounded():
     trainer = RegressionTrainer()
     n = tuning.LARGE_DATA_ROWS
-    grid = tuning.select_grid(trainer.param_grids["Random Forest Regressor"],
-                              trainer._compact_param_grids["Random Forest Regressor"], n)
+    grid = tuning.select_grid(
+        trainer.param_grids["Random Forest Regressor"], trainer._compact_param_grids["Random Forest Regressor"], n
+    )
     assert _combination_count(grid) * tuning.effective_cv_folds(n, 5) == 4 * 3
 
 

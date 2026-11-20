@@ -8,6 +8,7 @@ similarity THẬT của model này (xem Phase 6: model này có "sàn nhiễu" ~
 ngay cả với câu hỏi hoàn toàn không liên quan). Load model 1 LẦN cho cả file
 (fixture scope=module) để không phải tải lại cho từng test case.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -19,6 +20,7 @@ import dss.config as dss_config
 def llm_integration():
     dss_config._ensure_local_llm_libs()
     from dss.core.models import MultiAIProvider
+
     provider = MultiAIProvider()
     # Chạm 1 lần để nạp model embedding trước khi vào các test case thật.
     provider.get_embedding("khởi động model")
@@ -37,11 +39,8 @@ def test_relevant_query_returns_matching_document(llm_integration):
 def test_off_topic_query_returns_no_evidence(llm_integration):
     """Mục 14: Truy vấn hoàn toàn lạc đề (thời tiết) -> Sàn tin cậy không đạt
     -> Trả về rỗng [] để LLM không bịa đặt câu trả lời từ tài liệu không liên quan."""
-    docs = llm_integration.find_relevant_documents_rag(
-        "thời tiết hôm nay thế nào", top_k=5, use_warehouse_data=False
-    )
+    docs = llm_integration.find_relevant_documents_rag("thời tiết hôm nay thế nào", top_k=5, use_warehouse_data=False)
     assert len(docs) == 0
-
 
 
 def test_real_lms_mode_filters_unverified_documents(llm_integration):
@@ -66,7 +65,6 @@ def test_real_lms_mode_filters_unverified_documents(llm_integration):
     )
 
 
-
 def test_clear_query_gets_trimmed_by_relative_threshold(llm_integration):
     """Truy vấn có 1 tài liệu vượt trội rõ rệt -> lọc tương đối (85% điểm top-1)
     phải loại bớt các tài liệu yếu hơn nhiều, KHÔNG trả nguyên top_k mù quáng."""
@@ -78,9 +76,7 @@ def test_clear_query_gets_trimmed_by_relative_threshold(llm_integration):
 
 
 def test_relevance_score_present_and_descending(llm_integration):
-    docs = llm_integration.find_relevant_documents_rag(
-        "xác suất thống kê", top_k=5, use_warehouse_data=False
-    )
+    docs = llm_integration.find_relevant_documents_rag("xác suất thống kê", top_k=5, use_warehouse_data=False)
     scores = [d["relevance_score"] for d in docs]
     assert scores == sorted(scores, reverse=True)
     assert all(isinstance(s, float) for s in scores)
@@ -89,7 +85,8 @@ def test_relevance_score_present_and_descending(llm_integration):
 def test_top_k_respected_as_ceiling(llm_integration):
     docs = llm_integration.find_relevant_documents_rag(
         "phương pháp học và ôn tập hiệu quả, kỹ năng làm bài kiểm tra",
-        top_k=2, use_warehouse_data=False,
+        top_k=2,
+        use_warehouse_data=False,
     )
     assert len(docs) <= 2
 
@@ -103,6 +100,7 @@ def test_default_top_k_matches_config():
 # ---------------------------------------------------------------------------
 def test_rag_service_delegates_to_provider(llm_integration):
     from dss.services import rag_service
+
     docs = rag_service.retrieve_documents(
         llm_integration, "lập trình, coding, thực hành", top_k=3, use_warehouse_data=False
     )
@@ -120,7 +118,9 @@ def test_rag_service_falls_back_when_provider_lacks_runtime_documents_param():
             return [{"title": "fallback-path-used", "content": "", "tags": []}]
 
     docs = rag_service.retrieve_documents(
-        _OldProviderWithoutRuntimeDocsSupport(), "câu hỏi bất kỳ", top_k=3,
+        _OldProviderWithoutRuntimeDocsSupport(),
+        "câu hỏi bất kỳ",
+        top_k=3,
         runtime_documents=[{"id": "x"}],
     )
     assert docs == [{"title": "fallback-path-used", "content": "", "tags": []}]

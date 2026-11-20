@@ -5,11 +5,13 @@ Validates:
 2. Rule-based offline learning plan generation.
 3. Gateway fallback to local Ollama or offline rule generator when external APIs are unavailable.
 """
+
 import os
-from dss.services.report_service import build_demo_study_plan
-from dss.services.learning_profile import StudentLearningProfile
+
 from dss.services.learning_plan import learning_plan_generator
+from dss.services.learning_profile import StudentLearningProfile
 from dss.services.llm_gateway import LLMGateway
+from dss.services.report_service import build_demo_study_plan
 
 
 def test_offline_demo_study_plan_generation():
@@ -22,7 +24,7 @@ def test_offline_demo_study_plan_generation():
         retrieved_docs=[],
         personal_goal="Đạt qua môn và cải thiện GPA",
     )
-    
+
     assert "SV_OFFLINE_01" in plan_text
     assert "2.45" in plan_text
     assert len(week_plan) == 4
@@ -49,26 +51,40 @@ def test_structured_learning_plan_offline_generator():
         course_id="CS101",
         raw_lms_data=raw_data,
     )
-    plan = learning_plan_generator.generate_plan(profile, approved_resources=[{
-        "resource_id": "offline_python", "course": "CS101", "topic": "Python",
-        "status": "APPROVED", "url": "https://school.example.edu/python", "is_demo": False,
-    }])
-    
+    plan = learning_plan_generator.generate_plan(
+        profile,
+        approved_resources=[
+            {
+                "resource_id": "offline_python",
+                "course": "CS101",
+                "topic": "Python",
+                "status": "APPROVED",
+                "url": "https://school.example.edu/python",
+                "is_demo": False,
+            }
+        ],
+    )
+
     assert plan.student_pseudonym is not None
     assert len(plan.activities) > 0
     assert plan.version == 1
-    assert "weekly_study_hours_target" in plan.success_metrics or "target_practice_sessions_per_week" in plan.success_metrics
+    assert (
+        "weekly_study_hours_target" in plan.success_metrics
+        or "target_practice_sessions_per_week" in plan.success_metrics
+    )
 
 
 def test_gateway_local_offline_routing():
     """Verify that in LOCAL_OFFLINE mode, the gateway directs to local Ollama or offline fallback."""
+
     class MockProvider:
         def __init__(self):
             self.called_provider = None
+
         def call_ai_provider(self, prompt, provider, **kwargs):
             self.called_provider = provider
             return iter(["Response from " + provider])
-            
+
     mock_llm = MockProvider()
     gw = LLMGateway(mock_llm)
 

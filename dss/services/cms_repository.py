@@ -17,6 +17,7 @@ Tuân thủ nguyên tắc:
    - PARTIAL (Nội dung lưu trữ cục bộ)
    - FUTURE REAL INTEGRATION (Headless CMS Strapi/Directus, Git-based Curriculum).
 """
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -81,7 +82,7 @@ class CMSLearningOutcome:
 @dataclass
 class CMSSkillMapping:
     skill_name: str
-    target_level: str                 # "Basic" | "Intermediate" | "Advanced"
+    target_level: str  # "Basic" | "Intermediate" | "Advanced"
     course_id: str
     module_id: str
     topic_name: str
@@ -93,11 +94,11 @@ class CMSSkillMapping:
 class CMSLearningResource:
     resource_id: str
     title: str
-    resource_type: str                # "interactive_lab" | "video_lecture" | "reading" | "practice_quiz" | "capstone_project"
+    resource_type: str  # "interactive_lab" | "video_lecture" | "reading" | "practice_quiz" | "capstone_project"
     url: str
-    provider: str                     # "EduDSS CMS" | "Coursera" | "Kaggle" | "Học liệu CNTT" | "Microsoft Learn"
+    provider: str  # "EduDSS CMS" | "Coursera" | "Kaggle" | "Học liệu CNTT" | "Microsoft Learn"
     estimated_hours: float
-    difficulty: str                   # "Beginner" | "Intermediate" | "Advanced"
+    difficulty: str  # "Beginner" | "Intermediate" | "Advanced"
     for_skill: str
     for_topic: Optional[str] = None
 
@@ -105,6 +106,7 @@ class CMSLearningResource:
 @dataclass
 class CMSResourceMatch:
     """Kết quả khớp nối cụ thể từ CMS để khắc phục khoảng cách kỹ năng."""
+
     skill_name: str
     gap_topic: str
     course_code: str
@@ -130,12 +132,10 @@ class BaseCMSRepository(ABC):
     @abstractmethod
     def map_course_to_skills(self, course_id: str) -> List[CMSSkillMapping]:
         """Ánh xạ học phần trong chương trình sang danh mục kỹ năng chuẩn."""
-        pass
 
     @abstractmethod
     def map_content_to_competencies(self, domain: str) -> List[CMSModule]:
         """Ánh xạ nội dung bài giảng sang miền năng lực."""
-        pass
 
     @abstractmethod
     def find_resources_for_skill_gap(
@@ -146,7 +146,6 @@ class BaseCMSRepository(ABC):
         specific_gap_topic: Optional[str] = None,
     ) -> List[CMSResourceMatch]:
         """Tìm tài liệu, bài học và lab cụ thể trong CMS để bù đắp skill gap."""
-        pass
 
     def get_integration_status(self) -> Dict[str, str]:
         return {
@@ -323,21 +322,47 @@ class DemoCMSRepository(BaseCMSRepository):
         mapping = {
             "CS201": [
                 CMSSkillMapping("SQL", "Basic", "CS201", "M01", "SQL Cơ bản", "SQL / Data Engineering", 6.5),
-                CMSSkillMapping("SQL", "Intermediate", "CS201", "M04", "SQL Window Functions", "SQL / Data Engineering", 7.5),
-                CMSSkillMapping("Database", "Basic", "CS201", "M02", "Thiết kế ERD & Chuẩn hóa", "SQL / Data Engineering", 6.5),
+                CMSSkillMapping(
+                    "SQL", "Intermediate", "CS201", "M04", "SQL Window Functions", "SQL / Data Engineering", 7.5
+                ),
+                CMSSkillMapping(
+                    "Database", "Basic", "CS201", "M02", "Thiết kế ERD & Chuẩn hóa", "SQL / Data Engineering", 6.5
+                ),
             ],
             "CS105": [
-                CMSSkillMapping("Python", "Basic", "CS105", "M01", "Lập trình Python Nền tảng", "Software / Web Development", 6.5),
-                CMSSkillMapping("Python", "Intermediate", "CS105", "M03", "Xử lý Pandas", "Software / Web Development", 7.0),
+                CMSSkillMapping(
+                    "Python", "Basic", "CS105", "M01", "Lập trình Python Nền tảng", "Software / Web Development", 6.5
+                ),
+                CMSSkillMapping(
+                    "Python", "Intermediate", "CS105", "M03", "Xử lý Pandas", "Software / Web Development", 7.0
+                ),
             ],
             "MATH202": [
-                CMSSkillMapping("Statistics", "Intermediate", "MATH202", "M04", "Thống kê Suy luận", "Data Analysis / Quantitative Skills", 7.0),
+                CMSSkillMapping(
+                    "Statistics",
+                    "Intermediate",
+                    "MATH202",
+                    "M04",
+                    "Thống kê Suy luận",
+                    "Data Analysis / Quantitative Skills",
+                    7.0,
+                ),
             ],
             "CS310": [
-                CMSSkillMapping("Machine Learning", "Intermediate", "CS310", "M02", "Mô hình Phân lớp & Đánh giá", "AI / Data Science", 7.0),
+                CMSSkillMapping(
+                    "Machine Learning",
+                    "Intermediate",
+                    "CS310",
+                    "M02",
+                    "Mô hình Phân lớp & Đánh giá",
+                    "AI / Data Science",
+                    7.0,
+                ),
             ],
             "BA205": [
-                CMSSkillMapping("Power BI", "Intermediate", "BA205", "M03", "Trực quan hóa & DAX", "Data Visualization / BI", 7.0),
+                CMSSkillMapping(
+                    "Power BI", "Intermediate", "BA205", "M03", "Trực quan hóa & DAX", "Data Visualization / BI", 7.0
+                ),
             ],
         }
         return mapping.get(course_id, [])
@@ -349,10 +374,18 @@ class DemoCMSRepository(BaseCMSRepository):
                 CMSModule("CS201-M04", "CS201", "SQL Nâng Cao & Phân Tích Dữ Liệu", 4, "SQL / Data Engineering"),
             ],
             "Data Analysis / Quantitative Skills": [
-                CMSModule("MATH202-M04", "MATH202", "Thống Kê Suy Luận & A/B Testing", 4, "Data Analysis / Quantitative Skills"),
+                CMSModule(
+                    "MATH202-M04",
+                    "MATH202",
+                    "Thống Kê Suy Luận & A/B Testing",
+                    4,
+                    "Data Analysis / Quantitative Skills",
+                ),
             ],
             "Data Visualization / BI": [
-                CMSModule("BA205-M03", "BA205", "Trực Quan Hóa Dữ Liệu & Báo Cáo Quản Trị", 3, "Data Visualization / BI"),
+                CMSModule(
+                    "BA205-M03", "BA205", "Trực Quan Hóa Dữ Liệu & Báo Cáo Quản Trị", 3, "Data Visualization / BI"
+                ),
             ],
             "AI / Data Science": [
                 CMSModule("CS310-M02", "CS310", "Mô Hình Phân Lớp & Đánh Giá Năng Lực", 2, "AI / Data Science"),
@@ -458,7 +491,10 @@ class RealConnectorCMSRepository(BaseCMSRepository):
         specific_gap_topic: Optional[str] = None,
     ) -> List[CMSResourceMatch]:
         return self._demo_fallback.find_resources_for_skill_gap(
-            skill_name, current_level, target_level, specific_gap_topic,
+            skill_name,
+            current_level,
+            target_level,
+            specific_gap_topic,
         )
 
     def get_integration_status(self) -> Dict[str, str]:

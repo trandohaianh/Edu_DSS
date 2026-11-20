@@ -4,6 +4,7 @@ Real existing runtime being cut over: `dss/core/warehouse.py::save_ai_consultati
 (JSON history file). Wired at that exact call site, gated by
 `dss.core.persistence_config.is_postgres_enabled("CONSULTATIONS")`.
 """
+
 from __future__ import annotations
 
 from typing import Any, Optional
@@ -24,11 +25,19 @@ def save_consultation(
     with tenant_session_scope(organization_id) as session:
         student_id = None
         if student_code:
-            s = session.query(Student).filter_by(organization_id=organization_id, student_code=student_code).one_or_none()
+            s = (
+                session.query(Student)
+                .filter_by(organization_id=organization_id, student_code=student_code)
+                .one_or_none()
+            )
             student_id = s.id if s else None
         record = Consultation(
-            organization_id=organization_id, student_id=student_id, provider=provider,
-            model=model, question=question, answer=answer,
+            organization_id=organization_id,
+            student_id=student_id,
+            provider=provider,
+            model=model,
+            question=question,
+            answer=answer,
             local_consultation_id=local_consultation_id,
         )
         session.add(record)
@@ -42,6 +51,7 @@ def import_from_local_history(organization_id: int, warehouse=None) -> dict[str,
     Safe to run more than once — dedupes on `local_consultation_id`."""
     if warehouse is None:
         from dss.core.warehouse import DataWarehouse
+
         warehouse = DataWarehouse()
 
     local_records = warehouse.get_history("advisor", limit=10_000_000)
@@ -86,8 +96,11 @@ def list_consultations(organization_id: int, limit: int = 100, offset: int = 0) 
         )
         return [
             {
-                "id": r.id, "student_id": r.student_id, "provider": r.provider,
-                "model": r.model, "created_at": r.created_at.isoformat(),
+                "id": r.id,
+                "student_id": r.student_id,
+                "provider": r.provider,
+                "model": r.model,
+                "created_at": r.created_at.isoformat(),
             }
             for r in rows
         ]

@@ -25,6 +25,7 @@ COURSE_MATERIAL merely because it contains academic-looking text").
   GEN_REF chung chung, không gắn tác giả/nghiên cứu cụ thể) VÀ bất kỳ tài liệu
   nào không khớp 3 nhóm trên.
 """
+
 from __future__ import annotations
 
 from typing import Any, Dict

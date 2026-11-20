@@ -2,6 +2,7 @@
 required, always runs. DB-integration/RLS tests are in
 tests/test_workstream_c_ml_provenance.py (gated like every other Postgres
 acceptance suite in this repo)."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -10,17 +11,18 @@ import pytest
 
 from dss.services import ml_provenance as mp
 
-
 # ---------------------------------------------------------------------------
 # Feature-schema fingerprint (§5)
 # ---------------------------------------------------------------------------
+
 
 def _base_schema_args():
     return dict(
         feature_names=["gpa", "attendance", "major"],
         feature_dtypes={"gpa": "float64", "attendance": "float64", "major": "object"},
         feature_roles={"gpa": "numeric", "attendance": "numeric", "major": "categorical"},
-        target_definition="at_risk", model_task_type="classification",
+        target_definition="at_risk",
+        model_task_type="classification",
     )
 
 
@@ -72,14 +74,17 @@ def test_feature_schema_fingerprint_changes_with_preprocessing():
 # Dataset fingerprint (§4)
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture()
 def sample_df():
     rng = np.random.RandomState(42)
-    return pd.DataFrame({
-        "gpa": rng.uniform(1.5, 4.0, 300),
-        "attendance": rng.uniform(0.5, 1.0, 300),
-        "major": rng.choice(["CS", "Math", "Physics"], 300),
-    })
+    return pd.DataFrame(
+        {
+            "gpa": rng.uniform(1.5, 4.0, 300),
+            "attendance": rng.uniform(0.5, 1.0, 300),
+            "major": rng.choice(["CS", "Math", "Physics"], 300),
+        }
+    )
 
 
 def test_dataset_fingerprint_is_deterministic(sample_df):
@@ -120,6 +125,7 @@ def test_dataset_fingerprint_does_not_store_raw_rows(sample_df):
 # ---------------------------------------------------------------------------
 # Data drift (§6)
 # ---------------------------------------------------------------------------
+
 
 def test_identical_distribution_no_meaningful_drift(sample_df):
     result = mp.evaluate_data_drift(sample_df, sample_df.copy())
@@ -164,7 +170,9 @@ def test_thresholds_are_configurable(sample_df):
 
     strict = mp.evaluate_data_drift(sample_df, shifted, warning_threshold=0.001, drift_threshold=0.01)
     assert strict["per_feature"]["gpa"]["status"] in (mp.STATUS_WARNING, mp.STATUS_DRIFT_DETECTED)
-    assert strict["per_feature"]["gpa"]["drift_metric"] == default["per_feature"]["gpa"]["drift_metric"]  # same metric, different threshold
+    assert (
+        strict["per_feature"]["gpa"]["drift_metric"] == default["per_feature"]["gpa"]["drift_metric"]
+    )  # same metric, different threshold
 
 
 def test_drift_evaluation_is_deterministic_on_repeat(sample_df):
@@ -179,6 +187,7 @@ def test_drift_evaluation_is_deterministic_on_repeat(sample_df):
 # ---------------------------------------------------------------------------
 # Performance drift (§7) — real labels only, never fabricated
 # ---------------------------------------------------------------------------
+
 
 def test_classification_degradation_detected_with_real_labels():
     rng = np.random.RandomState(0)
@@ -227,14 +236,18 @@ def test_performance_drift_insufficient_data():
 # Retraining decision boundary (§10)
 # ---------------------------------------------------------------------------
 
-@pytest.mark.parametrize("data_status,perf_status,expected", [
-    (mp.STATUS_NO_DRIFT, mp.STATUS_NOT_EVALUABLE, mp.ACTION_NO_ACTION),
-    (mp.STATUS_WARNING, mp.STATUS_NOT_EVALUABLE, mp.ACTION_REVIEW_REQUIRED),
-    (mp.STATUS_DRIFT_DETECTED, mp.STATUS_NOT_EVALUABLE, mp.ACTION_REVIEW_REQUIRED),
-    (mp.STATUS_NO_DRIFT, mp.STATUS_WARNING, mp.ACTION_REVIEW_REQUIRED),
-    (mp.STATUS_NO_DRIFT, mp.STATUS_DRIFT_DETECTED, mp.ACTION_RETRAIN_RECOMMENDED),
-    (mp.STATUS_DRIFT_DETECTED, mp.STATUS_DRIFT_DETECTED, mp.ACTION_RETRAIN_RECOMMENDED),
-])
+
+@pytest.mark.parametrize(
+    "data_status,perf_status,expected",
+    [
+        (mp.STATUS_NO_DRIFT, mp.STATUS_NOT_EVALUABLE, mp.ACTION_NO_ACTION),
+        (mp.STATUS_WARNING, mp.STATUS_NOT_EVALUABLE, mp.ACTION_REVIEW_REQUIRED),
+        (mp.STATUS_DRIFT_DETECTED, mp.STATUS_NOT_EVALUABLE, mp.ACTION_REVIEW_REQUIRED),
+        (mp.STATUS_NO_DRIFT, mp.STATUS_WARNING, mp.ACTION_REVIEW_REQUIRED),
+        (mp.STATUS_NO_DRIFT, mp.STATUS_DRIFT_DETECTED, mp.ACTION_RETRAIN_RECOMMENDED),
+        (mp.STATUS_DRIFT_DETECTED, mp.STATUS_DRIFT_DETECTED, mp.ACTION_RETRAIN_RECOMMENDED),
+    ],
+)
 def test_recommend_action_boundary(data_status, perf_status, expected):
     assert mp.recommend_action(data_status, perf_status) == expected
 

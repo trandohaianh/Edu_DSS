@@ -22,23 +22,26 @@ QUAN TRỌNG (trung thực về phạm vi, giống mọi module khác trong đ�
   về trong `AgentResult`, nơi gọi (chưa xây trong đợt này) sẽ cần tự ghi
   vào `audit_log_repository` nếu muốn log thật.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any, Callable, Optional
 
-_ALLOWED_TOOLS = frozenset({
-    "gpa_calculator.compute_required_remaining_gpa",
-    "regulation_resolver.resolve_regulation",
-    "rule_engine.evaluate_credit_limit",
-    "rule_engine.evaluate_academic_warning",
-    "rule_engine.evaluate_thesis_eligibility",
-    "rule_engine.evaluate_graduation_eligibility",
-    "validator.validate_gpa_value",
-    "validator.validate_rule_engine_result",
-    "validator.validate_regulation_resolution",
-    "validator.validate_llm_numeric_claim",
-})
+_ALLOWED_TOOLS = frozenset(
+    {
+        "gpa_calculator.compute_required_remaining_gpa",
+        "regulation_resolver.resolve_regulation",
+        "rule_engine.evaluate_credit_limit",
+        "rule_engine.evaluate_academic_warning",
+        "rule_engine.evaluate_thesis_eligibility",
+        "rule_engine.evaluate_graduation_eligibility",
+        "validator.validate_gpa_value",
+        "validator.validate_rule_engine_result",
+        "validator.validate_regulation_resolution",
+        "validator.validate_llm_numeric_claim",
+    }
+)
 
 
 class ToolNotAllowedError(RuntimeError):
@@ -60,14 +63,16 @@ _STAFF_ROLES = frozenset({_ROLE_LECTURER, _ROLE_ADMIN})
 
 # Intent chỉ Admin được phép thực thi qua Agent (vd. quản trị quy chế/hệ
 # thống) — danh sách tường minh, tĩnh, giống mẫu _ALLOWED_TOOLS.
-_ADMIN_ONLY_INTENTS = frozenset({
-    "ADMIN_REGULATION_MANAGEMENT",
-    "ADMIN_AI_PROVIDER_CONFIG",
-    "ADMIN_AUDIT_REVIEW",
-})
+_ADMIN_ONLY_INTENTS = frozenset(
+    {
+        "ADMIN_REGULATION_MANAGEMENT",
+        "ADMIN_AI_PROVIDER_CONFIG",
+        "ADMIN_AUDIT_REVIEW",
+    }
+)
 
 
-def authorize(request: "AgentRequest") -> None:
+def authorize(request: AgentRequest) -> None:
     """Xác thực quyền THỰC SỰ trước khi thực thi bất kỳ tool nào — KHÔNG tin
     tưởng bất kỳ trường danh tính nào lấy TỪ nội dung câu hỏi (`request_text`
     không bao giờ được đọc ở đây để suy ra danh tính). Toàn bộ kiểm tra dựa
@@ -111,9 +116,7 @@ def authorize(request: "AgentRequest") -> None:
 
 def _invoke_tool(tool_name: str, fn: Callable, /, *args, **kwargs) -> Any:
     if tool_name not in _ALLOWED_TOOLS:
-        raise ToolNotAllowedError(
-            f"Tool '{tool_name}' không nằm trong allowlist — Agent từ chối gọi."
-        )
+        raise ToolNotAllowedError(f"Tool '{tool_name}' không nằm trong allowlist — Agent từ chối gọi.")
     return fn(*args, **kwargs)
 
 
@@ -146,19 +149,30 @@ class AgentResult:
     audit_metadata: dict = field(default_factory=dict)
 
 
-def _emit_audit_event(request: AgentRequest, *, tools_used: list, validator_result, fallback, final_status: str) -> None:
+def _emit_audit_event(
+    request: AgentRequest, *, tools_used: list, validator_result, fallback, final_status: str
+) -> None:
     """Section 10: mọi lời gọi tool-order thật đều PHÁT 1 sự kiện audit
     (best-effort, không raise) — KHÔNG chỉ định nghĩa `ai_decision_audit.py`
     rồi không ai gọi (đúng bài học lặp lại nhiều lần trong đợt này: Circuit
     Breaker/Rule Engine/Validator đều từng bị hỏi "đã thật sự wire chưa")."""
     from dss.services import ai_decision_audit
 
-    ai_decision_audit.emit(ai_decision_audit.AIDecisionAuditEvent(
-        correlation_id=request.correlation_id, tenant_id=request.organization_id,
-        actor_ref=request.user_id, role=request.role, intent=request.intent, tier=1,
-        tools_used=list(tools_used), llm_used=False, fallback_type=fallback,
-        validator_status=getattr(validator_result, "status", None), final_status=final_status,
-    ))
+    ai_decision_audit.emit(
+        ai_decision_audit.AIDecisionAuditEvent(
+            correlation_id=request.correlation_id,
+            tenant_id=request.organization_id,
+            actor_ref=request.user_id,
+            role=request.role,
+            intent=request.intent,
+            tier=1,
+            tools_used=list(tools_used),
+            llm_used=False,
+            fallback_type=fallback,
+            validator_status=getattr(validator_result, "status", None),
+            final_status=final_status,
+        )
+    )
 
 
 def run_gpa_calculation(request: AgentRequest) -> AgentResult:
@@ -180,14 +194,26 @@ def run_gpa_calculation(request: AgentRequest) -> AgentResult:
     ctx = request.authorized_context
     required_keys = ("current_gpa", "credits_done", "target_gpa", "credits_remaining")
     if any(ctx.get(k) is None for k in required_keys):
-        _emit_audit_event(request, tools_used=tools_used, validator_result=None, fallback="INSUFFICIENT_DATA", final_status="INSUFFICIENT_DATA")
+        _emit_audit_event(
+            request,
+            tools_used=tools_used,
+            validator_result=None,
+            fallback="INSUFFICIENT_DATA",
+            final_status="INSUFFICIENT_DATA",
+        )
         return AgentResult(
-            intent=request.intent, tools_used=tools_used, decision=None,
-            evidence={}, llm_used=False, validator_result=None,
+            intent=request.intent,
+            tools_used=tools_used,
+            decision=None,
+            evidence={},
+            llm_used=False,
+            validator_result=None,
             fallback="INSUFFICIENT_DATA",
             audit_metadata={
-                "correlation_id": request.correlation_id, "user_id": request.user_id,
-                "role": request.role, "reason": "missing GPA calculation inputs",
+                "correlation_id": request.correlation_id,
+                "user_id": request.user_id,
+                "role": request.role,
+                "reason": "missing GPA calculation inputs",
             },
         )
 
@@ -197,8 +223,10 @@ def run_gpa_calculation(request: AgentRequest) -> AgentResult:
     calc_result = _invoke_tool(
         "gpa_calculator.compute_required_remaining_gpa",
         compute_required_remaining_gpa,
-        current_gpa=ctx["current_gpa"], credits_done=ctx["credits_done"],
-        target_gpa=ctx["target_gpa"], credits_remaining=ctx["credits_remaining"],
+        current_gpa=ctx["current_gpa"],
+        credits_done=ctx["credits_done"],
+        target_gpa=ctx["target_gpa"],
+        credits_remaining=ctx["credits_remaining"],
     )
 
     from dss.services import validator
@@ -207,13 +235,21 @@ def run_gpa_calculation(request: AgentRequest) -> AgentResult:
     check_value = calc_result.rounded_value if calc_result.status == "ok" else 0.0
     val_result = _invoke_tool("validator.validate_gpa_value", validator.validate_gpa_value, check_value)
 
-    _emit_audit_event(request, tools_used=tools_used, validator_result=val_result, fallback=None, final_status=calc_result.status)
+    _emit_audit_event(
+        request, tools_used=tools_used, validator_result=val_result, fallback=None, final_status=calc_result.status
+    )
     return AgentResult(
-        intent=request.intent, tools_used=tools_used, decision=calc_result,
-        evidence={"calculator_result": calc_result}, llm_used=False,
-        validator_result=val_result, fallback=None,
+        intent=request.intent,
+        tools_used=tools_used,
+        decision=calc_result,
+        evidence={"calculator_result": calc_result},
+        llm_used=False,
+        validator_result=val_result,
+        fallback=None,
         audit_metadata={
-            "correlation_id": request.correlation_id, "user_id": request.user_id, "role": request.role,
+            "correlation_id": request.correlation_id,
+            "user_id": request.user_id,
+            "role": request.role,
         },
     )
 
@@ -239,21 +275,29 @@ def run_regulation_or_rule_check(request: AgentRequest) -> AgentResult:
     org_id, program_id, cohort = ctx.get("organization_id"), ctx.get("program_id"), ctx.get("cohort")
     if regulations is None or org_id is None or program_id is None or cohort is None:
         return AgentResult(
-            intent=request.intent, tools_used=tools_used, fallback="INSUFFICIENT_DATA",
+            intent=request.intent,
+            tools_used=tools_used,
+            fallback="INSUFFICIENT_DATA",
             audit_metadata={"correlation_id": request.correlation_id, "user_id": request.user_id, "role": request.role},
         )
 
-    from dss.services.regulation_resolver import resolve_regulation
     from dss.services import validator
+    from dss.services.regulation_resolver import resolve_regulation
 
     tools_used.append("regulation_resolver.resolve_regulation")
     reg_result = _invoke_tool(
-        "regulation_resolver.resolve_regulation", resolve_regulation,
-        regulations, organization_id=org_id, program_id=program_id, cohort=cohort,
+        "regulation_resolver.resolve_regulation",
+        resolve_regulation,
+        regulations,
+        organization_id=org_id,
+        program_id=program_id,
+        cohort=cohort,
     )
     tools_used.append("validator.validate_regulation_resolution")
     reg_validation = _invoke_tool(
-        "validator.validate_regulation_resolution", validator.validate_regulation_resolution, reg_result,
+        "validator.validate_regulation_resolution",
+        validator.validate_regulation_resolution,
+        reg_result,
     )
 
     rule_result = None
@@ -269,14 +313,19 @@ def run_regulation_or_rule_check(request: AgentRequest) -> AgentResult:
         rule_result = _invoke_tool(tool_name, eval_fn, rule_spec["rule"], **rule_spec["kwargs"])
         tools_used.append("validator.validate_rule_engine_result")
         rule_validation = _invoke_tool(
-            "validator.validate_rule_engine_result", validator.validate_rule_engine_result, rule_result,
+            "validator.validate_rule_engine_result",
+            validator.validate_rule_engine_result,
+            rule_result,
         )
 
     return AgentResult(
-        intent=request.intent, tools_used=tools_used,
+        intent=request.intent,
+        tools_used=tools_used,
         decision=rule_result if rule_result is not None else reg_result,
         evidence={"regulation_result": reg_result, "rule_result": rule_result},
-        llm_used=False, validator_result=rule_validation or reg_validation, fallback=None,
+        llm_used=False,
+        validator_result=rule_validation or reg_validation,
+        fallback=None,
         audit_metadata={"correlation_id": request.correlation_id, "user_id": request.user_id, "role": request.role},
     )
 
@@ -300,15 +349,19 @@ def run_risk_explanation(request: AgentRequest) -> AgentResult:
     required = ("prediction", "model_version", "shap_evidence")
     if any(ctx.get(k) is None for k in required):
         return AgentResult(
-            intent=request.intent, fallback="INSUFFICIENT_DATA",
+            intent=request.intent,
+            fallback="INSUFFICIENT_DATA",
             audit_metadata={"correlation_id": request.correlation_id, "user_id": request.user_id, "role": request.role},
         )
 
     return AgentResult(
-        intent=request.intent, tools_used=["model_service.predict_for_student (pre-computed by caller)"],
+        intent=request.intent,
+        tools_used=["model_service.predict_for_student (pre-computed by caller)"],
         decision=ctx["prediction"],
         evidence={"model_version": ctx["model_version"], "shap_evidence": ctx["shap_evidence"]},
-        llm_used=False, validator_result=None, fallback=None,
+        llm_used=False,
+        validator_result=None,
+        fallback=None,
         audit_metadata={"correlation_id": request.correlation_id, "user_id": request.user_id, "role": request.role},
     )
 
@@ -343,13 +396,19 @@ def run_personalized_plan(request: AgentRequest) -> AgentResult:
 
     if not evidence:
         return AgentResult(
-            intent=request.intent, fallback="INSUFFICIENT_DATA",
+            intent=request.intent,
+            fallback="INSUFFICIENT_DATA",
             audit_metadata={"correlation_id": request.correlation_id, "user_id": request.user_id, "role": request.role},
         )
 
     return AgentResult(
-        intent=request.intent, tools_used=tools_used, decision=None, evidence=evidence,
-        llm_used=False, validator_result=None, fallback=None,
+        intent=request.intent,
+        tools_used=tools_used,
+        decision=None,
+        evidence=evidence,
+        llm_used=False,
+        validator_result=None,
+        fallback=None,
         audit_metadata={"correlation_id": request.correlation_id, "user_id": request.user_id, "role": request.role},
     )
 

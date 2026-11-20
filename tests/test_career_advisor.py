@@ -17,16 +17,35 @@ Kiểm chứng đầy đủ các tiêu chuẩn bắt buộc:
 14. Vòng lặp phản hồi (Feedback loop) cập nhật kỹ năng và độ sẵn sàng.
 15. Cố vấn AI ngoại tuyến (Grounded Offline Advisor) trả lời chính xác 5 câu hỏi trọng tâm không bịa đặt.
 """
+
 from __future__ import annotations
 
-
-from dss.services.career_profile import (
-    SUBJECT_TO_COMPETENCY_DOMAIN,
-    StudentCareerProfile,
+from dss.services.career_ai_advisor import (
+    build_career_ai_context,
+    generate_offline_grounded_answer,
+    get_system_prompt,
+)
+from dss.services.career_gap_analysis import (
+    PRIORITY_CRITICAL,
+    PRIORITY_HIGH,
+    STATUS_MISSING,
+    compute_gap_analysis,
 )
 from dss.services.career_knowledge_base import (
     get_role,
     list_roles,
+)
+from dss.services.career_profile import (
+    SUBJECT_TO_COMPETENCY_DOMAIN,
+    StudentCareerProfile,
+)
+from dss.services.career_roadmap import (
+    _BUCKET_1M,
+    _BUCKET_3M,
+    _BUCKET_6M,
+    compute_transition,
+    generate_roadmap,
+    suggest_alternative_paths,
 )
 from dss.services.career_scoring import (
     CAREER_FIT_WEIGHTS,
@@ -38,29 +57,10 @@ from dss.services.career_scoring import (
     detect_capability_vs_constraint_conflicts,
     rank_careers,
 )
-from dss.services.career_gap_analysis import (
-    PRIORITY_CRITICAL,
-    PRIORITY_HIGH,
-    STATUS_MISSING,
-    compute_gap_analysis,
-)
-from dss.services.career_roadmap import (
-    _BUCKET_1M,
-    _BUCKET_3M,
-    _BUCKET_6M,
-    compute_transition,
-    generate_roadmap,
-    suggest_alternative_paths,
-)
 from dss.services.career_whatif import (
     apply_skill_change,
     compare_scenarios,
     rank_roles_for_timeframe,
-)
-from dss.services.career_ai_advisor import (
-    build_career_ai_context,
-    generate_offline_grounded_answer,
-    get_system_prompt,
 )
 
 
@@ -75,9 +75,18 @@ def test_career_knowledge_base_has_all_12_roles():
     roles = list_roles()
     assert len(roles) >= 12
     expected_roles = {
-        "data_analyst", "data_engineer", "data_scientist", "ml_engineer",
-        "business_analyst", "backend_developer", "frontend_developer", "qa_tester",
-        "devops_cloud_engineer", "database_administrator", "ai_engineer", "system_analyst",
+        "data_analyst",
+        "data_engineer",
+        "data_scientist",
+        "ml_engineer",
+        "business_analyst",
+        "backend_developer",
+        "frontend_developer",
+        "qa_tester",
+        "devops_cloud_engineer",
+        "database_administrator",
+        "ai_engineer",
+        "system_analyst",
     }
     actual_roles = {r.role_id for r in roles}
     assert expected_roles.issubset(actual_roles)
@@ -85,6 +94,7 @@ def test_career_knowledge_base_has_all_12_roles():
 
 def test_subject_to_domain_mapping_supports_vn_and_en():
     from dss.core.data_helpers import TOPIC_SCORE_COLUMNS
+
     for col in TOPIC_SCORE_COLUMNS:
         assert col in SUBJECT_TO_COMPETENCY_DOMAIN
 
@@ -130,7 +140,10 @@ def test_high_academic_score_creates_medium_confidence_basic_claim():
 def test_experience_evidence_upgrades_confidence_to_high():
     profile = _profile_with_scores(diem_machine_learning=8.5)
     profile.skills.add_evidence_from_experience(
-        "Machine Learning", "technical", "Dự án Machine Learning dự đoán kết quả học tập", min_level="Intermediate",
+        "Machine Learning",
+        "technical",
+        "Dự án Machine Learning dự đoán kết quả học tập",
+        min_level="Intermediate",
     )
     skill = profile.skills.get("Machine Learning")
     assert skill.confidence == "high"

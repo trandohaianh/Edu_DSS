@@ -28,12 +28,13 @@ Important operational notes (see C1_1_SECURITY_PRIVACY_HARDENING.md):
 - Pseudonymous rows created before C1.1 used the old pseudonym scheme and are not
   matched by the keyed pseudonym; they fall under time-based retention.
 """
+
 from __future__ import annotations
 
 import os
 import secrets
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 from typing import Any, Dict, Optional
 
 ACADEMIC_RECORD = "ACADEMIC_RECORD"
@@ -44,7 +45,7 @@ AUDIT = "AUDIT"
 AI_USAGE = "AI_USAGE"
 
 _DEFAULT_RETENTION_DAYS: Dict[str, Optional[int]] = {
-    ACADEMIC_RECORD: None,   # governed by the institution's records policy — never auto-purged here
+    ACADEMIC_RECORD: None,  # governed by the institution's records policy — never auto-purged here
     IDENTITY: None,
     AI_CONVERSATION: 365,
     DERIVED_ANALYTICS: 365,
@@ -62,8 +63,14 @@ class RetentionRule:
 
 
 def retention_policy() -> Dict[str, RetentionRule]:
-    actions = {ACADEMIC_RECORD: "RETAIN", IDENTITY: "ANONYMIZE", AI_CONVERSATION: "DELETE",
-               DERIVED_ANALYTICS: "DELETE", AUDIT: "REDACT", AI_USAGE: "RETAIN"}
+    actions = {
+        ACADEMIC_RECORD: "RETAIN",
+        IDENTITY: "ANONYMIZE",
+        AI_CONVERSATION: "DELETE",
+        DERIVED_ANALYTICS: "DELETE",
+        AUDIT: "REDACT",
+        AI_USAGE: "RETAIN",
+    }
     policy = {}
     for category, default_days in _DEFAULT_RETENTION_DAYS.items():
         raw = os.environ.get(f"EDUDSS_RETENTION_{category}_DAYS", "").strip()
@@ -93,9 +100,14 @@ class ErasureReport:
 
     def as_dict(self) -> Dict[str, Any]:
         """Counts only — never personal content (safe to log / audit)."""
-        return {"organization_id": self.organization_id, "pseudonym": self.pseudonym,
-                "deleted": self.deleted, "anonymized": self.anonymized,
-                "redacted": self.redacted, "retained": self.retained}
+        return {
+            "organization_id": self.organization_id,
+            "pseudonym": self.pseudonym,
+            "deleted": self.deleted,
+            "anonymized": self.anonymized,
+            "redacted": self.redacted,
+            "retained": self.retained,
+        }
 
 
 def _row_dict(row, exclude=()) -> Dict[str, Any]:
@@ -109,10 +121,14 @@ def _row_dict(row, exclude=()) -> Dict[str, Any]:
 
 
 def _load_student(session, models, organization_id: int, student_code: str):
-    student = session.query(models.Student).filter(
-        models.Student.organization_id == organization_id,
-        models.Student.student_code == student_code,
-    ).one_or_none()
+    student = (
+        session.query(models.Student)
+        .filter(
+            models.Student.organization_id == organization_id,
+            models.Student.student_code == student_code,
+        )
+        .one_or_none()
+    )
     if student is None:
         raise StudentNotFound("No such student in this organization.")
     return student
@@ -120,8 +136,14 @@ def _load_student(session, models, organization_id: int, student_code: str):
 
 def _student_tables(models):
     return {
-        ACADEMIC_RECORD: [models.AcademicRecord, models.Grade, models.Attendance, models.Enrollment,
-                          models.Submission, models.LearningActivity],
+        ACADEMIC_RECORD: [
+            models.AcademicRecord,
+            models.Grade,
+            models.Attendance,
+            models.Enrollment,
+            models.Submission,
+            models.LearningActivity,
+        ],
         AI_CONVERSATION: [models.Consultation],
         DERIVED_ANALYTICS: [models.Prediction, models.Recommendation],
     }
@@ -138,10 +160,11 @@ def export_student_data(organization_id: int, student_code: str) -> Dict[str, An
     with tenant_session_scope(organization_id) as session:
         student = _load_student(session, models, organization_id, student_code)
         export: Dict[str, Any] = {
-            "exported_at": datetime.now(timezone.utc).isoformat(),
+            "exported_at": datetime.now(UTC).isoformat(),
             "organization_id": organization_id,
-            "retention_policy": {k: {"days": r.days, "on_erasure": r.erasure_action}
-                                 for k, r in retention_policy().items()},
+            "retention_policy": {
+                k: {"days": r.days, "on_erasure": r.erasure_action} for k, r in retention_policy().items()
+            },
             IDENTITY: {"student": _row_dict(student)},
         }
         if student.user_id is not None:
@@ -154,13 +177,24 @@ def export_student_data(organization_id: int, student_code: str) -> Dict[str, An
                 for table in tables
             }
         export[AI_CONVERSATION]["cms_student_interactions"] = [
-            _row_dict(r) for r in session.query(models.CmsStudentInteraction).filter(
-                models.CmsStudentInteraction.student_pseudonym == pseudonym)]
-        export[AI_USAGE] = {"ai_token_usage": [
-            _row_dict(r) for r in session.query(models.AiTokenUsage).filter(models.AiTokenUsage.user_id == pseudonym)]}
+            _row_dict(r)
+            for r in session.query(models.CmsStudentInteraction).filter(
+                models.CmsStudentInteraction.student_pseudonym == pseudonym
+            )
+        ]
+        export[AI_USAGE] = {
+            "ai_token_usage": [
+                _row_dict(r)
+                for r in session.query(models.AiTokenUsage).filter(models.AiTokenUsage.user_id == pseudonym)
+            ]
+        }
         if student.user_id is not None:
-            export[AUDIT] = {"activity_logs": [
-                _row_dict(r) for r in session.query(models.ActivityLog).filter(models.ActivityLog.user_id == student.user_id)]}
+            export[AUDIT] = {
+                "activity_logs": [
+                    _row_dict(r)
+                    for r in session.query(models.ActivityLog).filter(models.ActivityLog.user_id == student.user_id)
+                ]
+            }
     return export
 
 
@@ -180,14 +214,19 @@ def erase_student_data(organization_id: int, student_code: str, requested_by: st
         student = _load_student(session, models, organization_id, student_code)
         tables = _student_tables(models)
         for table in tables[AI_CONVERSATION] + tables[DERIVED_ANALYTICS]:
-            report.deleted[table.__tablename__] = session.query(table).filter(
-                table.student_id == student.id).delete(synchronize_session=False)
-        report.deleted["cms_student_interactions"] = session.query(models.CmsStudentInteraction).filter(
-            models.CmsStudentInteraction.student_pseudonym == pseudonym).delete(synchronize_session=False)
+            report.deleted[table.__tablename__] = (
+                session.query(table).filter(table.student_id == student.id).delete(synchronize_session=False)
+            )
+        report.deleted["cms_student_interactions"] = (
+            session.query(models.CmsStudentInteraction)
+            .filter(models.CmsStudentInteraction.student_pseudonym == pseudonym)
+            .delete(synchronize_session=False)
+        )
         for table in tables[ACADEMIC_RECORD]:
             report.retained[table.__tablename__] = session.query(table).filter(table.student_id == student.id).count()
-        report.retained["ai_token_usage"] = session.query(models.AiTokenUsage).filter(
-            models.AiTokenUsage.user_id == pseudonym).count()
+        report.retained["ai_token_usage"] = (
+            session.query(models.AiTokenUsage).filter(models.AiTokenUsage.user_id == pseudonym).count()
+        )
 
         # "erased-" + 20 base32 chars = 27 <= 32 (students.student_code) — unique per student
         erased_label = "erased-" + pseudonym.split("_", 1)[-1]
@@ -209,17 +248,25 @@ def erase_student_data(organization_id: int, student_code: str, requested_by: st
                 report.anonymized["users"] = 1
             activity = session.query(models.ActivityLog).filter(models.ActivityLog.user_id == student.user_id)
             report.redacted["activity_logs"] = activity.update(
-                {models.ActivityLog.description: REDACTED, models.ActivityLog.details: None},
-                synchronize_session=False)
+                {models.ActivityLog.description: REDACTED, models.ActivityLog.details: None}, synchronize_session=False
+            )
             audit = session.query(models.AuditLog).filter(models.AuditLog.actor_user_id == student.user_id)
             report.redacted["audit_logs"] = audit.update(
-                {models.AuditLog.actor_username: erased_label}, synchronize_session=False)
+                {models.AuditLog.actor_username: erased_label}, synchronize_session=False
+            )
 
-        session.add(models.AuditLog(
-            organization_id=organization_id, actor_user_id=None, actor_username=str(requested_by)[:128],
-            action="privacy.student_erasure", target_type="student", target_id=pseudonym,
-            before=None, after=report.as_dict(),
-        ))
+        session.add(
+            models.AuditLog(
+                organization_id=organization_id,
+                actor_user_id=None,
+                actor_username=str(requested_by)[:128],
+                action="privacy.student_erasure",
+                target_type="student",
+                target_id=pseudonym,
+                before=None,
+                after=report.as_dict(),
+            )
+        )
     return report
 
 
@@ -229,7 +276,7 @@ def purge_expired(organization_id: int, now: Optional[datetime] = None) -> Dict[
     from dss.db import models
     from dss.db.session import tenant_session_scope
 
-    now = now or datetime.now(timezone.utc)
+    now = now or datetime.now(UTC)
     policy = retention_policy()
     targets = [
         (AI_CONVERSATION, models.Consultation, models.Consultation.created_at),
@@ -248,5 +295,6 @@ def purge_expired(organization_id: int, now: Optional[datetime] = None) -> Dict[
                 continue
             cutoff = now - timedelta(days=days)
             purged[table.__tablename__] = purged.get(table.__tablename__, 0) + session.query(table).filter(
-                table.organization_id == organization_id, column < cutoff).delete(synchronize_session=False)
+                table.organization_id == organization_id, column < cutoff
+            ).delete(synchronize_session=False)
     return purged

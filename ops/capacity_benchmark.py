@@ -21,6 +21,7 @@ was tested here.
 concurrency (simultaneously-active operations), never registered-user
 counts.
 """
+
 from __future__ import annotations
 
 import time
@@ -67,7 +68,9 @@ def _observe_pg_connections(owner_url: str) -> Optional[int]:
     try:
         engine = create_engine(owner_url)
         with engine.connect() as conn:
-            count = conn.execute(text("SELECT count(*) FROM pg_stat_activity WHERE datname = current_database()")).scalar_one()
+            count = conn.execute(
+                text("SELECT count(*) FROM pg_stat_activity WHERE datname = current_database()")
+            ).scalar_one()
         engine.dispose()
         return int(count)
     except Exception:
@@ -111,12 +114,17 @@ def run_concurrency_level(
     latencies.sort()
     error_count = len(errors)
     return ConcurrencyLevelResult(
-        concurrency=concurrency, total_operations=total_ops, duration_seconds=round(duration, 4),
+        concurrency=concurrency,
+        total_operations=total_ops,
+        duration_seconds=round(duration, 4),
         throughput_ops_per_sec=round(total_ops / duration, 2) if duration > 0 else 0.0,
-        p50_ms=round(_percentile(latencies, 0.50), 3), p95_ms=round(_percentile(latencies, 0.95), 3),
-        p99_ms=round(_percentile(latencies, 0.99), 3), error_count=error_count,
+        p50_ms=round(_percentile(latencies, 0.50), 3),
+        p95_ms=round(_percentile(latencies, 0.95), 3),
+        p99_ms=round(_percentile(latencies, 0.99), 3),
+        error_count=error_count,
         error_rate=round(error_count / total_ops, 4) if total_ops else 0.0,
-        errors_sample=list(dict.fromkeys(errors))[:5], pg_connections_observed=pg_connections,
+        errors_sample=list(dict.fromkeys(errors))[:5],
+        pg_connections_observed=pg_connections,
     )
 
 
@@ -125,6 +133,7 @@ class CapacitySlo:
     """Explicit TEST SLO, defined BEFORE interpreting any result — never
     a contractual production SLA, always labeled as an experimental
     threshold for THIS benchmark."""
+
     max_error_rate: float = 0.01  # 1%
     max_p95_latency_ms: float = 500.0
 

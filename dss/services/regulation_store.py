@@ -10,6 +10,7 @@ sau này mà không đổi `regulation_resolver.py` (hàm resolve THUẦN không
 thuộc backend lưu trữ nào).
 
 Không có UI (`st.*`) ở đây — hàm thuần, gọi được trực tiếp từ test."""
+
 from __future__ import annotations
 
 import json
@@ -38,7 +39,7 @@ def _load_all() -> List[RegulationVersion]:
     if not path.exists():
         return []
     try:
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             raw = json.load(f)
         return [RegulationVersion(**item) for item in raw]
     except Exception:

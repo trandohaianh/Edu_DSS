@@ -17,6 +17,7 @@ Policy. Đã sửa: `generate_explanation()` giờ gọi qua
 `ai_advisor.py`'s chat/advisor flow đã dùng đúng từ trước — xem
 reports/production_readiness/WORKSTREAM_C_ML_AI_GOVERNANCE.md.
 """
+
 from __future__ import annotations
 
 import json
@@ -25,16 +26,16 @@ import re
 import threading
 import uuid
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from dss.core.data_root import get_data_root
-from dss.services import cms_lecture_repository as cms_repository
+from dss.core.target_utils import is_id_like
 from dss.services import citation_service, prompt_security
+from dss.services import cms_lecture_repository as cms_repository
 from dss.services import learning_explainer_policy as policy
 from dss.services.learning_explainer_policy import CMS_ONLY, CMS_PLUS_SUPPLEMENTARY, NO_CMS_CONTENT_MESSAGE
-from dss.core.target_utils import is_id_like
 
 _LOG_LOCK = threading.Lock()
 _QUIZ_LOCK = threading.Lock()
@@ -52,6 +53,7 @@ def _quiz_review_path() -> Path:
 
 def _misconception_store_path() -> Path:
     return get_data_root() / "cms" / "misconception_records.json"
+
 
 EXPLANATION_LEVELS = ["Foundation", "Standard", "Advanced"]
 
@@ -96,8 +98,10 @@ def _quiz_accuracy_from_interaction_log(student_pseudonym: str, topic_id: str) -
     tính từ log tương tác của Learning Explainer (vòng phản hồi Mục 9/12).
     Trả về None trung thực nếu chưa có lượt quiz nào được ghi nhận."""
     records = [
-        r for r in _load_interaction_log()
-        if r.get("student_pseudonym") == student_pseudonym and r.get("topic_id") == topic_id
+        r
+        for r in _load_interaction_log()
+        if r.get("student_pseudonym") == student_pseudonym
+        and r.get("topic_id") == topic_id
         and r.get("quiz_correct") is not None
     ]
     if not records:
@@ -107,8 +111,12 @@ def _quiz_accuracy_from_interaction_log(student_pseudonym: str, topic_id: str) -
 
 
 def resolve_explanation_level(
-    student_id: str, course_id: str, lesson_id: str, topic_id: Optional[str],
-    learning_profile: Any = None, df: Any = None,
+    student_id: str,
+    course_id: str,
+    lesson_id: str,
+    topic_id: Optional[str],
+    learning_profile: Any = None,
+    df: Any = None,
 ) -> ExplanationLevelResolution:
     """Thứ tự ưu tiên bằng chứng BẮT BUỘC (Mục 1) — KHÔNG chỉ dựa vào so khớp
     tên topic_id với cột điểm:
@@ -119,17 +127,21 @@ def resolve_explanation_level(
        3 tầng trên đều không có dữ liệu)
     5. mặc định Standard (trung lập, không đoán)."""
     from dss.services.privacy_service import generate_pseudonym
+
     pseudonym = generate_pseudonym(str(student_id)) if student_id else "guest"
 
     if topic_id and learning_profile is not None:
         from dss.services.learning_profile import observed_mapping
+
         subskill = getattr(learning_profile, "question_level", None)
         subskill_mastery = observed_mapping(getattr(subskill, "subskill_mastery", {}), maximum=1.0) if subskill else {}
         if topic_id in subskill_mastery:
             value = float(subskill_mastery[topic_id])
             return ExplanationLevelResolution(
-                level=determine_explanation_level(value), confidence="High",
-                evidence=[f"subskill_mastery[{topic_id}] = {value:.2f}"], source="subskill_mastery",
+                level=determine_explanation_level(value),
+                confidence="High",
+                evidence=[f"subskill_mastery[{topic_id}] = {value:.2f}"],
+                source="subskill_mastery",
                 friendly_reason=_FRIENDLY_LEVEL_REASON[determine_explanation_level(value)],
             )
 
@@ -139,8 +151,10 @@ def resolve_explanation_level(
             raw = float(topic_scores[topic_id])
             normalized = raw / 10.0  # AcademicEvidence.topic_scores always uses the 0..10 scale.
             return ExplanationLevelResolution(
-                level=determine_explanation_level(normalized), confidence="Medium",
-                evidence=[f"topic_scores[{topic_id}] = {raw}"], source="topic_mastery",
+                level=determine_explanation_level(normalized),
+                confidence="Medium",
+                evidence=[f"topic_scores[{topic_id}] = {raw}"],
+                source="topic_mastery",
                 friendly_reason=_FRIENDLY_LEVEL_REASON[determine_explanation_level(normalized)],
             )
 
@@ -148,16 +162,23 @@ def resolve_explanation_level(
         quiz_accuracy = _quiz_accuracy_from_interaction_log(pseudonym, topic_id)
         if quiz_accuracy is not None:
             return ExplanationLevelResolution(
-                level=determine_explanation_level(quiz_accuracy), confidence="Medium",
-                evidence=[f"quiz_accuracy[{topic_id}] = {quiz_accuracy:.2f} (từ lịch sử quiz thật)"], source="quiz_history",
+                level=determine_explanation_level(quiz_accuracy),
+                confidence="Medium",
+                evidence=[f"quiz_accuracy[{topic_id}] = {quiz_accuracy:.2f} (từ lịch sử quiz thật)"],
+                source="quiz_history",
                 friendly_reason=_FRIENDLY_LEVEL_REASON[determine_explanation_level(quiz_accuracy)],
             )
 
     if df is not None and topic_id:
         from dss.core.data_helpers import TOPIC_SCORE_COLUMNS
+
         id_col = next((c for c in df.columns if is_id_like(c)), None)
         matching_col = next(
-            (c for c in TOPIC_SCORE_COLUMNS if topic_id.lower() in c.lower() or topic_id.lower() in TOPIC_SCORE_COLUMNS[c].lower()),
+            (
+                c
+                for c in TOPIC_SCORE_COLUMNS
+                if topic_id.lower() in c.lower() or topic_id.lower() in TOPIC_SCORE_COLUMNS[c].lower()
+            ),
             None,
         )
         if id_col and matching_col and matching_col in df.columns:
@@ -167,16 +188,21 @@ def resolve_explanation_level(
                     raw = float(rows.iloc[0][matching_col])
                     normalized = raw / 10.0
                     return ExplanationLevelResolution(
-                        level=determine_explanation_level(normalized), confidence="Low",
-                        evidence=[f"{matching_col} (so khớp văn bản với topic_id) = {raw}"], source="course_topic_score",
+                        level=determine_explanation_level(normalized),
+                        confidence="Low",
+                        evidence=[f"{matching_col} (so khớp văn bản với topic_id) = {raw}"],
+                        source="course_topic_score",
                         friendly_reason=_FRIENDLY_LEVEL_REASON[determine_explanation_level(normalized)],
                     )
                 except (TypeError, ValueError):
                     pass
 
     return ExplanationLevelResolution(
-        level="Standard", confidence="Low", evidence=["Không có bằng chứng mastery nào khớp — dùng mặc định trung lập."],
-        source="default", friendly_reason=_FRIENDLY_LEVEL_REASON["Standard"],
+        level="Standard",
+        confidence="Low",
+        evidence=["Không có bằng chứng mastery nào khớp — dùng mặc định trung lập."],
+        source="default",
+        friendly_reason=_FRIENDLY_LEVEL_REASON["Standard"],
     )
 
 
@@ -268,16 +294,25 @@ def _format_friendly_citation(chunk: Dict[str, Any]) -> FriendlyCitation:
 # ngộ nhận chưa từng quan sát được.
 MISCONCEPTION_PATTERNS: Dict[str, List[Dict[str, str]]] = {
     "k-means": [
-        {"pattern": r"\b(classification|phân loại có nhãn)\b", "label": "Nhầm K-Means (clustering) với classification (có nhãn)",
-         "hint": "K-Means là thuật toán HỌC KHÔNG GIÁM SÁT (unsupervised) — không dùng nhãn có sẵn, khác hẳn classification."},
+        {
+            "pattern": r"\b(classification|phân loại có nhãn)\b",
+            "label": "Nhầm K-Means (clustering) với classification (có nhãn)",
+            "hint": "K-Means là thuật toán HỌC KHÔNG GIÁM SÁT (unsupervised) — không dùng nhãn có sẵn, khác hẳn classification.",
+        },
     ],
     "overfitting": [
-        {"pattern": r"\bunderfit", "label": "Nhầm Overfitting với Underfitting",
-         "hint": "Overfitting là mô hình HỌC QUÁ KHỚP dữ liệu train (kể cả nhiễu); Underfitting là mô hình CHƯA học đủ, cả hai đều là vấn đề nhưng ngược hướng nhau."},
+        {
+            "pattern": r"\bunderfit",
+            "label": "Nhầm Overfitting với Underfitting",
+            "hint": "Overfitting là mô hình HỌC QUÁ KHỚP dữ liệu train (kể cả nhiễu); Underfitting là mô hình CHƯA học đủ, cả hai đều là vấn đề nhưng ngược hướng nhau.",
+        },
     ],
     "correlation": [
-        {"pattern": r"\b(nguyên nhân|gây ra|causation)\b", "label": "Nhầm Tương quan (Correlation) với Nhân quả (Causation)",
-         "hint": "Hai biến tương quan với nhau KHÔNG có nghĩa biến này gây ra biến kia — cần bằng chứng thực nghiệm/thiết kế thí nghiệm mới kết luận được nhân quả."},
+        {
+            "pattern": r"\b(nguyên nhân|gây ra|causation)\b",
+            "label": "Nhầm Tương quan (Correlation) với Nhân quả (Causation)",
+            "hint": "Hai biến tương quan với nhau KHÔNG có nghĩa biến này gây ra biến kia — cần bằng chứng thực nghiệm/thiết kế thí nghiệm mới kết luận được nhân quả.",
+        },
     ],
 }
 
@@ -308,7 +343,8 @@ class ExplanationResult:
 
     def to_dict(self) -> Dict[str, Any]:
         return {
-            "has_cms_content": self.has_cms_content, "answer": self.answer,
+            "has_cms_content": self.has_cms_content,
+            "answer": self.answer,
             "explanation_level": self.explanation_level,
             "citations": [c.to_dict() for c in self.citations],
             "hallucinated_citations": self.hallucinated_citations,
@@ -317,8 +353,12 @@ class ExplanationResult:
 
 
 def build_system_prompt(
-    explanation_level: str, socratic_mode: bool, lesson_notes: List[str], faq: List[Dict[str, str]],
-    mode: str = CMS_ONLY, active_misconception: Optional[Dict[str, str]] = None,
+    explanation_level: str,
+    socratic_mode: bool,
+    lesson_notes: List[str],
+    faq: List[Dict[str, str]],
+    mode: str = CMS_ONLY,
+    active_misconception: Optional[Dict[str, str]] = None,
 ) -> str:
     parts = [
         "Bạn là AI Learning Explainer — trợ lý giải thích lại bài giảng của Giảng viên cho sinh viên. "
@@ -345,10 +385,14 @@ def build_system_prompt(
             f"{active_misconception['hint']}"
         )
     if lesson_notes:
-        parts.append("Ghi chú bổ sung từ Giảng viên (tham khảo khi giải thích):\n" + "\n".join(f"- {n}" for n in lesson_notes))
+        parts.append(
+            "Ghi chú bổ sung từ Giảng viên (tham khảo khi giải thích):\n" + "\n".join(f"- {n}" for n in lesson_notes)
+        )
     if faq:
         faq_text = "\n".join(f"- Hỏi: {f['question']} | Đáp: {f['answer']}" for f in faq[:5])
-        parts.append("Câu hỏi thường gặp Giảng viên đã trả lời sẵn (ưu tiên tham khảo nếu khớp câu hỏi hiện tại):\n" + faq_text)
+        parts.append(
+            "Câu hỏi thường gặp Giảng viên đã trả lời sẵn (ưu tiên tham khảo nếu khớp câu hỏi hiện tại):\n" + faq_text
+        )
     return "\n\n".join(parts)
 
 
@@ -373,12 +417,16 @@ def generate_explanation(
     Mọi output đều đi qua learning_explainer_policy trước khi trả về (Mục 2) —
     không chỉ dựa vào system prompt."""
     from dss.services import engine_gateway
+
     if engine_gateway.enabled():
         cached = engine_gateway.get_cached_explanation(course_id, lesson_id)
         return ExplanationResult(
             has_cms_content=cached.get("state") == "READY",
-            answer=cached["text"], explanation_level=explanation_level,
-            citations=[], hallucinated_citations=[], used_socratic_mode=False,
+            answer=cached["text"],
+            explanation_level=explanation_level,
+            citations=[],
+            hallucinated_citations=[],
+            used_socratic_mode=False,
         )
 
     lesson = cms_repository.get_lesson(lesson_id)
@@ -386,41 +434,68 @@ def generate_explanation(
         return ExplanationResult(
             has_cms_content=False,
             answer="AI giải thích bài học hiện chưa được Giảng viên bật cho bài học này.",
-            explanation_level=explanation_level, citations=[], hallucinated_citations=[], used_socratic_mode=socratic_mode,
+            explanation_level=explanation_level,
+            citations=[],
+            hallucinated_citations=[],
+            used_socratic_mode=socratic_mode,
         )
 
     chunks = cms_repository.retrieve_lesson_content(
-        llm_integration, question, course_id=course_id, lesson_id=lesson_id, topic_id=topic_id, top_k=top_k,
+        llm_integration,
+        question,
+        course_id=course_id,
+        lesson_id=lesson_id,
+        topic_id=topic_id,
+        top_k=top_k,
     )
     if not chunks:
         return ExplanationResult(
-            has_cms_content=False, answer=NO_CMS_CONTENT_MESSAGE, explanation_level=explanation_level,
-            citations=[], hallucinated_citations=[], used_socratic_mode=socratic_mode,
+            has_cms_content=False,
+            answer=NO_CMS_CONTENT_MESSAGE,
+            explanation_level=explanation_level,
+            citations=[],
+            hallucinated_citations=[],
+            used_socratic_mode=socratic_mode,
         )
 
-    system_prompt = build_system_prompt(explanation_level, socratic_mode, lesson.explanation_notes, lesson.faq,
-                                         mode=mode, active_misconception=active_misconception)
+    system_prompt = build_system_prompt(
+        explanation_level,
+        socratic_mode,
+        lesson.explanation_notes,
+        lesson.faq,
+        mode=mode,
+        active_misconception=active_misconception,
+    )
     prompt = prompt_security.build_secure_rag_prompt(
-        system_instructions=system_prompt, student_context=f"Đang học bài: {lesson.title} (môn {course_id})",
-        retrieved_chunks=chunks, user_query=question,
+        system_instructions=system_prompt,
+        student_context=f"Đang học bài: {lesson.title} (môn {course_id})",
+        retrieved_chunks=chunks,
+        user_query=question,
     )
 
     from dss.services import llm_service
+
     chat_auto = llm_service.resolve_auto_provider(llm_integration)
     if not chat_auto:
         answer = (
             "AI trực tuyến hiện chưa sẵn sàng, chưa thể giải thích câu hỏi mở này. "
             "Bạn có thể xem lại tài liệu bài giảng gốc trong lúc chờ hệ thống AI khả dụng."
         )
-        return ExplanationResult(has_cms_content=True, answer=answer, explanation_level=explanation_level,
-                                  citations=[_format_friendly_citation(c) for c in chunks],
-                                  hallucinated_citations=[], used_socratic_mode=socratic_mode)
+        return ExplanationResult(
+            has_cms_content=True,
+            answer=answer,
+            explanation_level=explanation_level,
+            citations=[_format_friendly_citation(c) for c in chunks],
+            hallucinated_citations=[],
+            used_socratic_mode=socratic_mode,
+        )
 
     kwargs = {"model_name": chat_auto["model_name"]}
     if chat_auto["provider_key"] in ("gemini", "groq", "openai"):
         kwargs["api_key"] = chat_auto["api_key"]
     elif chat_auto["provider_key"] == "ollama":
         from dss.core.models import ollama_base_url
+
         kwargs["base_url"] = ollama_base_url()
 
     from dss.core.logging_config import get_logger
@@ -444,10 +519,14 @@ def generate_explanation(
         # Model đôi khi trả về RỖNG (đã gặp thật: giao diện hiện 1 ô trả lời trống
         # chỉ có nhãn nguồn) — hỏi lại 1 lần trước khi báo lỗi.
         if not answer.strip():
-            get_logger(__name__).warning("AI Learning Explainer trả về rỗng (provider=%s) — hỏi lại 1 lần", chat_auto["provider_key"])
+            get_logger(__name__).warning(
+                "AI Learning Explainer trả về rỗng (provider=%s) — hỏi lại 1 lần", chat_auto["provider_key"]
+            )
             answer = _ask_once()
         if not answer.strip():
-            answer = "⚠️ AI chưa tạo được câu trả lời cho câu hỏi này. Vui lòng hỏi lại hoặc diễn đạt câu hỏi theo cách khác."
+            answer = (
+                "⚠️ AI chưa tạo được câu trả lời cho câu hỏi này. Vui lòng hỏi lại hoặc diễn đạt câu hỏi theo cách khác."
+            )
     except Exception:
         get_logger(__name__).exception("Lỗi khi gọi AI Learning Explainer")
         answer = "⚠️ Không thể tạo giải thích lúc này. Vui lòng thử lại sau."
@@ -460,19 +539,29 @@ def generate_explanation(
     # thể (vd. rơi vào trường hợp "không có CMS content" mà LLM vẫn cố bịa),
     # ghi lại vi phạm để phục vụ giám sát chất lượng (không chặn người dùng).
     policy_check = policy.validate_explanation_response(
-        answer, has_cms_content=True, hallucinated_citations=hallucinated, mode=mode,
-        supplementary_requested=(mode == CMS_PLUS_SUPPLEMENTARY), socratic_mode=socratic_mode,
+        answer,
+        has_cms_content=True,
+        hallucinated_citations=hallucinated,
+        mode=mode,
+        supplementary_requested=(mode == CMS_PLUS_SUPPLEMENTARY),
+        socratic_mode=socratic_mode,
         is_final_synthesis_step=is_final_synthesis_step,
     )
     if policy_check.repaired_answer:
         answer = policy_check.repaired_answer
     if not policy_check.is_valid:
         from dss.core.logging_config import get_logger
-        get_logger(__name__).warning("Policy violation trong AI Learning Explainer: %s", [v.to_dict() for v in policy_check.violations])
+
+        get_logger(__name__).warning(
+            "Policy violation trong AI Learning Explainer: %s", [v.to_dict() for v in policy_check.violations]
+        )
 
     return ExplanationResult(
-        has_cms_content=True, answer=answer, explanation_level=explanation_level,
-        citations=friendly_citations, hallucinated_citations=hallucinated,
+        has_cms_content=True,
+        answer=answer,
+        explanation_level=explanation_level,
+        citations=friendly_citations,
+        hallucinated_citations=hallucinated,
         used_socratic_mode=socratic_mode,
     )
 
@@ -486,7 +575,9 @@ def generate_explanation(
 class SocraticSession:
     topic_id: str
     current_step: int = 0
-    history: List[Dict[str, Optional[str]]] = field(default_factory=list)  # [{"question":.., "learner_answer":.., "ai_response":..}]
+    history: List[Dict[str, Optional[str]]] = field(
+        default_factory=list
+    )  # [{"question":.., "learner_answer":.., "ai_response":..}]
     misconception: Optional[Dict[str, str]] = None
     hint_count: int = 0
     completion_status: str = "IN_PROGRESS"  # IN_PROGRESS | COMPLETED | GAVE_UP
@@ -504,9 +595,16 @@ _SOCRATIC_ACTION_INSTRUCTIONS = {
 
 
 def advance_socratic_session(
-    llm_integration: Any, session: SocraticSession, action: str, course_id: str, lesson_id: str,
-    explanation_level: str, learner_answer: Optional[str] = None, top_k: int = 5,
-    user_id: Optional[str] = None, role: str = "Sinh viên",
+    llm_integration: Any,
+    session: SocraticSession,
+    action: str,
+    course_id: str,
+    lesson_id: str,
+    explanation_level: str,
+    learner_answer: Optional[str] = None,
+    top_k: int = 5,
+    user_id: Optional[str] = None,
+    role: str = "Sinh viên",
 ) -> Tuple[SocraticSession, ExplanationResult]:
     """Tiến 1 bước thật của phiên Socratic. action:
     "start" | "answer" (kèm learner_answer) | "hint" | "explain_more" |
@@ -545,9 +643,18 @@ def advance_socratic_session(
         is_final = False
 
     result = generate_explanation(
-        llm_integration, question, course_id, lesson_id, session.topic_id, explanation_level,
-        socratic_mode=not is_final, top_k=top_k, active_misconception=session.misconception,
-        is_final_synthesis_step=is_final, user_id=user_id, role=role,
+        llm_integration,
+        question,
+        course_id,
+        lesson_id,
+        session.topic_id,
+        explanation_level,
+        socratic_mode=not is_final,
+        top_k=top_k,
+        active_misconception=session.misconception,
+        is_final_synthesis_step=is_final,
+        user_id=user_id,
+        role=role,
     )
 
     session.history.append({"question": question, "learner_answer": learner_answer, "ai_response": result.answer})
@@ -559,7 +666,9 @@ def advance_socratic_session(
 # ============================================================================
 # MỤC 10 — SINH QUIZ TỪ CMS (tái dùng diagnostic_assessment.py, không viết lại)
 # ============================================================================
-def generate_lesson_quiz_from_chunks(lesson_id: str, chunks: List[Dict[str, Any]], num_questions: int = 3, is_high_stakes: bool = False):
+def generate_lesson_quiz_from_chunks(
+    lesson_id: str, chunks: List[Dict[str, Any]], num_questions: int = 3, is_high_stakes: bool = False
+):
     """Sinh quiz chẩn đoán từ ĐÚNG các chunk CMS đã truy xuất được cho lesson này
     (gọi sau generate_explanation/retrieve_lesson_content để tái dùng kết quả,
     tránh truy xuất lại 2 lần)."""
@@ -569,15 +678,22 @@ def generate_lesson_quiz_from_chunks(lesson_id: str, chunks: List[Dict[str, Any]
     if not lesson:
         return None
     approved_docs = [
-        {"id": c.get("chunk_id") or c.get("document_id"), "title": c.get("title", lesson.title),
-         "content": c.get("content", ""), "status": "APPROVED" if lesson.official_source else "PENDING_REVIEW",
-         "source_verified": lesson.official_source}
+        {
+            "id": c.get("chunk_id") or c.get("document_id"),
+            "title": c.get("title", lesson.title),
+            "content": c.get("content", ""),
+            "status": "APPROVED" if lesson.official_source else "PENDING_REVIEW",
+            "source_verified": lesson.official_source,
+        }
         for c in chunks
     ]
     service = DiagnosticAssessmentService()
     return service.create_assessment_blueprint(
-        topic=lesson.title, suspected_weakness=f"Kiểm tra hiểu bài: {lesson.title}",
-        approved_docs=approved_docs, num_questions=num_questions, is_high_stakes=is_high_stakes,
+        topic=lesson.title,
+        suspected_weakness=f"Kiểm tra hiểu bài: {lesson.title}",
+        approved_docs=approved_docs,
+        num_questions=num_questions,
+        is_high_stakes=is_high_stakes,
     )
 
 
@@ -591,7 +707,7 @@ def _load_quiz_queue() -> List[Dict[str, Any]]:
     if not quiz_review_path.exists():
         return []
     try:
-        with open(quiz_review_path, "r", encoding="utf-8") as f:
+        with open(quiz_review_path, encoding="utf-8") as f:
             data = json.load(f)
             return data if isinstance(data, list) else []
     except (json.JSONDecodeError, OSError):
@@ -609,6 +725,7 @@ def _save_quiz_queue(records: List[Dict[str, Any]]) -> None:
 
 def _blueprint_to_dict(blueprint) -> Dict[str, Any]:
     from dataclasses import asdict as _asdict
+
     return _asdict(blueprint)
 
 
@@ -631,7 +748,9 @@ def request_lesson_quiz(course_id: str, lesson_id: str, chunks: List[Dict[str, A
         return None, "Giảng viên chưa bật tính năng tạo quiz cho bài học này."
 
     if not lesson.quiz_requires_approval:
-        blueprint = generate_lesson_quiz_from_chunks(lesson_id, chunks, num_questions=num_questions, is_high_stakes=False)
+        blueprint = generate_lesson_quiz_from_chunks(
+            lesson_id, chunks, num_questions=num_questions, is_high_stakes=False
+        )
         return blueprint, None
 
     approved = get_latest_approved_quiz(lesson_id)
@@ -644,13 +763,16 @@ def request_lesson_quiz(course_id: str, lesson_id: str, chunks: List[Dict[str, A
     blueprint = generate_lesson_quiz_from_chunks(lesson_id, chunks, num_questions=num_questions, is_high_stakes=True)
     with _QUIZ_LOCK:
         records = _load_quiz_queue()
-        records.append({
-            "queue_id": f"quizq_{uuid.uuid4().hex[:12]}",
-            "course_id": course_id, "lesson_id": lesson_id,
-            "blueprint": _blueprint_to_dict(blueprint),
-            "status": "PENDING_LECTURER_APPROVAL",
-            "submitted_at": datetime.now(timezone.utc).isoformat(),
-        })
+        records.append(
+            {
+                "queue_id": f"quizq_{uuid.uuid4().hex[:12]}",
+                "course_id": course_id,
+                "lesson_id": lesson_id,
+                "blueprint": _blueprint_to_dict(blueprint),
+                "status": "PENDING_LECTURER_APPROVAL",
+                "submitted_at": datetime.now(UTC).isoformat(),
+            }
+        )
         _save_quiz_queue(records)
     return None, "Quiz mới đã được tạo và gửi cho Giảng viên duyệt — vui lòng quay lại sau."
 
@@ -664,6 +786,7 @@ def list_pending_quizzes(course_id: Optional[str] = None) -> List[Dict[str, Any]
 
 def get_latest_approved_quiz(lesson_id: str) -> Optional[Any]:
     from dss.services.diagnostic_assessment import AssessmentBlueprint, DiagnosticQuestion
+
     records = [r for r in _load_quiz_queue() if r["lesson_id"] == lesson_id and r["status"] == "APPROVED"]
     if not records:
         return None
@@ -673,7 +796,13 @@ def get_latest_approved_quiz(lesson_id: str) -> Optional[Any]:
     return AssessmentBlueprint(**bp_dict)
 
 
-def review_quiz(queue_id: str, decision: str, reviewer_id: str, comment: str = "", edited_questions: Optional[List[Dict[str, Any]]] = None) -> bool:
+def review_quiz(
+    queue_id: str,
+    decision: str,
+    reviewer_id: str,
+    comment: str = "",
+    edited_questions: Optional[List[Dict[str, Any]]] = None,
+) -> bool:
     """decision: "APPROVE" | "REJECT" | "EDIT" (EDIT thay câu hỏi rồi APPROVE,
     tăng version). Ghi reviewed_by/reviewed_at/review_comment/version — trung
     thực lưu vết ai duyệt, khi nào, vì sao (Mục 6)."""
@@ -690,7 +819,7 @@ def review_quiz(queue_id: str, decision: str, reviewer_id: str, comment: str = "
         target["status"] = "APPROVED" if decision in ("APPROVE", "EDIT") else "REJECTED"
         target["blueprint"]["status"] = target["status"]
         target["blueprint"]["reviewed_by"] = reviewer_id
-        target["blueprint"]["reviewed_at"] = datetime.now(timezone.utc).isoformat()
+        target["blueprint"]["reviewed_at"] = datetime.now(UTC).isoformat()
         target["blueprint"]["review_comment"] = comment
         _save_quiz_queue(records)
     return True
@@ -705,7 +834,7 @@ def _load_misconception_store() -> List[Dict[str, Any]]:
     if not misconception_path.exists():
         return []
     try:
-        with open(misconception_path, "r", encoding="utf-8") as f:
+        with open(misconception_path, encoding="utf-8") as f:
             data = json.load(f)
             return data if isinstance(data, list) else []
     except (json.JSONDecodeError, OSError):
@@ -721,7 +850,9 @@ def _save_misconception_store(records: List[Dict[str, Any]]) -> None:
     os.replace(tmp_path, misconception_path)
 
 
-def record_misconception(student_pseudonym: str, course_id: str, topic_id: str, misconception_type: str, evidence: str, hint: str = "") -> None:
+def record_misconception(
+    student_pseudonym: str, course_id: str, topic_id: str, misconception_type: str, evidence: str, hint: str = ""
+) -> None:
     """Cập nhật (không nhân bản) 1 MisconceptionRecord: nếu ngộ nhận CÙNG loại
     cho ĐÚNG sinh viên+topic đã tồn tại và CHƯA resolved, tăng occurrence_count
     và cập nhật last_detected_at; nếu chưa có, tạo bản ghi mới.
@@ -729,36 +860,59 @@ def record_misconception(student_pseudonym: str, course_id: str, topic_id: str, 
     làm khoá định danh loại ngộ nhận theo đúng schema Mục 8."""
     with _MISCONCEPTION_LOCK:
         records = _load_misconception_store()
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         existing = next(
-            (r for r in records if r["student_pseudonym"] == student_pseudonym and r["course_id"] == course_id
-             and r["topic_id"] == topic_id and r["misconception_type"] == misconception_type and r["resolved_status"] == "UNRESOLVED"),
+            (
+                r
+                for r in records
+                if r["student_pseudonym"] == student_pseudonym
+                and r["course_id"] == course_id
+                and r["topic_id"] == topic_id
+                and r["misconception_type"] == misconception_type
+                and r["resolved_status"] == "UNRESOLVED"
+            ),
             None,
         )
         if existing:
             existing["occurrence_count"] += 1
             existing["last_detected_at"] = now
         else:
-            records.append({
-                "record_id": f"misc_{uuid.uuid4().hex[:12]}",
-                "student_pseudonym": student_pseudonym, "course_id": course_id, "topic_id": topic_id,
-                "misconception_type": misconception_type, "evidence": evidence, "hint": hint,
-                "first_detected_at": now, "last_detected_at": now, "occurrence_count": 1,
-                "resolved_status": "UNRESOLVED", "resolution_evidence": None,
-            })
+            records.append(
+                {
+                    "record_id": f"misc_{uuid.uuid4().hex[:12]}",
+                    "student_pseudonym": student_pseudonym,
+                    "course_id": course_id,
+                    "topic_id": topic_id,
+                    "misconception_type": misconception_type,
+                    "evidence": evidence,
+                    "hint": hint,
+                    "first_detected_at": now,
+                    "last_detected_at": now,
+                    "occurrence_count": 1,
+                    "resolved_status": "UNRESOLVED",
+                    "resolution_evidence": None,
+                }
+            )
         _save_misconception_store(records)
 
 
-def resolve_misconception(student_pseudonym: str, course_id: str, topic_id: str, misconception_type: str, resolution_evidence: str) -> None:
+def resolve_misconception(
+    student_pseudonym: str, course_id: str, topic_id: str, misconception_type: str, resolution_evidence: str
+) -> None:
     """Đánh dấu đã khắc phục — vd sau khi Sinh viên trả lời đúng câu hỏi liên
     quan chính xác ngộ nhận đó (gọi từ vòng phản hồi quiz, Mục 9)."""
     with _MISCONCEPTION_LOCK:
         records = _load_misconception_store()
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         changed = False
         for r in records:
-            if (r["student_pseudonym"] == student_pseudonym and r["course_id"] == course_id and r["topic_id"] == topic_id
-                    and r["misconception_type"] == misconception_type and r["resolved_status"] == "UNRESOLVED"):
+            if (
+                r["student_pseudonym"] == student_pseudonym
+                and r["course_id"] == course_id
+                and r["topic_id"] == topic_id
+                and r["misconception_type"] == misconception_type
+                and r["resolved_status"] == "UNRESOLVED"
+            ):
                 r["resolved_status"] = "RESOLVED"
                 r["resolution_evidence"] = resolution_evidence
                 r["last_detected_at"] = now
@@ -773,9 +927,12 @@ def get_active_misconception(student_pseudonym: str, course_id: str, topic_id: s
     để AI CHỦ ĐỘNG phân biệt lại khái niệm đã từng bị nhầm, theo hướng sư phạm
     (không nói kiểu 'tôi nhớ bạn đã sai' — chỉ nhắc khéo trong system prompt)."""
     records = [
-        r for r in _load_misconception_store()
-        if r["student_pseudonym"] == student_pseudonym and r["course_id"] == course_id
-        and r["topic_id"] == topic_id and r["resolved_status"] == "UNRESOLVED"
+        r
+        for r in _load_misconception_store()
+        if r["student_pseudonym"] == student_pseudonym
+        and r["course_id"] == course_id
+        and r["topic_id"] == topic_id
+        and r["resolved_status"] == "UNRESOLVED"
     ]
     if not records:
         return None
@@ -791,7 +948,7 @@ def _load_interaction_log() -> List[Dict[str, Any]]:
     if not interaction_log_path.exists():
         return []
     try:
-        with open(interaction_log_path, "r", encoding="utf-8") as f:
+        with open(interaction_log_path, encoding="utf-8") as f:
             data = json.load(f)
             return data if isinstance(data, list) else []
     except (json.JSONDecodeError, OSError):
@@ -808,9 +965,15 @@ def _save_interaction_log(records: List[Dict[str, Any]]) -> None:
 
 
 def log_interaction(
-    student_pseudonym: str, course_id: str, lesson_id: str, topic_id: Optional[str],
-    question: str, explanation_level: str, has_cms_content: bool,
-    misconception: Optional[Dict[str, str]] = None, quiz_correct: Optional[bool] = None,
+    student_pseudonym: str,
+    course_id: str,
+    lesson_id: str,
+    topic_id: Optional[str],
+    question: str,
+    explanation_level: str,
+    has_cms_content: bool,
+    misconception: Optional[Dict[str, str]] = None,
+    quiz_correct: Optional[bool] = None,
 ) -> None:
     """Ghi nhận 1 lượt tương tác — KHÔNG lưu private chat nguyên văn nếu policy
     không cho phép (Mục 13): chỉ lưu CÂU HỎI (để thống kê topic hay hỏi) và các
@@ -818,12 +981,15 @@ def log_interaction(
     record = {
         "interaction_id": f"int_{uuid.uuid4().hex[:12]}",
         "student_pseudonym": student_pseudonym,
-        "course_id": course_id, "lesson_id": lesson_id, "topic_id": topic_id,
+        "course_id": course_id,
+        "lesson_id": lesson_id,
+        "topic_id": topic_id,
         "question": question[:300],
-        "explanation_level": explanation_level, "has_cms_content": has_cms_content,
+        "explanation_level": explanation_level,
+        "has_cms_content": has_cms_content,
         "misconception_label": misconception["label"] if misconception else None,
         "quiz_correct": quiz_correct,
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": datetime.now(UTC).isoformat(),
     }
     with _LOG_LOCK:
         records = _load_interaction_log()
@@ -842,6 +1008,7 @@ def get_lecturer_analytics(course_id: str) -> Dict[str, Any]:
         return {"total_questions": 0, "top_topics": [], "top_questions": [], "misconceptions": [], "no_cms_rate": 0.0}
 
     from collections import Counter
+
     topic_counter = Counter(r.get("lesson_id") for r in records if r.get("lesson_id"))
     question_counter = Counter(r.get("question", "").strip().lower() for r in records if r.get("question"))
     misconception_counter = Counter(r.get("misconception_label") for r in records if r.get("misconception_label"))

@@ -2,6 +2,7 @@
 thực sự được `LLMGateway.stream_generate()` dùng — không chỉ tồn tại như 1
 module cô lập chưa ai gọi (đúng nguyên tắc đã lặp lại nhiều lần trong phiên
 này: không tuyên bố 'đã xây' nếu chưa wire vào đường chạy thật)."""
+
 from __future__ import annotations
 
 import pytest
@@ -55,9 +56,14 @@ def test_repeated_failures_open_circuit_and_skip_provider_on_next_request(monkey
     # gemini/groq nữa) — làm sai lệch phép thử tích lũy lỗi liên tiếp này.
     for i in range(cb._FAILURE_THRESHOLD):
         fake.attempts.clear()
-        list(gateway.stream_generate(
-            prompt=f"Câu hỏi lượt {i}", user_id="sv_test", role="Sinh viên", request_type="advisor_chat",
-        ))
+        list(
+            gateway.stream_generate(
+                prompt=f"Câu hỏi lượt {i}",
+                user_id="sv_test",
+                role="Sinh viên",
+                request_type="advisor_chat",
+            )
+        )
         assert fake.attempts[0] == "gemini", "Mỗi lượt trong ngưỡng đầu vẫn phải thử gemini trước"
 
     assert cb.get_state("gemini") == cb.STATE_OPEN, "Sau đủ ngưỡng lỗi liên tiếp, mạch gemini phải OPEN"
@@ -65,9 +71,14 @@ def test_repeated_failures_open_circuit_and_skip_provider_on_next_request(monkey
     # Lượt kế tiếp: mạch gemini đang OPEN -> KHÔNG được thử gemini nữa, nhảy
     # thẳng sang groq.
     fake.attempts.clear()
-    list(gateway.stream_generate(
-        prompt="Câu hỏi khác", user_id="sv_test", role="Sinh viên", request_type="advisor_chat",
-    ))
+    list(
+        gateway.stream_generate(
+            prompt="Câu hỏi khác",
+            user_id="sv_test",
+            role="Sinh viên",
+            request_type="advisor_chat",
+        )
+    )
     assert "gemini" not in fake.attempts, (
         f"Circuit Breaker phải bỏ qua provider đang OPEN — thực tế vẫn thử: {fake.attempts}"
     )
@@ -82,6 +93,7 @@ def test_success_keeps_circuit_closed_for_healthy_provider():
 def test_one_provider_circuit_open_does_not_affect_other_provider(monkeypatch):
     """1 provider bị mở mạch KHÔNG được làm tắt AI cho provider khác — test
     tích hợp thật qua stream_generate, không chỉ unit test module thuần."""
+
     class _GeminiFailsGroqWorks:
         def __init__(self):
             self.attempts = []
@@ -101,16 +113,26 @@ def test_one_provider_circuit_open_does_not_affect_other_provider(monkeypatch):
 
     for i in range(cb._FAILURE_THRESHOLD):
         fake.attempts.clear()
-        list(gateway.stream_generate(
-            prompt=f"Câu hỏi lượt {i}", user_id="sv_test", role="Sinh viên", request_type="advisor_chat",
-        ))
+        list(
+            gateway.stream_generate(
+                prompt=f"Câu hỏi lượt {i}",
+                user_id="sv_test",
+                role="Sinh viên",
+                request_type="advisor_chat",
+            )
+        )
 
     assert cb.get_state("gemini") == cb.STATE_OPEN
     assert cb.get_state("groq") == cb.STATE_CLOSED
 
     fake.attempts.clear()
-    full_answer = "".join(gateway.stream_generate(
-        prompt="Câu hỏi mới", user_id="sv_test", role="Sinh viên", request_type="advisor_chat",
-    ))
+    full_answer = "".join(
+        gateway.stream_generate(
+            prompt="Câu hỏi mới",
+            user_id="sv_test",
+            role="Sinh viên",
+            request_type="advisor_chat",
+        )
+    )
     assert "gemini" not in fake.attempts
     assert "Câu trả lời thật từ Groq." in full_answer

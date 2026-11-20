@@ -10,6 +10,7 @@ Streamlit lo luồng OAuth (code flow + PKCE, kiểm tra chữ ký ID token củ
 (auth_service.resolve_google_user): Google chứng minh quyền sở hữu email, còn vai trò và phạm vi
 dữ liệu vẫn do tài khoản EduDSS quyết định.
 """
+
 from __future__ import annotations
 
 from typing import Optional
@@ -48,8 +49,8 @@ def pending_identity():
     claims = _claims()
     if claims is None:
         return None
-    from dss.services import auth_service
     from dss.core import metrics
+    from dss.services import auth_service
 
     try:
         record = auth_service.resolve_google_user(claims)

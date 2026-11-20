@@ -11,6 +11,7 @@ Requires DATABASE_URL (schema owner or app role — either demonstrates the
 property, since parameterization is enforced at the query-construction
 layer, not by role permissions).
 """
+
 from __future__ import annotations
 
 import os
@@ -37,8 +38,10 @@ def _organization_id():
     owner = create_engine(os.environ["DATABASE_URL"])
     with owner.begin() as conn:
         org_id = conn.execute(
-            text("INSERT INTO organizations (org_code, name, is_active, created_at, updated_at) "
-                 "VALUES (:c, 'SQLi resistance test', true, now(), now()) RETURNING id"),
+            text(
+                "INSERT INTO organizations (org_code, name, is_active, created_at, updated_at) "
+                "VALUES (:c, 'SQLi resistance test', true, now(), now()) RETURNING id"
+            ),
             {"c": f"sqli-{uuid.uuid4().hex[:8]}"},
         ).scalar_one()
     owner.dispose()

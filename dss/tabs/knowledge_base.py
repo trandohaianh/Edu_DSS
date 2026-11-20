@@ -6,6 +6,7 @@ Hỗ trợ quản trị tri thức cấp trường (LMS-scale):
 - Nạp tài liệu mới thật (Production Ingestion): PDF, DOCX, PPTX, TXT/Markdown, LMS JSON
 - Đường ống phân đoạn ngữ nghĩa (Semantic Chunking) và lưu trữ vào Vector Store
 """
+
 import pandas as pd
 import streamlit as st
 
@@ -18,10 +19,12 @@ from dss.services import (
     document_ingestion,
     knowledge_base_admin,
     rag_namespaces,
-    source_classification as srcclass,
     vector_store,
 )
 from dss.services import document_governance as gov
+from dss.services import (
+    source_classification as srcclass,
+)
 from dss.tabs import ui_kit
 
 _KB_DOCUMENT_EXTENSIONS = {".txt", ".md", ".docx", ".pptx", ".pdf", ".json"}
@@ -34,8 +37,7 @@ def _confirm_delete_document_dialog(document_id: str, title: str, namespace: str
     """Hộp thoại xác nhận xóa (KB-CRUD-001) — không xóa ngay từ 1 cú click lỡ tay."""
     st.write(f"Xóa tài liệu **\"{title}\"**?")
     st.caption(
-        "Tài liệu và dữ liệu truy xuất liên quan sẽ bị xóa khỏi Knowledge Base. "
-        "Thao tác này không thể hoàn tác."
+        "Tài liệu và dữ liệu truy xuất liên quan sẽ bị xóa khỏi Knowledge Base. Thao tác này không thể hoàn tác."
     )
     col_cancel, col_confirm = st.columns(2)
     with col_cancel:
@@ -72,13 +74,32 @@ def knowledge_base_tab(llm_integration):
         _lessons = []
 
     _n_course_material = len(_lessons)
-    _n_supplementary = sum(1 for d in _demo_documents if srcclass.classify_document(d) == srcclass.SUPPLEMENTARY_REFERENCE)
+    _n_supplementary = sum(
+        1 for d in _demo_documents if srcclass.classify_document(d) == srcclass.SUPPLEMENTARY_REFERENCE
+    )
     _n_demo = sum(1 for d in _demo_documents if srcclass.classify_document(d) == srcclass.DEMO)
-    ui_kit.kpi_row([
-        (f"🎓 {srcclass.SOURCE_LABEL_VI[srcclass.COURSE_MATERIAL]}", _n_course_material, "Do Giảng viên tải lên qua CMS", "success"),
-        (f"📖 {srcclass.SOURCE_LABEL_VI[srcclass.SUPPLEMENTARY_REFERENCE]}", _n_supplementary, "Có tác giả/nghiên cứu thật, không gắn môn học cụ thể", "warning"),
-        (f"🧪 {srcclass.SOURCE_LABEL_VI[srcclass.DEMO]}", _n_demo, "Chỉ phục vụ minh họa/kiểm thử — không phải bằng chứng học thuật", None),
-    ])
+    ui_kit.kpi_row(
+        [
+            (
+                f"🎓 {srcclass.SOURCE_LABEL_VI[srcclass.COURSE_MATERIAL]}",
+                _n_course_material,
+                "Do Giảng viên tải lên qua CMS",
+                "success",
+            ),
+            (
+                f"📖 {srcclass.SOURCE_LABEL_VI[srcclass.SUPPLEMENTARY_REFERENCE]}",
+                _n_supplementary,
+                "Có tác giả/nghiên cứu thật, không gắn môn học cụ thể",
+                "warning",
+            ),
+            (
+                f"🧪 {srcclass.SOURCE_LABEL_VI[srcclass.DEMO]}",
+                _n_demo,
+                "Chỉ phục vụ minh họa/kiểm thử — không phải bằng chứng học thuật",
+                None,
+            ),
+        ]
+    )
     st.caption(
         "Learning Explainer (AI giải thích bài học cho Sinh viên) CHỈ truy xuất từ "
         f"**{srcclass.SOURCE_LABEL_VI[srcclass.COURSE_MATERIAL]}** đúng môn/bài đang học — "
@@ -86,12 +107,14 @@ def knowledge_base_tab(llm_integration):
     )
     st.markdown("<div style='height:0.6rem;'></div>", unsafe_allow_html=True)
 
-    tab_course, tab_demo, tab_namespaces, tab_upload = st.tabs([
-        "🎓 Tài liệu môn học (CMS)",
-        "📖 Nguồn tham khảo & Demo",
-        "🗂️ Không Gian Tri Thức (Namespaces)",
-        "📤 Nạp Tài Liệu Mới (Ingestion Pipeline)",
-    ])
+    tab_course, tab_demo, tab_namespaces, tab_upload = st.tabs(
+        [
+            "🎓 Tài liệu môn học (CMS)",
+            "📖 Nguồn tham khảo & Demo",
+            "🗂️ Không Gian Tri Thức (Namespaces)",
+            "📤 Nạp Tài Liệu Mới (Ingestion Pipeline)",
+        ]
+    )
 
     # =========================================================================
     # TAB MỚI: TÀI LIỆU MÔN HỌC (CMS) — Mục B4/B17: Admin cần thấy tổng quan
@@ -138,24 +161,30 @@ def knowledge_base_tab(llm_integration):
             ui_kit.empty_state("Không đọc được kho tài liệu RAG.", hint="Kiểm tra lại khởi tạo AIIntegration.")
         else:
             subjects = sorted({d.get("subject", "—") for d in _demo_documents})
-            ui_kit.kpi_row([
-                ("Tổng số tài liệu", len(_demo_documents)),
-                ("Chủ đề kiến thức", len(subjects)),
-                ("Mô hình nhúng mặc định", "all-MiniLM-L6-v2"),
-            ])
-            st.caption("Dùng để chuyển nội dung tài liệu thành vector phục vụ tìm kiếm ngữ nghĩa — không phải mô hình sinh câu trả lời.")
+            ui_kit.kpi_row(
+                [
+                    ("Tổng số tài liệu", len(_demo_documents)),
+                    ("Chủ đề kiến thức", len(subjects)),
+                    ("Mô hình nhúng mặc định", "all-MiniLM-L6-v2"),
+                ]
+            )
+            st.caption(
+                "Dùng để chuyển nội dung tài liệu thành vector phục vụ tìm kiếm ngữ nghĩa — không phải mô hình sinh câu trả lời."
+            )
             st.markdown("<div style='height:0.6rem;'></div>", unsafe_allow_html=True)
 
             _rows = []
             for d in _demo_documents:
                 _cat = srcclass.classify_document(d)
-                _rows.append({
-                    "ID": d.get("id", "—"),
-                    "Tiêu đề": d.get("title", "—"),
-                    "Chủ đề": d.get("subject", "—"),
-                    "Phân loại nguồn": srcclass.SOURCE_LABEL_VI[_cat],
-                    "Từ khoá": ", ".join(d.get("tags", []) or []),
-                })
+                _rows.append(
+                    {
+                        "ID": d.get("id", "—"),
+                        "Tiêu đề": d.get("title", "—"),
+                        "Chủ đề": d.get("subject", "—"),
+                        "Phân loại nguồn": srcclass.SOURCE_LABEL_VI[_cat],
+                        "Từ khoá": ", ".join(d.get("tags", []) or []),
+                    }
+                )
             _df_docs = pd.DataFrame(_rows)
             st.dataframe(_df_docs, width="stretch", hide_index=True, height=min(70 + 36 * len(_rows), 460))
 
@@ -198,11 +227,11 @@ def knowledge_base_tab(llm_integration):
             _msg = pending_result.get("message", "")
             if _status == knowledge_base_admin.STATUS_SUCCESS:
                 st.success(f"✅ {_msg}")
-            elif _status == knowledge_base_admin.STATUS_NOT_FOUND:
-                st.warning(f"⚠️ {_msg}")
-            elif _status == knowledge_base_admin.STATUS_UNSUPPORTED:
-                st.warning(f"⚠️ {_msg}")
-            elif _status == knowledge_base_admin.STATUS_BLOCKED_REFERENCED:
+            elif (
+                _status == knowledge_base_admin.STATUS_NOT_FOUND
+                or _status == knowledge_base_admin.STATUS_UNSUPPORTED
+                or _status == knowledge_base_admin.STATUS_BLOCKED_REFERENCED
+            ):
                 st.warning(f"⚠️ {_msg}")
             else:  # error hoặc bất kỳ trạng thái không mong đợi nào khác
                 st.error(f"❌ {_msg}")
@@ -228,9 +257,12 @@ def knowledge_base_tab(llm_integration):
                 )
                 if st.button("Nạp tài liệu mẫu (Chờ duyệt)", key="kb_seed_legacy_docs"):
                     from dss.services import legacy_knowledge_seed
+
                     try:
                         n = legacy_knowledge_seed.seed_legacy_knowledge_base_documents(llm_integration)
-                        st.success(f"Đã nạp {n} tài liệu mới vào hàng đợi Chờ duyệt (tài liệu đã nạp trước đó được giữ nguyên, không nạp trùng).")
+                        st.success(
+                            f"Đã nạp {n} tài liệu mới vào hàng đợi Chờ duyệt (tài liệu đã nạp trước đó được giữ nguyên, không nạp trùng)."
+                        )
                         st.rerun()
                     except Exception:
                         st.error("Lỗi khi nạp tài liệu mẫu. Vui lòng thử lại hoặc liên hệ quản trị viên.")
@@ -262,7 +294,8 @@ def knowledge_base_tab(llm_integration):
                         with col_approve:
                             if st.button("✅ Duyệt", key=f"kb_approve_{d['document_id']}", width="stretch"):
                                 ok, msg = document_approval_service.approve_document(
-                                    document_id=d["document_id"], namespace=selected_ns,
+                                    document_id=d["document_id"],
+                                    namespace=selected_ns,
                                     actor_username=_actor.get("username") or "unknown",
                                     actor_role=_actor.get("role") or "Admin",
                                     review_note=review_note or None,
@@ -273,7 +306,8 @@ def knowledge_base_tab(llm_integration):
                         with col_reject:
                             if st.button("❌ Từ chối", key=f"kb_reject_{d['document_id']}", width="stretch"):
                                 ok, msg = document_approval_service.reject_document(
-                                    document_id=d["document_id"], namespace=selected_ns,
+                                    document_id=d["document_id"],
+                                    namespace=selected_ns,
                                     actor_username=_actor.get("username") or "unknown",
                                     actor_role=_actor.get("role") or "Admin",
                                     review_note=review_note,
@@ -386,7 +420,7 @@ def knowledge_base_tab(llm_integration):
 
 
 def lecturer_document_approval_tab() -> None:
-    """"📄 Duyệt tài liệu" — hàng đợi duyệt tài liệu HẸP dành riêng cho Giảng
+    """ "📄 Duyệt tài liệu" — hàng đợi duyệt tài liệu HẸP dành riêng cho Giảng
     viên/CVHT (xem `dss/core/roles.py: TAB_ACCESS`).
 
     FINAL REMEDIATION PASS (Mục 3, đọc lập review 2026-09): backend duyệt
@@ -421,7 +455,9 @@ def lecturer_document_approval_tab() -> None:
     total_pending = 0
     for ns in namespaces:
         pending_docs = document_approval_service.list_pending_documents_for_approver(
-            ns, actor_username=actor_username, actor_role=actor_role,
+            ns,
+            actor_username=actor_username,
+            actor_role=actor_role,
         )
         total_pending += len(pending_docs)
         if not pending_docs:
@@ -440,8 +476,10 @@ def lecturer_document_approval_tab() -> None:
                 with col_approve:
                     if st.button("✅ Duyệt", key=f"lecturer_kb_approve_{d['document_id']}", width="stretch"):
                         ok, msg = document_approval_service.approve_document(
-                            document_id=d["document_id"], namespace=ns,
-                            actor_username=actor_username, actor_role=actor_role,
+                            document_id=d["document_id"],
+                            namespace=ns,
+                            actor_username=actor_username,
+                            actor_role=actor_role,
                             review_note=review_note or None,
                         )
                         (st.success if ok else st.error)(msg)
@@ -450,8 +488,10 @@ def lecturer_document_approval_tab() -> None:
                 with col_reject:
                     if st.button("❌ Từ chối", key=f"lecturer_kb_reject_{d['document_id']}", width="stretch"):
                         ok, msg = document_approval_service.reject_document(
-                            document_id=d["document_id"], namespace=ns,
-                            actor_username=actor_username, actor_role=actor_role,
+                            document_id=d["document_id"],
+                            namespace=ns,
+                            actor_username=actor_username,
+                            actor_role=actor_role,
                             review_note=review_note,
                         )
                         (st.success if ok else st.error)(msg)

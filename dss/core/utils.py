@@ -1,4 +1,5 @@
 """CV helpers, metrics, UI step headers."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -13,9 +14,7 @@ def _safe_n_splits(n_samples, desired_folds=5, min_folds=2):
     n_samples = int(n_samples)
     desired_folds = int(desired_folds)
     if n_samples < min_folds:
-        raise ValueError(
-            f"Không đủ dữ liệu để cross-validation: cần >= {min_folds} mẫu, hiện có {n_samples}."
-        )
+        raise ValueError(f"Không đủ dữ liệu để cross-validation: cần >= {min_folds} mẫu, hiện có {n_samples}.")
     return max(min_folds, min(desired_folds, n_samples))
 
 
@@ -176,13 +175,9 @@ def _explain_best_params(best_params):
                 "`C` lớn -> phạt yếu hơn (mô hình linh hoạt hơn)."
             )
         elif param_name == "solver":
-            explanations.append(
-                f"- `{full_key} = {value}`: thuật toán tối ưu dùng để fit Logistic Regression."
-            )
+            explanations.append(f"- `{full_key} = {value}`: thuật toán tối ưu dùng để fit Logistic Regression.")
         else:
-            explanations.append(
-                f"- `{full_key} = {value}`: tham số tối ưu được chọn tự động bởi GridSearchCV."
-            )
+            explanations.append(f"- `{full_key} = {value}`: tham số tối ưu được chọn tự động bởi GridSearchCV.")
     return explanations
 
 

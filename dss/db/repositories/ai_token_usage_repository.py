@@ -15,6 +15,7 @@ accounting metadata (provider, model, token counts, cost estimate), matching
 anonymized by `token_tracker.record_usage()` (email-like ids are rewritten
 to `user_<local-part>` before this repository ever sees them).
 """
+
 from __future__ import annotations
 
 from typing import Any, Optional

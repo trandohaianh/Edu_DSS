@@ -11,15 +11,27 @@ vd. `ai_advisor.py`/`agent.py`). Đây là bước lọc CUỐI CÙNG trước k
 rời khỏi tầng ứng dụng, không phải nơi resolve quyền truy cập (đó là việc
 của Authorization — chưa có trong đợt này, xem docs/ai/AGENT_FINAL_INTEGRATION.md).
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Dict, Set
 
 _COMMON_FORBIDDEN = {
-    "name", "email", "phone", "address", "dob", "full_transcript", "full_chat_history",
+    "name",
+    "email",
+    "phone",
+    "address",
+    "dob",
+    "full_transcript",
+    "full_chat_history",
     # C1.1: định danh trực tiếp của sinh viên không bao giờ đi vào ngữ cảnh gửi ra ngoài.
-    "student_id", "student_code", "mssv", "id_card", "national_id", "username",
+    "student_id",
+    "student_code",
+    "mssv",
+    "id_card",
+    "national_id",
+    "username",
 }
 
 _INTENT_FIELD_CONTRACTS: Dict[str, Dict[str, Set[str]]] = {
@@ -74,9 +86,12 @@ def build_context(intent: str, raw_source: dict) -> ContextBuildResult:
     if contract is None:
         context = {k: v for k, v in raw_source.items() if k not in _COMMON_FORBIDDEN}
         return ContextBuildResult(
-            intent=intent, context=context, included_fields=set(context.keys()),
+            intent=intent,
+            context=context,
+            included_fields=set(context.keys()),
             dropped_forbidden_fields=set(raw_source.keys()) & _COMMON_FORBIDDEN,
-            missing_required_fields=set(), status="ok",
+            missing_required_fields=set(),
+            status="ok",
         )
 
     allowed = contract["required"] | contract["optional"]
@@ -86,7 +101,10 @@ def build_context(intent: str, raw_source: dict) -> ContextBuildResult:
     status = "ok" if not missing_required else "MISSING_REQUIRED"
 
     return ContextBuildResult(
-        intent=intent, context=context, included_fields=set(context.keys()),
-        dropped_forbidden_fields=dropped_forbidden, missing_required_fields=missing_required,
+        intent=intent,
+        context=context,
+        included_fields=set(context.keys()),
+        dropped_forbidden_fields=dropped_forbidden,
+        missing_required_fields=missing_required,
         status=status,
     )

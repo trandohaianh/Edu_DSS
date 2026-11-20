@@ -6,6 +6,7 @@ more — appropriate for an at-risk-student warning system where a large miss
 matters more than several small ones), R2/MAE as SECONDARY metrics still
 shown alongside. This test exists so a future change to either side of the
 contract must consciously break it, not silently drift apart again."""
+
 from __future__ import annotations
 
 import inspect
@@ -55,6 +56,7 @@ def test_mae_and_r2_still_reported_as_secondary_metrics():
     cả 2 vẫn phải xuất hiện trong bảng kết quả (kiểm tra qua chính cấu trúc
     cột build_metrics_dataframe tạo ra, không lặp lại toàn bộ pipeline)."""
     from dss.services.model_service import build_metrics_dataframe
+
     source = inspect.getsource(build_metrics_dataframe)
     assert '"MAE"' in source or "'MAE'" in source
     assert '"R2 Score"' in source or "'R2 Score'" in source

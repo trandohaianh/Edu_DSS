@@ -14,6 +14,7 @@ vấn AI (đã chuyển sang `rag_service.retrieve_unified_context`, xem
 `ai_advisor.py`). Hàm ở đây SAO CHÉP nội dung 19 tài liệu đó vào vector_store
 thật — idempotent (không seed lại nếu đã tồn tại), yêu cầu `llm_integration`
 để tính embedding THẬT (không có đường tắt/embedding giả)."""
+
 from __future__ import annotations
 
 from typing import Any, Optional

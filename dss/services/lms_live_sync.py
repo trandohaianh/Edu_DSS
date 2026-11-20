@@ -6,6 +6,7 @@ Cung cấp cơ chế nhận và đồng bộ sự kiện thời gian thực từ
 - Giả lập bắn sự kiện Live Push từ Moodle Gradebook và Canvas Attendance
 - Duy trì nhật ký sự kiện thời gian thực (Live Stream Ticker)
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -17,6 +18,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 import pandas as pd
+
 from dss.core.target_utils import is_id_like
 
 
@@ -118,7 +120,9 @@ class LMSLiveSyncManager:
             val_to_set = type(current_val)(event.new_value) if pd.notna(current_val) else event.new_value
             updated_df.loc[mask, target_col] = val_to_set
             event.status = "processed"
-            event.description = f"Đã cập nhật {target_col}: {current_val} -> {val_to_set} cho sinh viên {event.student_id}"
+            event.description = (
+                f"Đã cập nhật {target_col}: {current_val} -> {val_to_set} cho sinh viên {event.student_id}"
+            )
             self.record_event(event)
             return True, updated_df, event.description
         except Exception as e:

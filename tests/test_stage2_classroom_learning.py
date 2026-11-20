@@ -1,4 +1,5 @@
 """Executable Stage 2 evidence, ownership, immutable versions and concurrency checks."""
+
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 
@@ -38,24 +39,36 @@ def context(monkeypatch, tmp_path):
 @pytest.fixture
 def questions():
     return [
-        {"question_id": "Q1", "topic_id": "sources", "text": "Teacher approved question 1",
-         "options": ["Option A", "Option B"], "correct_answer_index": 0,
-         "explanation": "Approved explanation 1"},
-        {"question_id": "Q2", "topic_id": "cases", "text": "Teacher approved question 2",
-         "options": ["Option A", "Option B"], "correct_answer_index": 1,
-         "explanation": "Approved explanation 2"},
+        {
+            "question_id": "Q1",
+            "topic_id": "sources",
+            "text": "Teacher approved question 1",
+            "options": ["Option A", "Option B"],
+            "correct_answer_index": 0,
+            "explanation": "Approved explanation 1",
+        },
+        {
+            "question_id": "Q2",
+            "topic_id": "cases",
+            "text": "Teacher approved question 2",
+            "options": ["Option A", "Option B"],
+            "correct_answer_index": 1,
+            "explanation": "Approved explanation 2",
+        },
     ]
 
 
 def publish(context, questions, *, maximum=3):
-    draft = learning.create_assessment(context["teacher"], context["class"]["id"], "Assessment", questions,
-                                       max_attempts=maximum)
+    draft = learning.create_assessment(
+        context["teacher"], context["class"]["id"], "Assessment", questions, max_attempts=maximum
+    )
     return learning.publish_assessment(context["teacher"], draft["id"])
 
 
 def submit(context, assessment, answers=None, key="first", **kwargs):
-    return learning.submit_attempt(context["student"], assessment["id"],
-                                   [1, 0] if answers is None else answers, key, **kwargs)
+    return learning.submit_attempt(
+        context["student"], assessment["id"], [1, 0] if answers is None else answers, key, **kwargs
+    )
 
 
 def test_drafts_and_answer_keys_are_staff_only(context, questions):
@@ -64,8 +77,10 @@ def test_drafts_and_answer_keys_are_staff_only(context, questions):
     with pytest.raises(PermissionError):
         learning.get_assessment(context["student"], draft["id"])
     learning.publish_assessment(context["teacher"], draft["id"])
-    for dto in [learning.get_assessment(context["student"], draft["id"]),
-                learning.list_assessments(context["student"], context["class"]["id"])[0]]:
+    for dto in [
+        learning.get_assessment(context["student"], draft["id"]),
+        learning.list_assessments(context["student"], context["class"]["id"])[0],
+    ]:
         assert dto["question_count"] == 2
         assert dto["questions"][0]["options"] == questions[0]["options"]
         assert "correct_answer_index" not in dto["questions"][0]
@@ -103,8 +118,12 @@ def test_score_zero_is_measured_and_missing_behavior_does_not_become_a_schedule(
     assert plan["source_assessment"]["version"] == 1
     assert plan["course_id"] == context["class"]["course_id"]
     assert sorted(plan["priority_topics"]) == ["cases", "sources"]
-    assert all(activity["duration_minutes"] is None and activity["frequency_per_week"] is None
-               and activity["approved_resource_ids"] == [] for activity in plan["activities"])
+    assert all(
+        activity["duration_minutes"] is None
+        and activity["frequency_per_week"] is None
+        and activity["approved_resource_ids"] == []
+        for activity in plan["activities"]
+    )
     assert not plan["success_metrics"]
     assert not any("behavioral" in key or "trajectory" in key for key in plan["evidence_sources"])
     assert all(attempt["id"] in source for source in plan["evidence_sources"].values())
@@ -113,7 +132,9 @@ def test_score_zero_is_measured_and_missing_behavior_does_not_become_a_schedule(
 def test_retest_retains_prior_plan_and_completion_only_changes_selected_version(context, questions):
     assessment = publish(context, questions)
     first = submit(context, assessment)
-    assert learning.set_plan_activity_completed(context["student"], first["plan"]["id"], 0, True)["completion"] == {"0": True}
+    assert learning.set_plan_activity_completed(context["student"], first["plan"]["id"], 0, True)["completion"] == {
+        "0": True
+    }
     second = submit(context, assessment, [0, 1], "retest")
     assert second["attempt"]["score"] == 10
     assert second["plan"]["version"] == 2
@@ -145,7 +166,10 @@ def test_revision_preserves_published_snapshot_and_previous_evidence(context, qu
         submit(context, assessment, key="new-after-close")
     second = submit(context, revision, [0, 1], "revised")
     assert second["plan"]["plan"]["source_assessment"]["version"] == 2
-    assert learning.list_my_plans(context["student"], context["class"]["id"])[1]["plan"]["source_assessment"]["version"] == 1
+    assert (
+        learning.list_my_plans(context["student"], context["class"]["id"])[1]["plan"]["source_assessment"]["version"]
+        == 1
+    )
 
 
 def test_submission_idempotency_requires_identical_assessment_answers_and_times(context, questions):
@@ -165,11 +189,13 @@ def test_submission_idempotency_requires_identical_assessment_answers_and_times(
 @pytest.mark.parametrize("same_key", [False, True])
 def test_concurrent_requests_cannot_exceed_attempt_quota_or_duplicate_plan(context, questions, same_key):
     assessment = publish(context, questions, maximum=1)
+
     def run(index):
         try:
             return submit(context, assessment, key="same" if same_key else f"request-{index}")
         except ValueError as error:
             return error
+
     with ThreadPoolExecutor(max_workers=2) as pool:
         responses = list(pool.map(run, range(2)))
     successful = [response for response in responses if isinstance(response, dict)]
@@ -185,8 +211,10 @@ def test_concurrent_requests_cannot_exceed_attempt_quota_or_duplicate_plan(conte
 def test_failed_plan_generation_rolls_back_attempt_and_version(context, questions, monkeypatch):
     assessment = publish(context, questions)
     original = learning_plan_generator.generate_plan
+
     def fail(*args, **kwargs):
         raise RuntimeError("plan failure")
+
     monkeypatch.setattr(learning_plan_generator, "generate_plan", fail)
     with pytest.raises(RuntimeError, match="plan failure"):
         submit(context, assessment)
@@ -201,8 +229,10 @@ def test_failed_plan_generation_rolls_back_attempt_and_version(context, question
 
 def test_cms_failures_surface_without_saving_a_misleading_empty_resource_plan(context, questions, monkeypatch):
     assessment = publish(context, questions)
+
     def fail(*args):
         raise RuntimeError("CMS database unavailable")
+
     monkeypatch.setattr(learning, "_load_resources", fail)
     with pytest.raises(RuntimeError, match="CMS database"):
         submit(context, assessment)
@@ -276,11 +306,20 @@ def test_school_pause_keeps_history_and_existing_progress_but_blocks_new_attempt
         learning.create_assessment(context["teacher"], context["class"]["id"], "Blocked", questions)
 
 
-@pytest.mark.parametrize("answers,times", [
-    ([True, 0], None), ([0], None), ([2, 0], None), ([0, None], None),
-    ([0, 1], [-1, 1]), ([0, 1], [float("nan"), 1]), ([0, 1], [float("inf"), 1]),
-    ([0, 1], [True, 1]), ([0, 1], [1]),
-])
+@pytest.mark.parametrize(
+    "answers,times",
+    [
+        ([True, 0], None),
+        ([0], None),
+        ([2, 0], None),
+        ([0, None], None),
+        ([0, 1], [-1, 1]),
+        ([0, 1], [float("nan"), 1]),
+        ([0, 1], [float("inf"), 1]),
+        ([0, 1], [True, 1]),
+        ([0, 1], [1]),
+    ],
+)
 def test_submission_validation_rejects_incomplete_or_invalid_observations(context, questions, answers, times):
     assessment = publish(context, questions)
     with pytest.raises(ValueError):
@@ -292,22 +331,34 @@ def test_zero_response_time_is_retained_as_client_reported_observation(context, 
     assessment = publish(context, questions)
     original = learning_plan_generator.generate_plan
     observed = []
+
     def capture(profile, *args, **kwargs):
         observed.append(profile)
         return original(profile, *args, **kwargs)
+
     monkeypatch.setattr(learning_plan_generator, "generate_plan", capture)
     result = submit(context, assessment, response_times=[0, 0])
     assert result["attempt"]["response_times"] == [0, 0]
     assert observed[0].question_level.average_response_time_seconds == 0
-    assert "client_reported_timing" in result["plan"]["plan"]["evidence_sources"]["question_level.average_response_time_seconds"]
+    assert (
+        "client_reported_timing"
+        in result["plan"]["plan"]["evidence_sources"]["question_level.average_response_time_seconds"]
+    )
     assert observed[0].behavioral.practice_frequency_per_week is None
     assert observed[0].trajectory.learning_velocity is None
 
 
-@pytest.mark.parametrize("change", [
-    {"correct_answer_index": True}, {"correct_answer_index": 9}, {"options": ["same", "same"]},
-    {"topic_id": ""}, {"text": ""}, {"explanation": 42},
-])
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"correct_answer_index": True},
+        {"correct_answer_index": 9},
+        {"options": ["same", "same"]},
+        {"topic_id": ""},
+        {"text": ""},
+        {"explanation": 42},
+    ],
+)
 def test_teacher_question_validation(context, questions, change):
     questions[0].update(change)
     with pytest.raises(ValueError):
@@ -345,10 +396,24 @@ def test_two_schools_with_same_student_code_have_independent_evidence_and_pseudo
 
 def test_plan_only_exposes_school_approved_exact_topic_resources(context, questions, monkeypatch):
     resources = [
-        {"resource_id": "cms:sources", "status": "APPROVED", "source_kind": "cms_lesson", "verified_cms": True,
-         "course_id": "LAW101", "topic_id": "sources", "title": "Official approved lesson"},
-        {"resource_id": "cms:wrong-course", "status": "APPROVED", "source_kind": "cms_lesson", "verified_cms": True,
-         "course_id": "LAW999", "topic_id": "cases", "title": "Another course"},
+        {
+            "resource_id": "cms:sources",
+            "status": "APPROVED",
+            "source_kind": "cms_lesson",
+            "verified_cms": True,
+            "course_id": "LAW101",
+            "topic_id": "sources",
+            "title": "Official approved lesson",
+        },
+        {
+            "resource_id": "cms:wrong-course",
+            "status": "APPROVED",
+            "source_kind": "cms_lesson",
+            "verified_cms": True,
+            "course_id": "LAW999",
+            "topic_id": "cases",
+            "title": "Another course",
+        },
     ]
     monkeypatch.setattr(learning, "_load_resources", lambda actor, course_id: resources)
     plan = submit(context, publish(context, questions))["plan"]["plan"]
@@ -381,11 +446,21 @@ def test_topic_score_denominator_uses_questions_in_that_topic(context, questions
 
 def test_classroom_plan_excludes_unscoped_global_catalogue(context, questions, monkeypatch):
     from dss.services.resource_catalog import ResourceItem, resource_catalog
+
     unscoped = ResourceItem(
-        resource_id="another-school-resource", title="Another school's lesson",
-        type="lms_material", provider="Other School", url="https://other.example/lesson",
-        course="LAW101", topic="sources", level="Beginner", language="vi", duration="20",
-        verified_at="2026-10-26", reviewed_by="Other Teacher", status="APPROVED",
+        resource_id="another-school-resource",
+        title="Another school's lesson",
+        type="lms_material",
+        provider="Other School",
+        url="https://other.example/lesson",
+        course="LAW101",
+        topic="sources",
+        level="Beginner",
+        language="vi",
+        duration="20",
+        verified_at="2026-10-26",
+        reviewed_by="Other Teacher",
+        status="APPROVED",
     )
     monkeypatch.setattr(resource_catalog, "_resources", {unscoped.resource_id: unscoped})
     plan = submit(context, publish(context, questions))["plan"]["plan"]
@@ -397,16 +472,22 @@ def test_classroom_plan_excludes_unscoped_global_catalogue(context, questions, m
 def test_cms_lookup_uses_explicit_actor_school_and_preserves_database_errors(monkeypatch):
     monkeypatch.setenv("EDUDSS_ORGANIZATION_ID", "001")
     calls = []
+
     def approved(course):
         calls.append(course)
         return [{"resource_id": "same-school"}]
+
     monkeypatch.setattr(learning, "approved_plan_resources", approved)
     assert learning._load_resources(Actor("2", "student", "Sinh viên", "SV1"), "LAW101") == []
     assert calls == []
-    assert learning._load_resources(Actor("1", "student", "Sinh viên", "SV1"), "LAW101") == [{"resource_id": "same-school"}]
+    assert learning._load_resources(Actor("1", "student", "Sinh viên", "SV1"), "LAW101") == [
+        {"resource_id": "same-school"}
+    ]
     assert calls == ["LAW101"]
+
     def fail(course):
         raise RuntimeError("database failure")
+
     monkeypatch.setattr(learning, "approved_plan_resources", fail)
     with pytest.raises(RuntimeError, match="database failure"):
         learning._load_resources(Actor("1", "student", "Sinh viên", "SV1"), "LAW101")
@@ -414,6 +495,7 @@ def test_cms_lookup_uses_explicit_actor_school_and_preserves_database_errors(mon
 
 def test_student_projection_omits_private_metadata_added_by_future_schema(context, questions):
     from dss.platform.models import Assessment
+
     assessment = publish(context, questions)
     with platform_session("1", write=True, actor=context["admin"]) as session:
         row = session.get(Assessment, assessment["id"])
@@ -427,27 +509,48 @@ def test_student_projection_omits_private_metadata_added_by_future_schema(contex
 @pytest.fixture
 def plan_resource(context, questions, monkeypatch):
     from types import SimpleNamespace
+
     resource = {
-        "resource_id": "cms:lesson-1:doc-1", "status": "APPROVED", "source_kind": "cms_lesson",
-        "verified_cms": True, "course_id": "LAW101", "topic_id": "sources",
-        "title": "Approved lesson", "lesson_id": "lesson-1", "document_id": "doc-1",
+        "resource_id": "cms:lesson-1:doc-1",
+        "status": "APPROVED",
+        "source_kind": "cms_lesson",
+        "verified_cms": True,
+        "course_id": "LAW101",
+        "topic_id": "sources",
+        "title": "Approved lesson",
+        "lesson_id": "lesson-1",
+        "document_id": "doc-1",
     }
     approved = [resource]
     lesson = learning.cms_lecture_repository.CMSLesson(
-        lesson_id="lesson-1", course_id="LAW101", topic_id="sources", lecturer_id="teacher",
-        title="Approved lesson", current_document_id="doc-1")
+        lesson_id="lesson-1",
+        course_id="LAW101",
+        topic_id="sources",
+        lecturer_id="teacher",
+        title="Approved lesson",
+        current_document_id="doc-1",
+    )
     calls = []
     chunks = [{"document_id": "doc-1", "course_id": "LAW101", "content": "# Approved content\nOfficial text."}]
+
     def get_chunks(document_id, *, course_id):
         calls.append((document_id, course_id))
         return chunks
+
     monkeypatch.setattr(learning, "_load_resources", lambda actor, course_id: list(approved))
     monkeypatch.setattr(learning.cms_lecture_repository, "get_lesson", lambda lesson_id: lesson)
-    monkeypatch.setattr(learning.vector_store, "get_vector_store",
-                        lambda **kwargs: SimpleNamespace(get_document_chunks=get_chunks))
+    monkeypatch.setattr(
+        learning.vector_store, "get_vector_store", lambda **kwargs: SimpleNamespace(get_document_chunks=get_chunks)
+    )
     result = submit(context, publish(context, questions))
-    return {"result": result, "approved": approved, "resource": resource, "lesson": lesson,
-            "calls": calls, "chunks": chunks}
+    return {
+        "result": result,
+        "approved": approved,
+        "resource": resource,
+        "lesson": lesson,
+        "calls": calls,
+        "chunks": chunks,
+    }
 
 
 def test_plan_resource_opens_only_current_approved_content_for_owner_or_assigned_staff(context, plan_resource):
@@ -462,8 +565,12 @@ def test_plan_resource_opens_only_current_approved_content_for_owner_or_assigned
 
 def test_plan_resource_denies_other_students_foreign_schools_and_unassigned_staff(context, plan_resource):
     plan_id, resource_id = plan_resource["result"]["plan"]["id"], plan_resource["resource"]["resource_id"]
-    for actor in [context["other"], Actor("2", "student", "Sinh viên", "SV1"),
-                  Actor("1", "outsider", "Giảng viên / CVHT"), Actor("1", "operator", "Platform Admin")]:
+    for actor in [
+        context["other"],
+        Actor("2", "student", "Sinh viên", "SV1"),
+        Actor("1", "outsider", "Giảng viên / CVHT"),
+        Actor("1", "operator", "Platform Admin"),
+    ]:
         with pytest.raises(PermissionError):
             learning.get_plan_resource(actor, plan_id, resource_id)
     with pytest.raises(PermissionError):
@@ -486,29 +593,34 @@ def test_plan_resource_revocation_replacement_or_scope_change_prevents_read(cont
     else:
         plan_resource["resource"]["topic_id"] = "another-topic"
     with pytest.raises(PermissionError):
-        learning.get_plan_resource(context["student"], plan_resource["result"]["plan"]["id"],
-                                   plan_resource["resource"]["resource_id"])
+        learning.get_plan_resource(
+            context["student"], plan_resource["result"]["plan"]["id"], plan_resource["resource"]["resource_id"]
+        )
     assert not plan_resource["calls"]
 
 
 def test_plan_resource_does_not_read_another_dedicated_school_store(context, plan_resource, monkeypatch):
     monkeypatch.setenv("EDUDSS_ORGANIZATION_ID", "2")
     with pytest.raises(PermissionError, match="school"):
-        learning.get_plan_resource(context["student"], plan_resource["result"]["plan"]["id"],
-                                   plan_resource["resource"]["resource_id"])
+        learning.get_plan_resource(
+            context["student"], plan_resource["result"]["plan"]["id"], plan_resource["resource"]["resource_id"]
+        )
     assert not plan_resource["calls"]
 
 
 def test_plan_resource_read_rechecks_approval_after_content_loading(context, plan_resource, monkeypatch):
     resources = plan_resource["approved"]
     calls = []
+
     def changing_approval(actor, course_id):
         calls.append(course_id)
         return list(resources) if len(calls) == 1 else []
+
     monkeypatch.setattr(learning, "_load_resources", changing_approval)
     with pytest.raises(PermissionError, match="changed while opening"):
-        learning.get_plan_resource(context["student"], plan_resource["result"]["plan"]["id"],
-                                   plan_resource["resource"]["resource_id"])
+        learning.get_plan_resource(
+            context["student"], plan_resource["result"]["plan"]["id"], plan_resource["resource"]["resource_id"]
+        )
     assert len(plan_resource["calls"]) == 1
 
 
@@ -518,25 +630,45 @@ def test_plan_resource_drops_chunks_outside_exact_document_and_course(context, p
         {"document_id": "doc-1", "course_id": "LAW999", "content": "Private course"},
     ]
     with pytest.raises(LookupError, match="no readable content"):
-        learning.get_plan_resource(context["student"], plan_resource["result"]["plan"]["id"],
-                                   plan_resource["resource"]["resource_id"])
+        learning.get_plan_resource(
+            context["student"], plan_resource["result"]["plan"]["id"], plan_resource["resource"]["resource_id"]
+        )
 
 
 @pytest.mark.parametrize("url", ["https://example.edu/approved", "http://example.edu/approved"])
 def test_external_plan_resource_returns_only_exact_approved_url_without_fetching(context, questions, monkeypatch, url):
-    resource = {"resource_id": "approved-external", "course_id": "LAW101", "topic_id": "sources",
-                "status": "APPROVED", "title": "Approved link", "url": url}
+    resource = {
+        "resource_id": "approved-external",
+        "course_id": "LAW101",
+        "topic_id": "sources",
+        "status": "APPROVED",
+        "title": "Approved link",
+        "url": url,
+    }
     monkeypatch.setattr(learning, "_load_resources", lambda actor, course_id: [resource])
     result = submit(context, publish(context, questions))
     opened = learning.get_plan_resource(context["student"], result["plan"]["id"], resource["resource_id"])
-    assert opened == {"resource_id": resource["resource_id"], "title": resource["title"], "kind": "external", "url": url}
+    assert opened == {
+        "resource_id": resource["resource_id"],
+        "title": resource["title"],
+        "kind": "external",
+        "url": url,
+    }
 
 
-@pytest.mark.parametrize("url", ["javascript:alert(1)", "file:///private.txt", "ftp://example.edu/file",
-                               "https://user:secret@example.edu/private"])
+@pytest.mark.parametrize(
+    "url",
+    ["javascript:alert(1)", "file:///private.txt", "ftp://example.edu/file", "https://user:secret@example.edu/private"],
+)
 def test_external_plan_resource_rejects_unsafe_replacement_urls(context, questions, monkeypatch, url):
-    resource = {"resource_id": "approved-external", "course_id": "LAW101", "topic_id": "sources",
-                "status": "APPROVED", "title": "Approved link", "url": "https://example.edu/approved"}
+    resource = {
+        "resource_id": "approved-external",
+        "course_id": "LAW101",
+        "topic_id": "sources",
+        "status": "APPROVED",
+        "title": "Approved link",
+        "url": "https://example.edu/approved",
+    }
     monkeypatch.setattr(learning, "_load_resources", lambda actor, course_id: [resource])
     result = submit(context, publish(context, questions))
     resource["url"] = url

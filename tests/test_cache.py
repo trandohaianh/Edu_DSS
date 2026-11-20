@@ -5,13 +5,14 @@ singleton thật (không tạo lại Trainer/DataWarehouse mỗi lần rerun), v
 `load_data`/`to_excel` có decorator cache thật (không chỉ ghi trong docstring
 như tình trạng phát hiện lúc audit — xem PR Phase 8).
 """
+
 from __future__ import annotations
 
 import pandas as pd
 
-from dss.core.init_app import init_trainers_and_warehouse
 from dss.core.data_helpers import load_data
 from dss.core.feature_utils import to_excel
+from dss.core.init_app import init_trainers_and_warehouse
 
 
 def test_init_trainers_and_warehouse_is_a_singleton():

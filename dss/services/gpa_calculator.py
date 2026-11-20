@@ -16,6 +16,7 @@ Công thức (đúng yêu cầu):
           - current_gpa * credits_done ]
         / credits_remaining
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -56,30 +57,44 @@ def compute_required_remaining_gpa(
     thuần túy này).
     """
     inputs_echo = {
-        "current_gpa": current_gpa, "credits_done": credits_done,
-        "target_gpa": target_gpa, "credits_remaining": credits_remaining,
-        "scale_min": scale_min, "scale_max": scale_max,
+        "current_gpa": current_gpa,
+        "credits_done": credits_done,
+        "target_gpa": target_gpa,
+        "credits_remaining": credits_remaining,
+        "scale_min": scale_min,
+        "scale_max": scale_max,
     }
     messages: List[str] = []
 
     # --- Validate input (scale/credits) ---
     if scale_max <= scale_min:
-        return CalculatorResult("INVALID_INPUT", None, None, False, ["Thang điểm không hợp lệ (scale_max <= scale_min)."], inputs_echo)
+        return CalculatorResult(
+            "INVALID_INPUT", None, None, False, ["Thang điểm không hợp lệ (scale_max <= scale_min)."], inputs_echo
+        )
     if credits_done < 0 or credits_remaining <= 0:
         return CalculatorResult(
-            "INVALID_INPUT", None, None, False,
+            "INVALID_INPUT",
+            None,
+            None,
+            False,
             ["Số tín chỉ không hợp lệ: credits_done phải >= 0, credits_remaining phải > 0."],
             inputs_echo,
         )
     if not (scale_min <= current_gpa <= scale_max):
         return CalculatorResult(
-            "INVALID_INPUT", None, None, False,
+            "INVALID_INPUT",
+            None,
+            None,
+            False,
             [f"current_gpa={current_gpa} nằm ngoài thang điểm [{scale_min}, {scale_max}]."],
             inputs_echo,
         )
     if not (scale_min <= target_gpa <= scale_max):
         return CalculatorResult(
-            "INVALID_INPUT", None, None, False,
+            "INVALID_INPUT",
+            None,
+            None,
+            False,
             [f"target_gpa={target_gpa} nằm ngoài thang điểm [{scale_min}, {scale_max}]."],
             inputs_echo,
         )

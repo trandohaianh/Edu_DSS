@@ -24,6 +24,7 @@ Nguyên tắc:
 - LLM chỉ giải thích và trình bày; toàn bộ logic tính gap, LMS evidence và CMS matching
   đều vận hành trên structured data.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -75,6 +76,7 @@ from dss.services.lms_connector import (
 @dataclass
 class TracedGapItem(GapItem):
     """Khoảng cách kỹ năng có đầy đủ siêu dữ liệu truy vết 2 chiều: LMS Evidence & CMS Remedy."""
+
     lms_evidence: str = ""
     cms_match: Optional[CMSResourceMatch] = None
     cms_recommendation_action: str = ""
@@ -90,6 +92,7 @@ class TracedGapItem(GapItem):
 @dataclass
 class ClosedLoopActionResult:
     """Kết quả phản hồi của vòng lặp khép kín khi sinh viên hoàn thành hành động học tập."""
+
     student_id: str
     target_role_id: str
     target_role_name: str
@@ -175,22 +178,26 @@ def compute_traced_gap_analysis(
     for g in base_gaps:
         if g.item_type == "artifact":
             # Xử lý riêng cho tạo tác nghề nghiệp
-            traced_gaps.append(TracedGapItem(
-                skill_name=g.skill_name,
-                is_required=g.is_required,
-                weight=g.weight,
-                current_level=g.current_level,
-                status=g.status,
-                priority=g.priority,
-                item_type="artifact",
-                lms_evidence="[LMS Evidence] Chưa ghi nhận liên kết đồ án môn học hoặc GitHub Portfolio trên hệ thống học tập.",
-                cms_match=None,
-                cms_recommendation_action=f"Xây dựng và hoàn thiện {g.skill_name} gắn link công khai trên CV.",
-            ))
+            traced_gaps.append(
+                TracedGapItem(
+                    skill_name=g.skill_name,
+                    is_required=g.is_required,
+                    weight=g.weight,
+                    current_level=g.current_level,
+                    status=g.status,
+                    priority=g.priority,
+                    item_type="artifact",
+                    lms_evidence="[LMS Evidence] Chưa ghi nhận liên kết đồ án môn học hoặc GitHub Portfolio trên hệ thống học tập.",
+                    cms_match=None,
+                    cms_recommendation_action=f"Xây dựng và hoàn thiện {g.skill_name} gắn link công khai trên CV.",
+                )
+            )
             continue
 
         # 1. Xác định LMS Evidence cho kỹ năng
-        target_next_level = {"None": "Basic", "Basic": "Intermediate", "Intermediate": "Advanced"}.get(g.current_level, "Intermediate")
+        target_next_level = {"None": "Basic", "Basic": "Intermediate", "Intermediate": "Advanced"}.get(
+            g.current_level, "Intermediate"
+        )
 
         # Tìm trong lịch sử bài kiểm tra của LMS xem có bài nào liên quan kỹ năng này không
         related_assessment = None
@@ -211,7 +218,9 @@ def compute_traced_gap_analysis(
                     f"đạt chuẩn mức {g.current_level}."
                 )
         elif g.status == STATUS_HAVE:
-            lms_evidence = f"[LMS Evidence] Hồ sơ học tập xác nhận đã tích lũy đủ điểm và minh chứng mức {g.current_level}."
+            lms_evidence = (
+                f"[LMS Evidence] Hồ sơ học tập xác nhận đã tích lũy đủ điểm và minh chứng mức {g.current_level}."
+            )
         elif g.status == STATUS_STRENGTHEN:
             lms_evidence = (
                 f"[LMS Evidence] Môn học liên quan trong LMS mới ở mức cơ bản ({g.current_level}); "
@@ -237,18 +246,20 @@ def compute_traced_gap_analysis(
         else:
             rec_action = f"Tham gia học phần bổ trợ và hoàn thành bài kiểm tra thực hành về {g.skill_name}."
 
-        traced_gaps.append(TracedGapItem(
-            skill_name=g.skill_name,
-            is_required=g.is_required,
-            weight=g.weight,
-            current_level=g.current_level,
-            status=g.status,
-            priority=g.priority,
-            item_type="skill",
-            lms_evidence=lms_evidence,
-            cms_match=best_match,
-            cms_recommendation_action=rec_action,
-        ))
+        traced_gaps.append(
+            TracedGapItem(
+                skill_name=g.skill_name,
+                is_required=g.is_required,
+                weight=g.weight,
+                current_level=g.current_level,
+                status=g.status,
+                priority=g.priority,
+                item_type="skill",
+                lms_evidence=lms_evidence,
+                cms_match=best_match,
+                cms_recommendation_action=rec_action,
+            )
+        )
 
     return traced_gaps
 
@@ -265,7 +276,8 @@ def generate_traced_roadmap(
     cms = cms_repo or get_cms_repository()
 
     traced_gaps = [
-        g for g in compute_traced_gap_analysis(profile, role, lms, cms, include_artifacts=True)
+        g
+        for g in compute_traced_gap_analysis(profile, role, lms, cms, include_artifacts=True)
         if g.status != STATUS_HAVE
     ]
 
@@ -298,7 +310,11 @@ def generate_traced_roadmap(
             match = gap.cms_match
             res_title = match.resource_title if match else f"Học liệu chuẩn hóa {gap.skill_name}"
             res_url = match.resource_url if match else None
-            effort = f"{match.estimated_hours:.0f} giờ học tập & thực hành" if match else _EFFORT_BY_PRIORITY.get(gap.priority, "4 giờ / tuần")
+            effort = (
+                f"{match.estimated_hours:.0f} giờ học tập & thực hành"
+                if match
+                else _EFFORT_BY_PRIORITY.get(gap.priority, "4 giờ / tuần")
+            )
             target_res = match.target_outcome if match else f"Nâng bậc kỹ năng {gap.skill_name} trên hệ thống LMS."
 
             task = RoadmapTask(

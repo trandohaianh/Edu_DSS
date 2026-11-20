@@ -25,6 +25,7 @@ guarantee — see docker-compose.yml's `postgres` service, which uses whatever
 DB_USER is provided and does not itself create a restricted role; a
 deployment-time setup step (or a future migration) must create one.
 """
+
 from __future__ import annotations
 
 import os
