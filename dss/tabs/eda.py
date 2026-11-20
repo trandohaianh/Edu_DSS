@@ -1518,7 +1518,7 @@ def data_exploration_tab(df, wh=None):
                                     for v in values_list:
                                         try:
                                             numeric_values.append(float(v))
-                                        except:
+                                        except (TypeError, ValueError):
                                             numeric_values.append(v)
                                     df[new_manual_feature] = numeric_values
                                     st.session_state.current_df = df

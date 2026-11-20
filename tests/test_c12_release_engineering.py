@@ -449,7 +449,7 @@ def test_lock_is_fully_pinned_and_cpu_only():
         if l.strip() and not l.startswith(("#", "-"))
     ]
     for req in direct:
-        name = re.split(r"[<>=!~\[; ]", req.strip(), 1)[0].lower().replace("_", "-")
+        name = re.split(r"[<>=!~\[; ]", req.strip(), maxsplit=1)[0].lower().replace("_", "-")
         assert name in {n.replace("_", "-") for n in names}, f"{name} missing from lock"
 
 

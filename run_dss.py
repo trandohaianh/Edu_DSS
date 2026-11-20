@@ -1,7 +1,7 @@
 """
 Điểm vào Streamlit cho DSS (chạy từ thư mục gốc project).
 
-    cd d:\\KLTN\\code
+    cd <thư mục repo>
     streamlit run run_dss.py
 """
 

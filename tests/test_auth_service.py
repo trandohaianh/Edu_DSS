@@ -124,7 +124,7 @@ def test_require_role_blocks_non_matching_role(as_role):
     as_role("Giảng viên / CVHT")
     try:
         sensitive_action()
-        assert False, "đáng lẽ phải raise PermissionError"
+        pytest.fail("đáng lẽ phải raise PermissionError")
     except PermissionError:
         pass
 
@@ -139,7 +139,7 @@ def test_require_role_blocks_when_not_logged_in():
 
     try:
         sensitive_action()
-        assert False, "đáng lẽ phải raise PermissionError khi chưa đăng nhập"
+        pytest.fail("đáng lẽ phải raise PermissionError khi chưa đăng nhập")
     except PermissionError:
         pass
 
@@ -156,7 +156,7 @@ def test_require_role_supports_multiple_allowed_roles(as_role):
     as_role("Sinh viên")
     try:
         shared_action()
-        assert False, "Sinh viên không nằm trong danh sách allowed_roles"
+        pytest.fail("Sinh viên không nằm trong danh sách allowed_roles")
     except PermissionError:
         pass
 

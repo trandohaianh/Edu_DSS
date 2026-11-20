@@ -730,7 +730,7 @@ def main_dashboard_tab(df, wh=None):
                     grade_counts = df[grade_col_name].value_counts().reindex(grade_order).fillna(0)
                 else:
                     grade_counts = df[grade_col_name].value_counts().sort_index()
-            except:
+            except Exception:
                 grade_counts = df[grade_col_name].value_counts().sort_index()
 
             # Bảng thống kê
