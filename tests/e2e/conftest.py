@@ -27,7 +27,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 from dss.core.data_root import DATA_ROOT_ENV_VAR  # noqa: E402
 
 _APP_DIR = Path(__file__).resolve().parent.parent.parent
-_PYTHON = str(_APP_DIR.parent / ".venv" / "Scripts" / "python.exe")
+# Cùng trình thông dịch đang chạy pytest. Trước đây cố định "<app>/../.venv/Scripts/python.exe"
+# (bố cục monorepo, chỉ Windows), nên E2E không chạy được ở repo độc lập hay trên Linux/CI.
+_PYTHON = sys.executable
 
 # Đường dẫn EDUDSS_DATA_ROOT của subprocess Streamlit đang chạy phiên E2E hiện
 # tại — set bởi fixture `base_url`, đọc bởi fixture `e2e_test_data_root` (test
