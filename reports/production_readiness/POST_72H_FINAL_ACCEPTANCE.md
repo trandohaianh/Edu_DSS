@@ -14,9 +14,9 @@ Synthesizes `POST_72H_SIMULATION_ACCEPTANCE.md` and `POSTGRES_RUNTIME_VALIDATION
 
 ## What did not complete this pass (stated plainly)
 
-- **Agent/Orchestrator**: not built. See `AI_AGENT_ORCHESTRATION.md` for why and for the concrete next-pass plan.
-- **Knowledge Fallback**: implemented via detect-after-the-fact citation verification, not the prevent-before-it-happens pattern requested. See `AI_FAILURE_RESILIENCE.md`.
-- **Token/latency benchmark**: only a code-derived LLM-calls-avoided count exists; no live-provider p50/p95/p99 or real token counts were measured (deliberately, to avoid spending real API cost/quota without dedicated user opt-in). See `AI_3_TIER_TOKEN_LATENCY_BENCHMARK.md`.
+- **Agent/Orchestrator**: not built. See `docs/ai/AI_AGENT_ORCHESTRATION.md` for why and for the concrete next-pass plan.
+- **Knowledge Fallback**: implemented via detect-after-the-fact citation verification, not the prevent-before-it-happens pattern requested. See `docs/ai/AI_FAILURE_RESILIENCE.md`.
+- **Token/latency benchmark**: only a code-derived LLM-calls-avoided count exists; no live-provider p50/p95/p99 or real token counts were measured (deliberately, to avoid spending real API cost/quota without dedicated user opt-in). See `docs/ai/AI_3_TIER_TOKEN_LATENCY_BENCHMARK.md`.
 - **50K concurrency**: not attempted. Max real concurrent identities ever exercised (by the 72h simulation) was 360, not 20,000 and certainly not 50,000.
 - **<1.5s SLO**: not measured anywhere.
 - **RAG embedding model migration**: benchmarked with a clear favorable real result for a multilingual model, but not migrated to production (re-embedding the whole KB judged out of scope for this pass).

@@ -49,15 +49,31 @@ def test_schema_contract_tables_come_from_metadata():
     assert tables == frozenset(set(Base.metadata.tables) | set(PlatformBase.metadata.tables) | {"alembic_version"})
 
 
+def _strip_comments(text):
+    return "\n".join(l for l in text.splitlines() if not l.lstrip().startswith("#"))
+
+
 def test_no_hard_coded_schema_snapshot_in_ci_or_backup_test():
-    workflow = (APP.parent / ".github" / "workflows" / "edudss-release-gate.yml").read_text(encoding="utf-8")
     backup_test = (APP / "tests" / "test_backup_recovery_integration.py").read_text(encoding="utf-8")
-    for text in (workflow, backup_test):
-        code = "\n".join(l for l in text.splitlines() if not l.lstrip().startswith("#"))
-        assert not re.search(r"(==|\[)\s*['\"]797f72d1c666['\"]", code)
-        assert "== 27" not in code
-    assert "ops.migration_check" in workflow
+    code = _strip_comments(backup_test)
+    assert not re.search(r"(==|\[)\s*['\"]797f72d1c666['\"]", code)
+    assert "== 27" not in code
     assert "schema_contract" in backup_test
+
+    # The release-gate workflow lives at the monorepo root (one level above app/).
+    # The standalone Edu_DSS repository does not ship it, so that half is skipped there.
+    candidates = [
+        APP.parent / ".github" / "workflows" / "edudss-release-gate.yml",
+        APP / ".github" / "workflows" / "edudss-release-gate.yml",
+    ]
+    workflow_path = next((c for c in candidates if c.is_file()), None)
+    if workflow_path is None:
+        pytest.skip("edudss-release-gate.yml only exists in the monorepo layout")
+    workflow = workflow_path.read_text(encoding="utf-8")
+    code = _strip_comments(workflow)
+    assert not re.search(r"(==|\[)\s*['\"]797f72d1c666['\"]", code)
+    assert "== 27" not in code
+    assert "ops.migration_check" in workflow
 
 
 def test_schema_report_flags_empty_and_stale_databases(monkeypatch):

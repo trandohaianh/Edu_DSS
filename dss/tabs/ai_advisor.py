@@ -1002,7 +1002,7 @@ def ai_advisor_tab(df, llm_integration, role=None, current_student_id=None, wh=N
                 # Router THUẦN (không gọi LLM để phân loại) chặn TRƯỚC khi
                 # tốn 1 lượt RAG retrieval + LLM Gateway cho 3 route đã thật
                 # sự wire hành vi runtime trong đợt này (đúng nguyên tắc
-                # "LLM IS NOT THE DECISION ENGINE" — xem AI_ROUTING_MATRIX.md
+                # "LLM IS NOT THE DECISION ENGINE" — xem docs/ai/AI_ROUTING_MATRIX.md
                 # cho các route khác mới chỉ phân loại, chưa có code đứng sau):
                 #   - GPA_CALCULATION: Calculator trả lời NGAY, LLM không được
                 #     tự tính con số này.
@@ -1021,7 +1021,7 @@ def ai_advisor_tab(df, llm_integration, role=None, current_student_id=None, wh=N
                 #     (student_data_llm_filtered, đã resolve từ
                 #     current_student_id ở trên — KHÔNG BAO GIỜ dữ liệu của
                 #     sinh viên khác) — route DUY NHẤT được phân loại đúng từ
-                #     trước nhưng CHƯA có hành vi thật (AI_ROUTING_MATRIX.md,
+                #     trước nhưng CHƯA có hành vi thật (docs/ai/AI_ROUTING_MATRIX.md,
                 #     mục "Gaps") — nay đã đóng.
                 _route_decision = ai_router.classify(_question)
                 # Section 5 (FINAL REMAINING-GAPS CLOSURE): truyền danh tính

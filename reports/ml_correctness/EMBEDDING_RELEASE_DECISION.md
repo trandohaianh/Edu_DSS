@@ -9,7 +9,7 @@
 | Factor | Assessment |
 |---|---|
 | Quality gain | Real, measured, favorable: Recall@5 +4.4pp (0.913→0.957), MRR +12.2pp (0.835→0.957), nDCG@5 +10.2pp (0.854→0.957) — see `reports/ml_correctness/embedding_benchmark_vi.txt`. Genuinely not marginal. |
-| Latency cost | +17.6ms avg per embedding call (19.0ms→36.7ms) — small in absolute terms, but nearly **2x** relative, on top of a system with no measured end-to-end p95 SLO yet (see `AI_3_TIER_TOKEN_LATENCY_BENCHMARK.md` — this pass still has no live-provider latency baseline to compare against). |
+| Latency cost | +17.6ms avg per embedding call (19.0ms→36.7ms) — small in absolute terms, but nearly **2x** relative, on top of a system with no measured end-to-end p95 SLO yet (see `docs/ai/AI_3_TIER_TOKEN_LATENCY_BENCHMARK.md` — this pass still has no live-provider latency baseline to compare against). |
 | Re-embedding cost | **Every existing document in every vector store (LocalVectorStore JSON + any PgVectorStore-backed org) would need full re-embedding.** Old and new model embeddings are not comparable vectors — a partial migration would silently corrupt similarity search (mixing incompatible vector spaces in the same store) unless done as an atomic cutover. No re-embedding pipeline/migration script exists today. |
 | Index compatibility | Both models output 384-dim vectors (confirmed), so the `pgvector(384)` column schema itself would not need to change — but every row's *values* would need recomputation, which is the expensive part, not the schema. |
 | Storage | No material change (same dimensionality). |

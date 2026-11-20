@@ -41,3 +41,5 @@ ui_reference/
 *.pptx
 *.xlsx
 deploy/
+# Experimental Dockerfiles (not used by the release image).
+docker/experimental/

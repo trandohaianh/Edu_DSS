@@ -1,7 +1,7 @@
 """FINAL GAP CLOSURE — Câu 15: DIRECT_DATA_LOOKUP phải THẬT SỰ trả lời từ dữ
 liệu có sẵn, không rơi xuống LLM (trước đợt này: router phân loại đúng
 nhưng không có reply-builder, nên hành vi thật vẫn gọi LLM — xem
-AI_ROUTING_MATRIX.md "Gaps found")."""
+docs/ai/AI_ROUTING_MATRIX.md "Gaps found")."""
 from __future__ import annotations
 
 from dss.services import ai_router

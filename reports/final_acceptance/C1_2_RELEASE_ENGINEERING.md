@@ -47,7 +47,7 @@ Residual-finding classification prepared from the experimental image's actual Sc
 
 ## 1. Torch 2.10 container experiment
 
-Image `edudss:torch210-experimental` (`sha256:7018705f6732…`, 3.71 GB), built from `Dockerfile.torch210-experimental` (current multi-stage structure; only torch overridden to `2.10.0+cpu` from the PyTorch CPU index). Verified **inside the container**:
+Image `edudss:torch210-experimental` (`sha256:7018705f6732…`, 3.71 GB), built from `docker/experimental/Dockerfile.torch210-experimental` (current multi-stage structure; only torch overridden to `2.10.0+cpu` from the PyTorch CPU index). Verified **inside the container**:
 
 | Check | Result |
 |---|---|

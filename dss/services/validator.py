@@ -15,7 +15,7 @@ QUAN TRỌNG (trung thực về phạm vi): phiên này CHỈ build phần lõi 
 chứng thuần (không I/O) cho các loại dữ liệu đã có tầng nguồn thật đứng sau
 (GPA/Rule Engine/Regulation Resolver) — CHƯA build kiểm chứng
 authorization/tenant/course_id/citation/RAG evidence đầy đủ (cần dữ liệu
-thật từ các tầng chưa tồn tại trong phiên này, xem AI_ROUTING_MATRIX.md).
+thật từ các tầng chưa tồn tại trong phiên này, xem docs/ai/AI_ROUTING_MATRIX.md).
 Không tự nhận đã "hoàn thành toàn bộ Validator" — chỉ phần đã build thật.
 """
 from __future__ import annotations

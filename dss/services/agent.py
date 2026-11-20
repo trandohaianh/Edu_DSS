@@ -1,6 +1,6 @@
 """Agent / Orchestrator — FINAL GAP CLOSURE, Sections 17-19.
 
-Trước đợt này: NOT_IMPLEMENTED (xem AI_AGENT_ORCHESTRATION.md — lý do trì
+Trước đợt này: NOT_IMPLEMENTED (xem docs/ai/AI_AGENT_ORCHESTRATION.md — lý do trì
 hoãn: cùng khoảng trống "2 thế giới dữ liệu" chặn Regulation Resolver/Rule
 Engine, và kỷ luật phạm vi có chủ đích thay vì vội vàng thêm 1 lớp orchestration
 mới ở cuối 1 đợt đã rất lớn). Đợt này xây phần LÕI THẬT, TỐI THIỂU, đã test —
@@ -293,7 +293,7 @@ def run_risk_explanation(request: AgentRequest) -> AgentResult:
     SHAP — nó đóng gói kết quả ĐÃ CÓ SẴN từ tầng gọi vào đúng khuôn
     AgentResult. Không có bước Validator chuyên biệt cho ML prediction/SHAP
     trong đợt này (validator.py chưa có hàm nào cho việc này — xem
-    DECISION_ENGINE_ARCHITECTURE.md) — `validator_result=None` trung thực,
+    docs/ai/DECISION_ENGINE_ARCHITECTURE.md) — `validator_result=None` trung thực,
     không tự bịa 1 bước kiểm chứng chưa tồn tại."""
     authorize(request)
     ctx = request.authorized_context

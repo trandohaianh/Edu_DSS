@@ -1,1 +1,0 @@
-python -m streamlit run .\app\run_dss.py

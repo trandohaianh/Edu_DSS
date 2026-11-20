@@ -125,7 +125,7 @@
 | Q# | Concern | Tag | Current status | Evidence |
 |---|---|---|---|---|
 | 77 | Which LLMs are supported | — | DOCUMENTATION_ONLY | — |
-| 78 | Provider failover chain | — | DOCUMENTATION_ONLY | superseded/extended this session by the Circuit Breaker (see `AI_FAILURE_RESILIENCE.md`) |
+| 78 | Provider failover chain | — | DOCUMENTATION_ONLY | superseded/extended this session by the Circuit Breaker (see `docs/ai/AI_FAILURE_RESILIENCE.md`) |
 | 79 | Cost/abuse controls (quota, rate limit, cache) | — | DOCUMENTATION_ONLY | this session's P0 fix (cross-user cache leak) directly hardens this area — see `fix(cache)` commit `3a3cbfa` |
 | 80 | "Demo" mode fallback plan mislabeled as personalized | E-2 | **FIXED_AND_TESTED** | `llm_gateway.py` wording fixed to disclose it is a generic template, not per-student. Test: `tests/test_production_demo_policy.py` |
 | 81 | How hallucination is mitigated | — | DOCUMENTATION_ONLY | reinforced this session via Rule Engine / Regulation Resolver / Validator wiring (LLM never computes GPA/decides ALLOW-DENY/picks regulation version) |

@@ -1,6 +1,6 @@
 """Rule Engine — OVERNIGHT AUTONOMOUS PRODUCTION CLOSURE Phần 12.
 
-34Q matrix + `AI_ROUTING_MATRIX.md` xác nhận ACADEMIC_RULE_CHECK trước đợt
+34Q matrix + `docs/ai/AI_ROUTING_MATRIX.md` xác nhận ACADEMIC_RULE_CHECK trước đợt
 này CHỈ được PHÂN LOẠI (router) chứ CHƯA có Rule Engine thật đứng sau —
 "production-quality minimum" theo đúng mô hình yêu cầu, cùng kiến trúc với
 `regulation_resolver.py` (Phần 9): hàm THUẦN, không I/O, nhận input đã có

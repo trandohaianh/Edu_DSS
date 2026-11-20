@@ -40,7 +40,7 @@ QUAN TRỌNG (trung thực về phạm vi): phiên này thực sự "wire" 2 rou
   vi thật được wire là CHẶN LLM tự trả lời ALLOW/DENY và trả lời trung thực
   yêu cầu liên hệ Phòng Đào tạo/Cố vấn học tập.)
 
-Xem `AI_ROUTING_MATRIX.md` để biết chi tiết route nào đã ảnh hưởng runtime,
+Xem `docs/ai/AI_ROUTING_MATRIX.md` để biết chi tiết route nào đã ảnh hưởng runtime,
 route nào mới chỉ là nhãn phân loại.
 """
 from __future__ import annotations

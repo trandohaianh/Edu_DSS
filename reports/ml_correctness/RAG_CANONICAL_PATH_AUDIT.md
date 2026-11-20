@@ -17,4 +17,4 @@ While the *retrieval mechanism* is single-path and clean, the **content source**
 
 ## Scope note
 
-This audit traced the *code paths* (which functions call which). It did not re-benchmark retrieval quality (see `AI_ROUTING_MATRIX.md`/`ML_CORRECTNESS_FINAL_AUDIT.md` for the top-k and embedding-model findings, which are quality concerns, not path-duplication concerns).
+This audit traced the *code paths* (which functions call which). It did not re-benchmark retrieval quality (see `docs/ai/AI_ROUTING_MATRIX.md`/`ML_CORRECTNESS_FINAL_AUDIT.md` for the top-k and embedding-model findings, which are quality concerns, not path-duplication concerns).

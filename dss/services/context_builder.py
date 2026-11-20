@@ -9,7 +9,7 @@ QUAN TRỌNG (trung thực về phạm vi): module này CHỈ định nghĩa h�
 lọc field — nó KHÔNG tự lấy dữ liệu từ DB/session (đó là việc của tầng gọi,
 vd. `ai_advisor.py`/`agent.py`). Đây là bước lọc CUỐI CÙNG trước khi dữ liệu
 rời khỏi tầng ứng dụng, không phải nơi resolve quyền truy cập (đó là việc
-của Authorization — chưa có trong đợt này, xem AGENT_FINAL_INTEGRATION.md).
+của Authorization — chưa có trong đợt này, xem docs/ai/AGENT_FINAL_INTEGRATION.md).
 """
 from __future__ import annotations
 

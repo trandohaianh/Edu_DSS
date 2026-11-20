@@ -18,7 +18,7 @@ Real benchmark run (not fabricated, not overfit to one hand-picked question) usi
 
 ## Decision: keep k=5 as the documented default
 
-Given no live-provider token-cost pressure has been measured yet (see `AI_3_TIER_TOKEN_LATENCY_BENCHMARK.md`), and recall (finding the right document at all) matters more than precision (not wasting a little extra context) for an academic-advising use case, k=5 remains the better default of the three measured. This is **not** an untested guess — it's the option that wins outright on the metrics that matter most (recall/MRR/nDCG) among the values that showed any measured difference.
+Given no live-provider token-cost pressure has been measured yet (see `docs/ai/AI_3_TIER_TOKEN_LATENCY_BENCHMARK.md`), and recall (finding the right document at all) matters more than precision (not wasting a little extra context) for an academic-advising use case, k=5 remains the better default of the three measured. This is **not** an untested guess — it's the option that wins outright on the metrics that matter most (recall/MRR/nDCG) among the values that showed any measured difference.
 
 **Recommendation for a future pass:** if real token-cost pressure emerges, k=3 is the next value to reconsider — it has real, measured, quantified tradeoffs (not "3 might be enough," but "here is exactly what changes"). k=8 should not be adopted under any currently-measured circumstance.
 

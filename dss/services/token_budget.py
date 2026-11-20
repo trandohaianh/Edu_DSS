@@ -8,7 +8,7 @@ cắt nhầm — xem `test_trim_never_touches_deterministic_facts_dict`).
 
 QUAN TRỌNG (trung thực về phạm vi): các con số ngân sách dưới đây là giá
 trị KHỞI ĐIỂM hợp lý (không phải đo thực nghiệm từ traffic thật — chưa có
-traffic thật để đo). Xem `CONTEXT_BUILDER_AND_TOKEN_BUDGET.md` để biết lý
+traffic thật để đo). Xem `docs/ai/CONTEXT_BUILDER_AND_TOKEN_BUDGET.md` để biết lý
 do và khuyến nghị điều chỉnh khi có dữ liệu thật."""
 from __future__ import annotations
 
