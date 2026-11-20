@@ -1,0 +1,66 @@
+# Cấu hình công cụ cho EduDSS (lint + format). Không khai báo [project]: ứng dụng
+# chạy trực tiếp từ mã nguồn, phụ thuộc nằm ở requirements.txt / requirements.lock.txt.
+
+[tool.ruff]
+target-version = "py311"          # khớp image python:3.11.16 trong Dockerfile
+line-length = 120
+extend-exclude = [
+    "EduDSS_UI_Reference_Kit",
+    "ui_reference",
+    "dữ liệu",
+    "data_warehouse",
+    "reports",
+    "uploads",
+    "models",
+]
+
+[tool.ruff.format]
+# Giữ nguyên kiểu nháy hiện có: mã cũ dùng lẫn ' và ", và nhiều test đọc mã nguồn
+# để kiểm chuỗi, nên đổi nháy hàng loạt là rủi ro mà không đem lại lợi ích.
+quote-style = "preserve"
+line-ending = "lf"
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes: tên chưa định nghĩa, import thừa, biến thừa
+    "I",    # isort
+    "B",    # flake8-bugbear: lỗi logic hay gặp
+    "UP",   # pyupgrade
+    "C4",   # comprehension
+    "SIM",  # đơn giản hoá
+    "PIE",
+    "RUF",
+    "S105", "S106", "S107",  # mật khẩu/bí mật viết cứng
+]
+ignore = [
+    "E501",    # dòng dài: formatter tự ngắt mã; còn lại là chuỗi tiếng Việt dài
+    "RUF001", "RUF002", "RUF003",  # ký tự Unicode "dễ nhầm": báo sai với văn bản tiếng Việt
+    "C408",    # dict(a=1) vs {"a": 1}: thuần phong cách
+    "SIM105",  # contextlib.suppress: không rõ ràng hơn try/except
+    "SIM108",  # toán tử ba ngôi: không phải lúc nào cũng dễ đọc hơn
+    "SIM117",  # gộp with lồng nhau
+    "RUF005",  # [*a, b] vs a + [b]
+    # Hiện đại hoá chú thích kiểu (Dict -> dict, Optional[X] -> X | None): ~1.200 chỗ,
+    # sửa tự động sẽ để lại hàng trăm import typing thừa. Làm thành một đợt riêng.
+    "UP006", "UP007", "UP035", "UP045",
+]
+# Không tự xoá import "thừa": một số được module khác import lại hoặc test patch.
+unfixable = ["F401", "F841"]
+
+[tool.ruff.lint.per-file-ignores]
+# Các tab Streamlit cũ dùng `from dss.config import *` / `from dss.core.models import *`.
+"dss/core/models.py" = ["F403", "F405"]
+"dss/tabs/{admin_reports,advisory,clustering,consultation_history,dashboard,home,knowledge_base,learning_explainer_tab,ml_hub,warehouse_tab}.py" = ["F403", "F405"]
+# Import có điều kiện / sau khi chỉnh sys.path hoặc warnings là cố ý.
+"dss/**" = ["E402"]
+"run_dss.py" = ["E402"]
+"tools/**" = ["E402"]
+"ops/**" = ["E402"]
+"tests/**" = ["E402", "S105", "S106", "S107", "B017"]
+"evals/**" = ["E402", "E731"]
+"**/__init__.py" = ["F401"]   # re-export công khai
+
+[tool.ruff.lint.isort]
+known-first-party = ["dss", "ops", "tools", "simulator", "evals"]

@@ -1,0 +1,30 @@
+# Cài một lần:  pip install pre-commit ruff==0.14.5 && pre-commit install
+# Chạy tay:     pre-commit run --all-files
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.14.5
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+      - id: ruff-format
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-yaml
+        exclude: ^(EduDSS_UI_Reference_Kit|ui_reference)/
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=1024]
+      - id: detect-private-key
+      - id: end-of-file-fixer
+        exclude: ^(reports|EduDSS_UI_Reference_Kit|ui_reference|static)/
+      - id: trailing-whitespace
+        exclude: ^(reports|EduDSS_UI_Reference_Kit|ui_reference|static)/|\.md$
+  - repo: local
+    hooks:
+      - id: secret-scan
+        name: secret scan (tools/secret_scan.py)
+        entry: python tools/secret_scan.py . --allow-local-stores
+        language: system
+        pass_filenames: false
