@@ -1,0 +1,50 @@
+# EduDSS — reverse proxy RIÊNG của dự án (không phụ thuộc Caddy của dự án khác).
+#
+# - HTTPS tự động: Caddy tự xin và gia hạn chứng chỉ Let's Encrypt/ZeroSSL cho
+#   {$APP_DOMAIN} khi DNS trỏ về máy này và cổng 80/443 mở ra Internet.
+# - Tên miền `localhost` / `*.localhost` / IP: Caddy tự dùng CA nội bộ (tls internal),
+#   phù hợp thử nghiệm trên máy cá nhân; trình duyệt sẽ cảnh báo chứng chỉ tự ký.
+# - Caddy là lớp biên (edge) nên KHÔNG tin header X-Forwarded-* từ client.
+
+{
+	email {$ACME_EMAIL}
+	# Không mở admin API ra ngoài container.
+	admin localhost:2019
+}
+
+{$APP_DOMAIN} {
+	encode zstd gzip
+
+	# Khớp server.maxUploadSize mặc định của Streamlit (200 MB).
+	request_body {
+		max_size 200MB
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
+		# Streamlit cần inline script/style và iframe cùng origin cho component;
+		# WebSocket /_stcore/stream là cùng origin (wss:).
+		Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://*.googleusercontent.com; connect-src 'self' wss:; frame-src 'self'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'"
+		-Server
+	}
+
+	# /metrics của cổng health (health server tự kiểm Bearer token EDUDSS_METRICS_TOKEN).
+	handle /metrics {
+		reverse_proxy app:8081
+	}
+
+	handle {
+		# Caddy tự chuyển tiếp nâng cấp WebSocket (Streamlit /_stcore/stream).
+		# stream_close_delay giữ kết nối WebSocket đang mở khi Caddy reload cấu hình,
+		# để người dùng không bị mất phiên Streamlit mỗi lần đổi Caddyfile.
+		reverse_proxy app:8501 {
+			health_uri /_stcore/health
+			health_interval 30s
+			stream_close_delay 5m
+		}
+	}
+}

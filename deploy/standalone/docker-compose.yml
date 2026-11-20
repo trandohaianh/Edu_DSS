@@ -1,0 +1,90 @@
+# EduDSS — triển khai ĐỘC LẬP, mỗi dự án tự có HTTPS (Caddy riêng, mạng riêng).
+#
+#   Internet ─80/443─▶ caddy (TLS tự động, security header, WebSocket) ─▶ app:8501 (Streamlit)
+#                                                                    └─▶ app:8081/metrics
+#
+# Không dùng mạng `edge` hay Caddy của FieldOps/Telecom. Chỉ caddy publish cổng host.
+# Dữ liệu MÔ PHỎNG (EDUDSS_ENV=development + EDUDSS_PUBLIC_DEMO=1). Bản cho một trường
+# thật (PostgreSQL + RLS, image ký số) là deploy/production/.
+#
+# Chạy từ thư mục này:
+#   cp .env.example .env          # điền APP_DOMAIN, ACME_EMAIL, các bí mật
+#   docker compose up -d --build
+#   docker compose --profile worker up -d    # thêm pipeline vận hành (tuỳ chọn)
+
+name: ${COMPOSE_PROJECT_NAME:-edudss-standalone}
+
+x-app: &app
+  image: ${EDUDSS_IMAGE:-edudss:standalone}
+  restart: unless-stopped
+  env_file:
+    - path: .env
+      required: false
+  environment:
+    EDUDSS_ENV: development
+    EDUDSS_PUBLIC_DEMO: "1"
+    EDUDSS_MODE: DEMO_SYNTHETIC
+    EDUDSS_DATA_ROOT: /app/data_warehouse
+    STREAMLIT_BROWSER_GATHER_USAGE_STATS: "false"
+    STREAMLIT_CLIENT_TOOLBAR_MODE: viewer
+    STREAMLIT_SERVER_ENABLE_XSRF_PROTECTION: "true"
+    HF_HOME: /app/data_warehouse/.hf-cache
+  volumes:
+    - app_data:/app/data_warehouse
+  networks: [internal]
+  security_opt: ["no-new-privileges:true"]
+
+services:
+  app:
+    <<: *app
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+      args:
+        EDUDSS_GIT_SHA: ${EDUDSS_GIT_SHA:-unknown}
+    mem_limit: 3g
+    # Không có `ports:` — chỉ truy cập được qua caddy.
+    healthcheck:
+      test: ["CMD", "python", "-m", "dss.core.health_server", "probe", "livez"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 180s
+
+  worker:
+    <<: *app
+    profiles: [worker]
+    pull_policy: never
+    command: ["python", "-m", "ops.pipeline", "--schedule"]
+    mem_limit: 1536m
+    healthcheck:
+      disable: true
+    depends_on:
+      app: {condition: service_started}
+
+  caddy:
+    image: caddy:2.10.2-alpine
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+      - "${HTTPS_PORT:-443}:443/udp"
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?đặt APP_DOMAIN trong .env (tên miền trỏ về máy này)}
+      ACME_EMAIL: ${ACME_EMAIL:?đặt ACME_EMAIL trong .env (email nhận thông báo chứng chỉ)}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks: [internal]
+    security_opt: ["no-new-privileges:true"]
+    depends_on:
+      app: {condition: service_healthy}
+
+networks:
+  internal: {}
+
+volumes:
+  app_data:
+  caddy_data:
+  caddy_config:
