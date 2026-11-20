@@ -1,5 +1,9 @@
 # EduDSS — bản demo công khai miễn phí (chung VM với FieldOps và Telecom)
 
+> **Muốn EduDSS tự có HTTPS, không dùng chung Caddy với dự án khác?** Dùng
+> [`deploy/standalone/`](../standalone/README.md): app + Caddy riêng, mạng riêng, chứng chỉ tự động.
+> Thư mục này giữ cách cũ (nối vào Caddy của FieldOps qua mạng `edge`).
+
 Đây là bản **demo trên dữ liệu mô phỏng** để ai cũng mở được. Bản triển khai cho một trường thật
 (PostgreSQL + RLS, image ký số, phê duyệt production) nằm ở `deploy/production/`, không thay đổi.
 
