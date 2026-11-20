@@ -32,9 +32,10 @@ wheels/
 .installed.cfg
 *.egg
 
-# Virtual environments
+# Virtual environments (kể cả .venv_torch210_experimental và các venv thử nghiệm khác)
 venv/
 .venv/
+.venv*/
 env/
 ENV/
 
@@ -72,3 +73,19 @@ data_warehouse/security/
 # Full-stack: eval reports and generated deploy files
 reports/evals/
 deploy/cloud/edudss.caddy.generated
+
+# Runtime: tệp người dùng tải lên, mô hình đã huấn luyện, CSDL cục bộ
+uploads/
+models/
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+*.joblib
+*.pkl
+
+# Tài liệu cá nhân / thông tin tài khoản — không bao giờ commit
+TAI-KHOAN*.md
+*.docx
+*.pptx
+~$*
