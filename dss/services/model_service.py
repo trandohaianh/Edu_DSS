@@ -27,6 +27,29 @@ import streamlit as st
 
 from dss.core.target_utils import is_id_like
 
+# Tách theo chức năng (giữ tên cũ qua re-export để `model_service.X` vẫn dùng được):
+# - giải thích mô hình (SHAP, độ quan trọng đặc trưng): dss/services/model_explainability.py
+# - bảng chỉ số và chọn mô hình tốt nhất:               dss/services/model_metrics.py
+from dss.services.model_explainability import (  # noqa: F401
+    _SHAP_TREE_MODEL_NAMES,
+    _resolve_shap_feature_names,
+    _shap_input_transformer,
+    compute_shap_local_explanation,
+    compute_shap_summary,
+    get_production_feature_importance,
+)
+from dss.services.model_metrics import (  # noqa: F401
+    CV_MAE_COL,
+    CV_SCORE_COL,
+    _has_complete_cv,
+    build_metrics_dataframe,
+    extract_failed_models,
+    pick_best_model_name,
+    resolve_ranking_col,
+    safe_metric_value,
+    update_hub_benchmark_and_build_comparison,
+)
+
 
 def drop_near_duplicate_columns(df, cols, corr_threshold=0.98):
     """G-2: loại cột GẦN NHƯ TRÙNG LẶP (|r| > corr_threshold) VỚI NHAU khỏi 1
@@ -310,198 +333,6 @@ def run_preview_benchmark(df, selected_features, target_col, problem_type):
         "evaluation_type": "exploratory_only",
         "description": "Exploratory preview benchmark only - not for production claims",
     }
-
-
-_SHAP_TREE_MODEL_NAMES = {
-    'RandomForestClassifier',
-    'RandomForestRegressor',
-    'GradientBoostingClassifier',
-    'GradientBoostingRegressor',
-    'XGBClassifier',
-    'XGBRegressor',
-    'LGBMClassifier',
-    'LGBMRegressor',
-    'DecisionTreeClassifier',
-    'DecisionTreeRegressor',
-    'ExtraTreesClassifier',
-    'ExtraTreesRegressor',
-}
-
-
-def _resolve_shap_feature_names(preprocessor, feature_names, n_fallback):
-    """Lấy tên cột SAU tiền xử lý để gắn nhãn cho các giá trị SHAP đã tính —
-    THUẦN NHÃN HIỂN THỊ, không ảnh hưởng đến giá trị SHAP số học. `ColumnTransformer.
-    get_feature_names_out(feature_names)` (truyền tên cột GỐC) hay ném
-    `ValueError: input_features is not equal to feature_names_in_` vì thứ tự/tập
-    cột truyền vào không khớp tuyệt đối với lúc fit — trong khi gọi KHÔNG tham số
-    vẫn trả đúng tên (ColumnTransformer tự nhớ cột đã fit). Ưu tiên thử không
-    tham số trước; chỉ rơi về "Feature N" khi cả 2 cách đều lỗi (vd. preprocessor
-    không phải API sklearn chuẩn). Bỏ tiền tố kỹ thuật "num__"/"cat__"/"remainder__"
-    của ColumnTransformer để hiển thị đúng tên cột gốc cho người dùng cuối."""
-    try:
-        names = list(preprocessor.get_feature_names_out())
-    except Exception:
-        try:
-            names = list(preprocessor.get_feature_names_out(feature_names))
-        except Exception:
-            return [f"Feature {i}" for i in range(n_fallback)]
-    return [n.split("__", 1)[1] if "__" in n else n for n in names]
-
-
-def _shap_input_transformer(pipeline):
-    """Toàn bộ các bước TRƯỚC 'model' (preprocessor -> feature_selection...) dưới dạng 1
-    Pipeline chỉ-transform, bỏ bước sinh mẫu (SMOTE/ADASYN: chỉ chạy lúc fit, không có
-    transform). Trước đây SHAP chỉ chạy preprocessor rồi đưa thẳng vào model, bỏ qua bước
-    chọn đặc trưng (MI/RFE) -> model nhận sai số cột (lỗi shape) hoặc tên cột lệch."""
-    from sklearn.pipeline import Pipeline as _SkPipeline
-
-    steps = [
-        (name, step)
-        for name, step in pipeline.steps[:-1]
-        if step is not None and step != "passthrough" and not hasattr(step, "fit_resample")
-    ]
-    if len(steps) == 1:
-        return steps[0][1]
-    return _SkPipeline(steps)
-
-
-def compute_shap_local_explanation(pipeline, input_df, background_data, feature_names, problem_type="classification"):
-    """Tính SHAP values cho 1 dòng dữ liệu (local explanation) — THUẦN TÍNH
-    TOÁN, không vẽ biểu đồ. Trước đây nằm lẫn với code render trong
-    `dss/tabs/ml_hub.py:render_shap_explanation` — tách phần tính toán ra đây
-    theo yêu cầu refactor (UI chỉ còn gọi service rồi vẽ). GIỮ NGUYÊN toàn bộ
-    logic/fallback cũ, không đổi kết quả.
-
-    Trả về (shap_val, error_message) — shap_val=None kèm error_message khi
-    không tính được (thiếu thư viện, pipeline không đúng chuẩn, lỗi khi tính).
-    """
-    try:
-        import shap
-    except ImportError:
-        return None, "Thư viện `shap` chưa được cài (pip install shap)."
-
-    try:
-        model = pipeline.named_steps.get('model')
-        preprocessor = pipeline.named_steps.get('preprocessor')
-        if not model or not preprocessor:
-            return None, "Pipeline không theo chuẩn chung (thiếu 'model' hoặc 'preprocessor'). Không thể dùng SHAP."
-
-        transformer = _shap_input_transformer(pipeline)
-        input_transformed = transformer.transform(input_df)
-        background_transformed = transformer.transform(background_data)
-
-        if background_transformed.shape[0] > 100:
-            background_transformed = shap.sample(background_transformed, 100)
-
-        feature_names_out = _resolve_shap_feature_names(transformer, feature_names, input_transformed.shape[1])
-
-        if type(model).__name__ in _SHAP_TREE_MODEL_NAMES:
-            explainer = shap.TreeExplainer(model)
-        elif problem_type == "classification" and hasattr(model, "predict_proba"):
-            # X-1: giải thích XÁC SUẤT (predict_proba), KHÔNG PHẢI nhãn rời rạc
-            # (predict) — dùng .predict() làm hàm mục tiêu cho SHAP với phân loại
-            # khiến shap values phản ánh biến động của mã số nhãn (không có ý
-            # nghĩa định lượng liên tục), không phải mức đóng góp vào xác suất.
-            explainer = shap.KernelExplainer(lambda x: model.predict_proba(np.asarray(x)), background_transformed)
-        else:
-            explainer = shap.KernelExplainer(lambda x: model.predict(np.asarray(x)), background_transformed)
-
-        shap_values = explainer(input_transformed)
-
-        if problem_type == "classification" and len(shap_values.shape) == 3:
-            pred = model.predict(input_transformed)[0]
-            if hasattr(model, "classes_"):
-                classes_list = list(model.classes_)
-                if pred in classes_list:
-                    pred_class_index = classes_list.index(pred)
-                elif isinstance(pred, (int, np.integer)) and 0 <= int(pred) < shap_values.shape[2]:
-                    pred_class_index = int(pred)
-                else:
-                    pred_class_index = 0
-            elif isinstance(pred, (int, np.integer)) and 0 <= int(pred) < shap_values.shape[2]:
-                pred_class_index = int(pred)
-            else:
-                pred_class_index = 0
-            shap_val = shap_values[:, :, pred_class_index]
-        else:
-            shap_val = shap_values
-
-        try:
-            shap_val.feature_names = list(feature_names_out)
-        except Exception:
-            pass
-
-        return shap_val, None
-    except Exception as e:
-        return None, f"Không thể tính SHAP cho mô hình này: {e!s}"
-
-
-def compute_shap_summary(pipeline, background_data, feature_names, problem_type="classification", class_idx=None):
-    """Tính SHAP values toàn cục (summary/beeswarm).
-
-    HỖ TRỢ ĐA LỚP (MULTI-CLASS SUPPORT):
-    - Không mặc định luôn lấy class 1.
-    - Cho phép chọn class cụ thể qua `class_idx`.
-    - Khi có nhiều hơn 2 lớp và class_idx=None, tổng hợp trung bình độ lớn tuyệt đối
-      qua tất cả các lớp (mean absolute impact), hoặc trích xuất đúng lát cắt của lớp đã chọn.
-    """
-    try:
-        import shap
-    except ImportError:
-        return None, "Thư viện `shap` chưa được cài (pip install shap)."
-
-    try:
-        model = pipeline.named_steps.get('model')
-        preprocessor = pipeline.named_steps.get('preprocessor')
-        if not model or not preprocessor:
-            return None, "Pipeline không theo chuẩn chung. Không thể dùng SHAP."
-
-        transformer = _shap_input_transformer(pipeline)
-        background_transformed = transformer.transform(background_data)
-
-        feature_names_out = _resolve_shap_feature_names(transformer, feature_names, background_transformed.shape[1])
-
-        if type(model).__name__ in _SHAP_TREE_MODEL_NAMES:
-            explainer = shap.TreeExplainer(model)
-        elif problem_type == "classification" and hasattr(model, "predict_proba"):
-            # X-1: xem giải thích ở compute_shap_local_explanation phía trên.
-            sample_data = shap.sample(background_transformed, 50)
-            explainer = shap.KernelExplainer(lambda x: model.predict_proba(np.asarray(x)), sample_data)
-        else:
-            sample_data = shap.sample(background_transformed, 50)
-            explainer = shap.KernelExplainer(lambda x: model.predict(np.asarray(x)), sample_data)
-
-        shap_values = explainer(background_transformed)
-
-        if problem_type == "classification" and len(shap_values.shape) == 3:
-            n_classes = shap_values.shape[2]
-            if class_idx is not None and 0 <= int(class_idx) < n_classes:
-                shap_val = shap_values[:, :, int(class_idx)]
-            elif n_classes == 2:
-                shap_val = shap_values[:, :, 1]
-            else:
-                # Multi-class (>2 lớp, ví dụ 5 lớp: Yếu / Trung bình / Khá / Giỏi / Xuất sắc):
-                # Tổng hợp trung bình độ lớn tuyệt đối ảnh hưởng của từng feature
-                try:
-                    import copy
-
-                    shap_val = copy.deepcopy(shap_values[:, :, 0])
-                    shap_val.values = np.abs(shap_values.values).mean(axis=-1)
-                    if hasattr(shap_values, 'base_values') and shap_values.base_values is not None:
-                        shap_val.base_values = np.mean(shap_values.base_values, axis=-1)
-                except Exception:
-                    shap_val = shap_values[:, :, 0]
-        else:
-            shap_val = shap_values
-
-        try:
-            shap_val.feature_names = list(feature_names_out)
-        except Exception:
-            pass
-
-        return shap_val, None
-    except Exception as e:
-        return None, f"Không thể tính SHAP cho mô hình này: {e!s}"
 
 
 def model_lifecycle_badge_text(model: dict) -> str:
@@ -867,45 +698,6 @@ def compute_progress_note(current_value, student_row):
     return delta, "ổn định, chưa thay đổi đáng kể so với kỳ trước"
 
 
-def get_production_feature_importance(pipeline, feature_cols, top_n=8):
-    """Đọc mức độ quan trọng đặc trưng TỪ CHÍNH mô hình Production đã huấn
-    luyện sẵn (`estimator.feature_importances_`) — KHÔNG fit thêm bất kỳ mô
-    hình nào (khác hẳn `preview_feature_importance()` ở trên vốn fit 1
-    RandomForest tạm thời mỗi lần gọi). Dùng cho Dashboard/Home — nơi không
-    được phép tự train chỉ vì người dùng mở trang.
-
-    LỖI THỰC TẾ đã sửa: độ dài `feature_importances_` là số cột SAU tiền xử
-    lý (`preprocessor`), KHÔNG PHẢI số cột gốc trong `feature_cols` (vd. cột
-    hạng mục bị loại/mã hoá lại khiến 12 cột gốc -> 11 cột sau xử lý) — so
-    sánh trực tiếp 2 độ dài này làm panel báo "không hỗ trợ" SAI cho cả mô
-    hình cây thật sự có chỉ số này. Dùng lại đúng hàm map tên cột sau tiền xử
-    lý đã có cho SHAP (`_resolve_shap_feature_names`) thay vì tự so độ dài.
-
-    Trả về DataFrame ['Feature', 'Importance (%)'] (rỗng nếu estimator không
-    hỗ trợ feature_importances_, ví dụ LinearRegression/LogisticRegression).
-    """
-    try:
-        model = getattr(pipeline, "named_steps", {}).get("model")
-        importances = getattr(model, "feature_importances_", None)
-        if importances is None:
-            return pd.DataFrame(columns=["Feature", "Importance (%)"])
-        preprocessor = getattr(pipeline, "named_steps", {}).get("preprocessor")
-        if preprocessor is not None:
-            names = _resolve_shap_feature_names(preprocessor, feature_cols, len(importances))
-        else:
-            names = (
-                list(feature_cols)
-                if len(feature_cols) == len(importances)
-                else [f"Feature {i}" for i in range(len(importances))]
-            )
-        _df = pd.DataFrame({"Feature": names, "Importance (%)": (np.asarray(importances) * 100).round(2)}).sort_values(
-            "Importance (%)", ascending=False
-        )
-        return _df.head(top_n)
-    except Exception:
-        return pd.DataFrame(columns=["Feature", "Importance (%)"])
-
-
 def resolve_predicted_output_col(df, target_col):
     """
     Tìm cột dự đoán trong DataFrame kết quả batch/file.
@@ -925,218 +717,6 @@ def resolve_predicted_output_col(df, target_col):
         if str(c).startswith("Predicted_"):
             return c
     return None
-
-
-def safe_metric_value(v):
-    """Chuẩn hóa metric về float hữu hạn; lỗi -> NaN."""
-    try:
-        v = float(v)
-        if np.isfinite(v):
-            return v
-    except Exception:
-        pass
-    return np.nan
-
-
-def extract_failed_models(results):
-    """Lấy danh sách model lỗi train từ results meta."""
-    if not isinstance(results, dict):
-        return {}
-    failed = results.get("__failed_models__", {})
-    return failed if isinstance(failed, dict) else {}
-
-
-def build_metrics_dataframe(results, hub_type):
-    """
-    Tạo metrics_df chỉ gồm model hợp lệ (lọc bỏ meta/NaN),
-    tránh hiển thị model 0.00 giả.
-    Ưu tiên hiển thị F1 Score (Macro) cho bài toán phân loại đa lớp.
-    """
-    rows = []
-    for name, m in (results or {}).items():
-        if not isinstance(m, dict) or str(name).startswith("__"):
-            continue
-        if hub_type == "clf":
-            acc = safe_metric_value(m.get("Accuracy"))
-            f1_weighted = safe_metric_value(m.get("F1 Score (Weighted)", m.get("F1-Score")))
-            f1_macro = safe_metric_value(m.get("F1 Score (Macro)", m.get("F1 Macro")))
-            if np.isnan(acc):
-                continue
-            report = m.get("report") if isinstance(m.get("report"), dict) else {}
-            macro_avg = report.get("macro avg", {}) if isinstance(report, dict) else {}
-            weighted_avg = report.get("weighted avg", {}) if isinstance(report, dict) else {}
-
-            if np.isnan(f1_macro) and isinstance(macro_avg, dict):
-                f1_macro = safe_metric_value(macro_avg.get("f1-score"))
-
-            precision_val = safe_metric_value(
-                m.get("Precision (Macro)", m.get("Precision (Weighted)", m.get("Precision")))
-            )
-            recall_val = safe_metric_value(m.get("Recall (Macro)", m.get("Recall (Weighted)", m.get("Recall"))))
-
-            # Fallback: lấy từ classification_report
-            if np.isnan(precision_val):
-                precision_val = safe_metric_value(macro_avg.get("precision", weighted_avg.get("precision")))
-            if np.isnan(recall_val):
-                recall_val = safe_metric_value(macro_avg.get("recall", weighted_avg.get("recall")))
-            if np.isnan(f1_weighted):
-                f1_weighted = safe_metric_value(weighted_avg.get("f1-score", macro_avg.get("f1-score")))
-
-            rows.append(
-                {
-                    "Model": name,
-                    "F1 Score (Macro)": f1_macro if not np.isnan(f1_macro) else f1_weighted,
-                    # PR-AUC là tiêu chí CHỌN mô hình khi lớp thiểu số quá ít mẫu
-                    # (xem PR_AUC_SELECTION_THRESHOLD trong dss/core/trainers.py).
-                    # Tiêu chí dùng để chọn thì phải hiện trong bảng, nếu không
-                    # người đọc báo cáo không kiểm lại được lựa chọn.
-                    "PR-AUC (Macro)": safe_metric_value(m.get("PR-AUC (Macro)")),
-                    "Accuracy": acc,
-                    "Precision": precision_val,
-                    "Recall": recall_val,
-                    "F1 Score (Weighted)": f1_weighted,
-                    # Điểm CV (trung bình các fold trên tập TRAIN, đúng tiêu chí GridSearchCV
-                    # đã tối ưu) — dùng để CHỌN mô hình, xem resolve_ranking_col.
-                    CV_SCORE_COL: safe_metric_value(m.get("cv_mean")),
-                }
-            )
-        else:
-            r2 = safe_metric_value(m.get("R2 Score"))
-            rmse = safe_metric_value(m.get("RMSE"))
-            mae = safe_metric_value(m.get("MAE"))
-            # Regression bắt buộc có R2 + ít nhất 1 sai số hợp lệ
-            if np.isnan(r2) or (np.isnan(rmse) and np.isnan(mae)):
-                continue
-            rows.append(
-                {
-                    "Model": name,
-                    "R2 Score": r2,
-                    "RMSE": rmse,
-                    "MAE": mae,
-                    # MAE trung bình CV trên tập TRAIN (tiêu chí tuning) — dùng để CHỌN mô hình.
-                    CV_MAE_COL: safe_metric_value(m.get("cv_mean")),
-                }
-            )
-    if not rows:
-        return pd.DataFrame()
-    return pd.DataFrame(rows).set_index("Model")
-
-
-CV_SCORE_COL = "CV Score (Train)"
-CV_MAE_COL = "CV MAE (Train)"
-
-
-def _has_complete_cv(metrics_df, col):
-    return col in metrics_df.columns and len(metrics_df) > 0 and bool(metrics_df[col].notna().all())
-
-
-def resolve_ranking_col(metrics_df, hub_type):
-    """Cột dùng để xếp hạng model + hướng sắp xếp — DÙNG CHUNG cho MỌI nơi cần biết
-    "model nào tốt nhất" (biểu đồ/bảng xếp hạng ở main.py, is_best khi lưu Kho qua
-    pick_best_model_name, benchmark, Model Registry). KHÔNG được hard-code lại tiêu
-    chí xếp hạng ở nơi khác (S-1) — 2 nơi dùng 2 tiêu chí khác nhau sẽ khiến UI đề
-    xuất 1 model còn Kho đánh dấu is_best cho model khác trên CÙNG 1 lượt huấn luyện.
-    Với classification: ưu tiên F1 Score (Macro) làm tiêu chí chọn model (đặc biệt khi
-    mất cân bằng lớp), fallback sang Accuracy nếu không có. Cả 2 metric vẫn hiển thị song song.
-
-    R-5 (POST_72H_MASTER_PRODUCTION_CLOSURE): với hồi quy, RMSE là PRIMARY ranking
-    metric (CỐ Ý khác với MAE dùng để tuning trong trainers.py's GridSearchCV — xem
-    comment "HỢP ĐỒNG METRIC TƯỜNG MINH" tại đó) — RMSE phạt sai số lớn nặng hơn,
-    phù hợp bài toán cảnh báo rủi ro học tập. MAE/R2 Score là SECONDARY, vẫn hiển
-    thị song song. Test: test_regression_metric_contract.py.
-
-    Cập nhật 2026-11: khi MỌI mô hình trong bảng có điểm CV (cv_mean), xếp hạng theo điểm CV
-    đó (phân loại: tiêu chí GridSearchCV, cao hơn tốt hơn; hồi quy: CV MAE, thấp hơn tốt hơn).
-    Các tiêu chí test ở trên chỉ còn là phương án dự phòng khi thiếu điểm CV.
-    """
-    # Chọn mô hình theo điểm CROSS-VALIDATION trên tập train (đã tính khi GridSearchCV), KHÔNG
-    # theo điểm test: chọn theo test rồi báo cáo chính điểm test đó là lạc quan có hệ thống (người
-    # thắng được chọn vì may mắn trên đúng tập test). Chỉ số test vẫn hiển thị nguyên vẹn. Chỉ
-    # rơi về tiêu chí test cũ khi có mô hình THIẾU điểm CV (vd. XGBoost train trực tiếp, Ensemble)
-    # — trộn mô hình có/không có CV trong một bảng xếp hạng thì không so sánh được.
-    if hub_type == "clf":
-        if _has_complete_cv(metrics_df, CV_SCORE_COL):
-            return CV_SCORE_COL, False
-        if "F1 Score (Macro)" in metrics_df.columns and metrics_df["F1 Score (Macro)"].notna().any():
-            return "F1 Score (Macro)", False
-        return "Accuracy", False
-    if _has_complete_cv(metrics_df, CV_MAE_COL):
-        return CV_MAE_COL, True
-    sort_col = "RMSE" if "RMSE" in metrics_df.columns and metrics_df["RMSE"].notna().any() else "R2 Score"
-    return sort_col, sort_col == "RMSE"
-
-
-def pick_best_model_name(results, hub_type):
-    """Trả tên model tốt nhất trong 1 lượt huấn luyện (theo đúng tiêu chí bảng xếp
-    hạng đang hiển thị cho người dùng), hoặc None nếu không có model hợp lệ nào.
-    Dùng để tự động chọn bản Production khi lưu nhiều model cùng lúc vào Warehouse.
-    """
-    metrics_df = build_metrics_dataframe(results, hub_type)
-    if metrics_df.empty:
-        return None
-    sort_col, ascending = resolve_ranking_col(metrics_df, hub_type)
-    return metrics_df.sort_values(sort_col, ascending=ascending).index[0]
-
-
-def update_hub_benchmark_and_build_comparison(results, hub_type, target_col):
-    """
-    Lưu benchmark mỗi lần train và trả bảng Before vs After.
-    """
-    metrics_df = build_metrics_dataframe(results, hub_type)
-    if metrics_df.empty:
-        return pd.DataFrame()
-
-    sort_col, asc = resolve_ranking_col(metrics_df, hub_type)
-
-    best_row = metrics_df.sort_values(sort_col, ascending=asc).iloc[0]
-    best_model = metrics_df.sort_values(sort_col, ascending=asc).index[0]
-    current = {
-        "timestamp": datetime.now().isoformat(timespec="seconds"),
-        "target_col": target_col,
-        "hub_type": hub_type,
-        "best_model": best_model,
-        "R2 Score": safe_metric_value(best_row.get("R2 Score")),
-        "RMSE": safe_metric_value(best_row.get("RMSE")),
-        "MAE": safe_metric_value(best_row.get("MAE")),
-        "Accuracy": safe_metric_value(best_row.get("Accuracy")),
-        # Trainer chỉ sinh "F1 Score (Macro)"/"(Weighted)"; đọc khoá "F1 Score" trần luôn ra NaN.
-        # Dùng Macro — cùng tiêu chí resolve_ranking_col dùng để chọn mô hình tốt nhất.
-        "F1 Score": safe_metric_value(best_row.get("F1 Score (Macro)", best_row.get("F1 Score"))),
-    }
-
-    history = st.session_state.get("hub_benchmark_history", [])
-    previous = None
-    if isinstance(history, list):
-        for item in reversed(history):
-            if isinstance(item, dict) and item.get("target_col") == target_col and item.get("hub_type") == hub_type:
-                previous = item
-                break
-    else:
-        history = []
-
-    history.append(current)
-    st.session_state.hub_benchmark_history = history[-30:]
-
-    if previous is None:
-        return pd.DataFrame(
-            [
-                {"Chỉ số": "R2 Score", "Before": np.nan, "After": current["R2 Score"], "Δ (%)": np.nan},
-                {"Chỉ số": "RMSE", "Before": np.nan, "After": current["RMSE"], "Δ (%)": np.nan},
-                {"Chỉ số": "MAE", "Before": np.nan, "After": current["MAE"], "Δ (%)": np.nan},
-                {"Chỉ số": "Accuracy", "Before": np.nan, "After": current["Accuracy"], "Δ (%)": np.nan},
-                {"Chỉ số": "F1 Score", "Before": np.nan, "After": current["F1 Score"], "Δ (%)": np.nan},
-            ]
-        )
-
-    rows = []
-    for metric in ("R2 Score", "RMSE", "MAE", "Accuracy", "F1 Score"):
-        before = safe_metric_value(previous.get(metric))
-        after = safe_metric_value(current.get(metric))
-        delta = np.nan
-        if np.isfinite(before) and abs(before) > 1e-12 and np.isfinite(after):
-            delta = (after - before) / abs(before) * 100.0
-        rows.append({"Chỉ số": metric, "Before": before, "After": after, "Δ (%)": delta})
-    return pd.DataFrame(rows)
 
 
 def resolve_hub_train_config(train_config):
