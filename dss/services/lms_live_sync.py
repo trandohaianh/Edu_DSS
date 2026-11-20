@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import os
 import uuid
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
@@ -42,7 +43,12 @@ class LMSLiveSyncManager:
 
     _shared_history: List[LMSLiveEvent] = []
 
-    def __init__(self, webhook_secret: str = "edudss_live_secret_2026"):
+    def __init__(self, webhook_secret: Optional[str] = None):
+        # Trước đây mặc định là một chuỗi cố định nằm công khai trong mã nguồn, nên ai
+        # cũng tự ký được webhook hợp lệ. Nay lấy từ biến môi trường; không có thì
+        # verify_webhook_signature luôn từ chối (fail closed).
+        if webhook_secret is None:
+            webhook_secret = os.environ.get("EDUDSS_LMS_WEBHOOK_SECRET", "")
         self.webhook_secret = webhook_secret
 
     @classmethod

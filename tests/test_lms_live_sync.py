@@ -69,3 +69,20 @@ def test_simulate_live_pushes():
     # History contains both events
     history = mgr.get_event_history(limit=5)
     assert len(history) >= 2
+
+
+def test_default_manager_has_no_public_hardcoded_webhook_secret(monkeypatch):
+    """Không có EDUDSS_LMS_WEBHOOK_SECRET thì mọi chữ ký đều bị từ chối, kể cả chữ ký
+    tạo bằng chuỗi bí mật cố định cũ từng nằm trong mã nguồn."""
+    monkeypatch.delenv("EDUDSS_LMS_WEBHOOK_SECRET", raising=False)
+    payload = '{"event": "grade_update"}'
+    old_public = "edudss_live_secret_2026"
+    forged = hmac.new(old_public.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256).hexdigest()
+    assert LMSLiveSyncManager().verify_webhook_signature(payload, forged) is False
+
+
+def test_default_manager_reads_webhook_secret_from_env(monkeypatch):
+    monkeypatch.setenv("EDUDSS_LMS_WEBHOOK_SECRET", "env-secret-for-test")
+    payload = '{"event": "grade_update"}'
+    sig = hmac.new(b"env-secret-for-test", payload.encode("utf-8"), hashlib.sha256).hexdigest()
+    assert LMSLiveSyncManager().verify_webhook_signature(payload, sig) is True

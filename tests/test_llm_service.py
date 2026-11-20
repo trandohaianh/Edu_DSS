@@ -128,8 +128,14 @@ def test_call_ai_provider_model_not_found_still_falls_back_immediately():
 def test_env_path_pinned_to_app_env_not_repo_root():
     """dss.config phải nạp ĐÚNG app/.env, không phải .env ở gốc repo (2 file
     khác nhau — gốc repo chỉ có OPENAI_API_KEY, thiếu GEMINI_API_KEY/GROQ_API_KEY)."""
+    from pathlib import Path
+
     assert dss_config._ENV_PATH.name == ".env"
-    assert dss_config._ENV_PATH.parent.name == "app"
+    # Thư mục ứng dụng là thư mục chứa gói dss/: app/ trong monorepo, gốc repo khi
+    # chạy repo Edu_DSS độc lập. Không so tên thư mục để test không phụ thuộc bố cục.
+    app_root = Path(dss_config.__file__).resolve().parent.parent
+    assert dss_config._ENV_PATH.parent == app_root
+    assert (app_root / "dss" / "__init__.py").is_file()
 
 
 def test_dotenv_override_false_lets_exported_var_win(tmp_path, monkeypatch):
