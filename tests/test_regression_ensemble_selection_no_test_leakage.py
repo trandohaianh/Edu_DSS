@@ -11,9 +11,9 @@ import warnings
 
 warnings.filterwarnings("ignore")
 
-from dss.core import trainers as trainers_module
 from dss.core.data_helpers import generate_data
 from dss.core.trainers import RegressionTrainer
+from dss.core.training import regression as regression_module
 
 
 def test_ensemble_selection_does_not_reference_test_set_in_source():
@@ -67,7 +67,8 @@ def test_correlation_leakage_guard_uses_training_labels_only(monkeypatch):
     def fixed_split(X, target, **kwargs):
         return X.iloc[:40], X.iloc[40:], target.iloc[:40], target.iloc[40:]
 
-    monkeypatch.setattr(trainers_module, "train_test_split", fixed_split)
+    # RegressionTrainer nằm ở dss.core.training.regression: patch nơi hàm được dùng.
+    monkeypatch.setattr(regression_module, "train_test_split", fixed_split)
     results, pipelines, _, trained_features, *_ = RegressionTrainer().train_and_evaluate(
         frame,
         ["snapshot_leak", "independent_feature"],
