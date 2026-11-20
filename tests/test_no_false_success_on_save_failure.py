@@ -26,7 +26,8 @@ _APP_ROOT = Path(__file__).resolve().parent.parent
 def test_dashboard_grade_save_does_not_claim_success_on_write_failure():
     source = inspect.getsource(dashboard)
     idx = source.index("Lưu thay đổi điểm vào hệ thống")
-    block = source[idx : idx + 1800]
+    # Cửa sổ ký tự đủ rộng cho mã sau khi ruff format (thụt lề dài hơn bản gốc).
+    block = source[idx : idx + 2600]
     assert "_save_ok" in block, "Phải theo dõi trạng thái lưu thành công thật (không giả định luôn thành công)."
     assert "show_error_message" in block, "Phải có nhánh báo lỗi trung thực khi lưu thất bại."
     # show_success_message phải nằm trong nhánh `if _save_ok:` — kiểm tra thô bằng

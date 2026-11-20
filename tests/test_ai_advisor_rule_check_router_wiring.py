@@ -27,5 +27,19 @@ def test_rule_check_reply_included_in_short_circuit_condition():
     source = inspect.getsource(ai_advisor.ai_advisor_tab)
     assert "_gpa_reply or _regulation_reply or _rule_check_reply" in source
     idx_short_circuit = source.index("if _router_short_circuit_reply is not None:")
-    block = source[idx_short_circuit : idx_short_circuit + 400]
+    block = _if_body(source, idx_short_circuit)
     assert "st.rerun()" in block
+
+
+def _if_body(source: str, idx: int) -> str:
+    """Thân của câu lệnh `if` bắt đầu tại idx: các dòng thụt sâu hơn dòng `if`.
+    Dựa vào thụt lề thay vì số ký tự cố định, nên không vỡ khi mã được format lại."""
+    lines = source[idx:].splitlines()
+    head = source[:idx].rsplit("\n", 1)[-1] + lines[0]
+    indent = len(head) - len(head.lstrip())
+    body = [lines[0]]
+    for line in lines[1:]:
+        if line.strip() and len(line) - len(line.lstrip()) <= indent:
+            break
+        body.append(line)
+    return "\n".join(body)
