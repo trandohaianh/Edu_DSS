@@ -9,6 +9,7 @@
 | `planning/` | Kế hoạch, danh sách việc cần làm (TODO) và ghi chép quá trình phát triển (lịch sử, không phải đặc tả hiện hành). |
 | `requirements/` | Yêu cầu sản phẩm (bản nháp): `PRD.md`, phạm vi bản đầu `MVP_SCOPE.md`, tiêu chí nghiệm thu `ACCEPTANCE_CRITERIA.md`. |
 | `security/` | Checklist bảo mật bước 7 và rủi ro còn tồn tại (`SECURITY_CHECKLIST.md`). |
+| `legal/` | Bản nháp thông báo xử lý dữ liệu cá nhân + câu hỏi cho luật sư (`PRIVACY_NOTICE_DRAFT.md`), **chưa được duyệt**. |
 | `ux/` | Bản đồ màn hình theo vai trò (`SCREEN_MAP.md`, bản nháp). |
 | `CONVENTIONS.md` | Quy tắc đặt tên, lint/format, nhánh và commit. |
 

@@ -710,9 +710,35 @@ def _session_still_valid(identity: UserRecord) -> bool:
     return True
 
 
+_DEFAULT_IDLE_MINUTES = 30
+
+
+def idle_timeout_seconds() -> int:
+    """Tự đăng xuất sau N phút không thao tác (bước 7, nhóm B). EDUDSS_IDLE_TIMEOUT_MINUTES, tối thiểu 5."""
+    raw = os.environ.get("EDUDSS_IDLE_TIMEOUT_MINUTES", "").strip()
+    try:
+        minutes = int(raw) if raw else _DEFAULT_IDLE_MINUTES
+    except ValueError:
+        minutes = _DEFAULT_IDLE_MINUTES
+    return max(5, minutes) * 60
+
+
+def session_idle_expired(now: Optional[float] = None) -> bool:
+    """Mỗi lần trang chạy lại (= một thao tác của người dùng) ghi lại thời điểm; quá hạn thì báo hết phiên."""
+    import time as _time
+
+    now = _time.time() if now is None else now
+    last = float(st.session_state.get("_auth_last_activity_at", 0) or 0)
+    if last and now - last > idle_timeout_seconds():
+        return True
+    st.session_state["_auth_last_activity_at"] = now
+    return False
+
+
 def establish_session(record: UserRecord, method: str = "password") -> None:
     import time as _time
 
+    st.session_state["_auth_last_activity_at"] = _time.time()
     st.session_state["_auth_checked_at"] = _time.time()
     st.session_state["_authenticated"] = True
     st.session_state["_auth_username"] = record["username"]
@@ -921,10 +947,17 @@ def render_login_gate() -> Optional[UserRecord]:
     `st.stop()` ngay sau khi nhận None để chặn phần còn lại của trang."""
     existing = current_user()
     if existing is not None:
-        if _session_still_valid(existing):
+        if session_idle_expired():
+            logout()
+            st.warning(
+                f"Phiên đăng nhập đã hết hạn vì không thao tác quá {idle_timeout_seconds() // 60} phút. "
+                "Vui lòng đăng nhập lại."
+            )
+        elif _session_still_valid(existing):
             return existing
-        logout()
-        st.warning("Phiên đăng nhập đã kết thúc vì tài khoản bị khoá hoặc đổi quyền. Vui lòng đăng nhập lại.")
+        else:
+            logout()
+            st.warning("Phiên đăng nhập đã kết thúc vì tài khoản bị khoá hoặc đổi quyền. Vui lòng đăng nhập lại.")
 
     try:
         bootstrap_admin_from_env()

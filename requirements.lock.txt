@@ -13,7 +13,7 @@ attrs==26.1.0
 Authlib==1.9.6
 blinker==1.9.0
 cachetools==6.2.6
-certifi==2026.7.22
+certifi==2026.10.18
 cffi==2.1.1
 charset-normalizer==3.5.1
 click==8.5.0
@@ -23,11 +23,11 @@ cryptography==50.0.1
 cycler==0.12.1
 distro==1.9.0
 et_xmlfile==2.0.0
-filelock==4.0.4
+filelock==4.2.1
 fonttools==4.66.0
 fsspec==2026.9.0
 gitdb==4.0.12
-GitPython==3.1.62
+GitPython==3.2.1
 google-auth==2.58.1
 google-genai==2.19.0
 greenlet==3.5.6
@@ -73,7 +73,7 @@ prometheus-client==0.26.0
 protobuf==6.33.6
 psycopg2-binary==2.9.13
 pyarrow==25.0.1
-pyasn1==0.6.4
+pyasn1==0.6.5
 pyasn1_modules==0.4.2
 pycparser==3.0
 pydantic==2.13.5
@@ -83,7 +83,7 @@ pyee==13.0.1
 pyflakes==3.4.0
 Pygments==2.21.0
 pyparsing==3.3.3
-pypdf==6.19.0
+pypdf==6.21.4
 pytest==9.0.3
 python-dateutil==2.9.0.post0
 python-docx==1.2.0
@@ -117,7 +117,7 @@ threadpoolctl==3.7.0
 tokenizers==0.22.2
 toml==0.10.2
 torch==2.10.0+cpu
-tornado==6.5.10
+tornado==6.6.1
 tqdm==4.70.1
 transformers==5.10.4
 typer==0.27.2

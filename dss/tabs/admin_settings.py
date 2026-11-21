@@ -98,6 +98,91 @@ def admin_users_tab():
 
     st.markdown("<div class='dss-spacer-16'></div>", unsafe_allow_html=True)
     _admin_account_forms(all_users)
+    st.markdown("<div class='dss-spacer-16'></div>", unsafe_allow_html=True)
+    _student_data_rights_panel()
+
+
+def _data_rights_org_id() -> int | None:
+    """Xuất/xoá dữ liệu chạy trên PostgreSQL của trường (data_lifecycle). Không cấu hình thì trả None."""
+    import os
+
+    raw = os.environ.get("EDUDSS_ORGANIZATION_ID", "").strip()
+    if not raw.isdecimal() or not (os.environ.get("DATABASE_URL") or os.environ.get("DB_HOST")):
+        return None
+    return int(raw)
+
+
+@auth_service.require_role("Admin")
+def _student_data_rights_panel() -> None:
+    """Bước 7, nhóm B: thực hiện yêu cầu của sinh viên — nhận bản sao dữ liệu, xoá dữ liệu."""
+    import json
+
+    from dss.services import data_lifecycle
+
+    with st.expander("Yêu cầu về dữ liệu cá nhân của sinh viên", expanded=False):
+        st.caption(
+            "Dùng khi sinh viên yêu cầu nhận bản sao hoặc xoá dữ liệu. Điểm và hồ sơ học tập được GIỮ theo quy định "
+            "lưu trữ của trường (gắn vào hồ sơ đã ẩn danh); hội thoại AI và kết quả dự đoán bị xoá; tên, mã và tài "
+            "khoản được ẩn danh. Nhớ xoá cả ở hệ thống nguồn (LMS/phòng đào tạo), nếu không lần đồng bộ sau sẽ tạo lại."
+        )
+        org_id = _data_rights_org_id()
+        if org_id is None:
+            ui_kit.empty_state(
+                "Chức năng này cần CSDL PostgreSQL của trường.",
+                hint="Đặt DATABASE_URL và EDUDSS_ORGANIZATION_ID (bản triển khai production đã có sẵn).",
+            )
+            return
+        code = st.text_input("Mã sinh viên", key="dr_student_code").strip()
+        actor = st.session_state.get("_auth_username") or "admin"
+        col_export, col_erase = st.columns(2)
+        with col_export:
+            if st.button("Chuẩn bị bản sao dữ liệu", key="dr_export_btn", disabled=not code):
+                try:
+                    payload = data_lifecycle.export_student_data(org_id, code)
+                except data_lifecycle.StudentNotFound:
+                    st.error("Không tìm thấy sinh viên này trong trường.")
+                except Exception:  # noqa: BLE001
+                    from dss.core.logging_config import get_logger
+
+                    get_logger(__name__).exception("Xuất dữ liệu sinh viên thất bại.")
+                    st.error("Không xuất được dữ liệu. Không có gì bị thay đổi.")
+                else:
+                    st.session_state["_dr_export"] = (code, json.dumps(payload, ensure_ascii=False, indent=2))
+            ready = st.session_state.get("_dr_export")
+            if ready and ready[0] == code:
+                st.download_button(
+                    "Tải file JSON",
+                    data=ready[1].encode("utf-8"),
+                    file_name="du_lieu_sinh_vien.json",
+                    mime="application/json",
+                    key="dr_export_download",
+                )
+        with col_erase:
+            confirm = st.text_input("Gõ lại mã sinh viên để xác nhận xoá", key="dr_erase_confirm").strip()
+            sure = st.checkbox("Tôi hiểu việc xoá không hoàn tác được", key="dr_erase_sure")
+            if st.button(
+                "Xoá dữ liệu sinh viên",
+                key="dr_erase_btn",
+                type="primary",
+                disabled=not (code and confirm == code and sure),
+            ):
+                try:
+                    report = data_lifecycle.erase_student_data(org_id, code, requested_by=actor)
+                except data_lifecycle.StudentNotFound:
+                    st.error("Không tìm thấy sinh viên này trong trường.")
+                except Exception:  # noqa: BLE001
+                    from dss.core.logging_config import get_logger
+
+                    get_logger(__name__).exception("Xoá dữ liệu sinh viên thất bại.")
+                    st.error("Không xoá được. Thao tác chạy trong một giao dịch nên không có gì bị xoá dở.")
+                else:
+                    st.session_state.pop("_dr_export", None)
+                    summary = report.as_dict()
+                    st.success(
+                        f"Đã xoá {sum(summary['deleted'].values())} bản ghi, ẩn danh "
+                        f"{sum(summary['anonymized'].values())} hồ sơ, giữ {sum(summary['retained'].values())} "
+                        "bản ghi học tập. Đã ghi sổ kiểm toán."
+                    )
 
 
 def _admin_account_forms(all_users: dict) -> None:

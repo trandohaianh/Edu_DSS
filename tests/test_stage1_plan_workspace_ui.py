@@ -86,6 +86,8 @@ def test_fresh_production_session_can_read_history_without_lms_dataset(monkeypat
         return {"username": "sv1", "role": "Sinh viên", "student_id": "SV1"}
 
     monkeypatch.setattr(auth_service, "render_login_gate", login)
+    # Cổng đồng ý xử lý dữ liệu (bước 7, nhóm B) có test riêng; ở đây giả định người dùng đã đồng ý.
+    monkeypatch.setenv("EDUDSS_PRIVACY_CONSENT_REQUIRED", "0")
     monkeypatch.setattr(init_app, "init_trainers_and_warehouse", lambda: (None, None, None, None))
     monkeypatch.setattr(subscription_service, "render_subscription_gate", lambda role: True)
     sample = Mock(side_effect=AssertionError("Production must not create a synthetic dataset"))

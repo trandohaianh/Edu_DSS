@@ -18,7 +18,7 @@ inside each installed distribution (`*.dist-info/`) and at the listed upstream s
 | Authlib | 1.9.6 | BSD-3-Clause | ALLOWED |
 | blinker | 1.9.0 | MIT License | ALLOWED |
 | cachetools | 6.2.6 | MIT | ALLOWED |
-| certifi | 2026.7.22 | Mozilla Public License 2.0 (MPL 2.0); MPL-2.0 | REVIEW |
+| certifi | 2026.10.18 | Mozilla Public License 2.0 (MPL 2.0); MPL-2.0 | REVIEW |
 | cffi | 2.1.1 | MIT-0 | ALLOWED |
 | charset-normalizer | 3.5.1 | MIT | ALLOWED |
 | click | 8.5.0 | BSD-3-Clause | ALLOWED |
@@ -28,11 +28,11 @@ inside each installed distribution (`*.dist-info/`) and at the listed upstream s
 | cycler | 0.12.1 | BSD License; Copyright (c) 2015, matplotlib project | ALLOWED |
 | distro | 1.9.0 | Apache Software License; Apache License, Version 2.0 | ALLOWED |
 | et_xmlfile | 2.0.0 | MIT License; MIT | ALLOWED |
-| filelock | 4.0.4 | MIT | ALLOWED |
+| filelock | 4.2.1 | MIT | ALLOWED |
 | fonttools | 4.66.0 | MIT | ALLOWED |
 | fsspec | 2026.9.0 | BSD-3-Clause | ALLOWED |
 | gitdb | 4.0.12 | BSD License | ALLOWED |
-| GitPython | 3.1.62 | BSD-3-Clause | ALLOWED |
+| GitPython | 3.2.1 | BSD-3-Clause | ALLOWED |
 | google-auth | 2.58.1 | Apache Software License; Apache 2.0 | ALLOWED |
 | google-genai | 2.19.0 | Apache-2.0 | ALLOWED |
 | greenlet | 3.5.6 | MIT AND PSF-2.0 | ALLOWED |
@@ -78,7 +78,7 @@ inside each installed distribution (`*.dist-info/`) and at the listed upstream s
 | protobuf | 6.33.6 | 3-Clause BSD License | ALLOWED |
 | psycopg2-binary | 2.9.13 | GNU Library or Lesser General Public License (LGPL); LGPL with exceptions | REVIEW |
 | pyarrow | 25.0.1 | Apache-2.0 | ALLOWED |
-| pyasn1 | 0.6.4 | BSD-2-Clause | ALLOWED |
+| pyasn1 | 0.6.5 | BSD-2-Clause | ALLOWED |
 | pyasn1_modules | 0.4.2 | BSD License; BSD | ALLOWED |
 | pycparser | 3.0 | BSD-3-Clause | ALLOWED |
 | pydantic | 2.13.5 | MIT | ALLOWED |
@@ -88,7 +88,7 @@ inside each installed distribution (`*.dist-info/`) and at the listed upstream s
 | pyflakes | 3.4.0 | MIT License; MIT | ALLOWED |
 | Pygments | 2.21.0 | BSD-2-Clause | ALLOWED |
 | pyparsing | 3.3.3 | MIT | ALLOWED |
-| pypdf | 6.19.0 | BSD-3-Clause | ALLOWED |
+| pypdf | 6.21.4 | BSD-3-Clause | ALLOWED |
 | pytest | 9.0.3 | MIT | ALLOWED |
 | python-dateutil | 2.9.0.post0 | BSD License; Apache Software License; Dual License | ALLOWED |
 | python-docx | 1.2.0 | MIT License; MIT | ALLOWED |
@@ -122,7 +122,7 @@ inside each installed distribution (`*.dist-info/`) and at the listed upstream s
 | tokenizers | 0.22.2 | Apache Software License | ALLOWED |
 | toml | 0.10.2 | MIT License; MIT | ALLOWED |
 | torch | 2.10.0+cpu | BSD-3-Clause | ALLOWED |
-| tornado | 6.5.10 | Apache Software License; Apache-2.0 | ALLOWED |
+| tornado | 6.6.1 | Apache Software License; Apache-2.0 | ALLOWED |
 | tqdm | 4.70.1 | MPL-2.0 AND MIT | REVIEW |
 | transformers | 5.10.4 | Apache 2.0 License | ALLOWED |
 | typer | 0.27.2 | MIT | ALLOWED |

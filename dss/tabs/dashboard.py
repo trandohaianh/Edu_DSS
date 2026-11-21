@@ -205,6 +205,11 @@ def _render_grade_editor(df, wh):
             if edited_df.equals(df):
                 st.info("Chưa có thay đổi nào để lưu.")
             else:
+                if st.session_state.get("_lecturer_scope_applied"):
+                    # Giảng viên chỉ thấy lớp mình: ghép thay đổi vào bộ dữ liệu đầy đủ, không làm mất lớp khác.
+                    from dss.services.lecturer_scope import merge_scoped_edits
+
+                    edited_df = merge_scoped_edits(st.session_state.current_df, edited_df)
                 clear_all_session_state_for_new_data()
                 st.session_state.current_df = edited_df
                 _save_ok = wh is None  # Không có warehouse cấu hình -> không có gì để lưu thất bại

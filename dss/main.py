@@ -111,6 +111,12 @@ if _user is None:
 current_role = _user["role"]
 st.session_state["current_student_id"] = _user.get("student_id")
 
+# Bước 7, nhóm B: thông báo xử lý dữ liệu cá nhân + ghi nhận đồng ý trước khi vào app (dss/services/privacy_notice.py).
+from dss.services import privacy_notice
+
+if not privacy_notice.render_consent_gate(_user):
+    st.stop()
+
 from dss.core.runtime_mode import synthetic_data_allowed
 
 # Nhãn "dữ liệu mô phỏng" hiển thị theo CHÍNH dữ liệu của từng trang
@@ -380,6 +386,22 @@ if 'show_error_message' in st.session_state:
 
 df = st.session_state.current_df if 'current_df' in st.session_state else None
 
+# Bước 7, nhóm B: Giảng viên chỉ thấy sinh viên các lớp mình được gán (trang "Lớp học"). Lọc tại ĐÚNG một chỗ
+# này — mọi trang nhận `df` đã lọc; bản đầy đủ vẫn nằm trong session_state.current_df để ghép lại khi sửa điểm.
+from dss.services.lecturer_scope import scope_for_lecturer
+
+_scope = scope_for_lecturer(df, _user["username"], current_role)
+st.session_state["_lecturer_scope_applied"] = _scope.applied
+if _scope.applied:
+    df = _scope.df
+    if _scope.reason:
+        st.warning(f"Chưa có sinh viên nào để hiển thị: {_scope.reason} Admin gán lớp cho bạn ở trang Lớp học.")
+    else:
+        st.caption(
+            f"Bạn đang xem {_scope.n_students_visible} sinh viên thuộc {_scope.n_classes} lớp được gán "
+            f"(trên tổng {_scope.n_students_total} trong bộ dữ liệu)."
+        )
+
 
 def _render_no_data_state(action_text: str) -> None:
     """Trạng thái rỗng thống nhất khi trang cần dữ liệu lớp học nhưng chưa có."""
@@ -489,6 +511,11 @@ if True:  # khối nội dung trang (giữ thụt lề cũ để diff gọn)
                     # Dùng lại singleton `wh` (Phase 8) thay vì tạo DataWarehouse()
                     # mới mỗi 25s — fragment vẫn có quyền truy cập biến module-level
                     # này qua closure như phần còn lại của main.py.
+                    import time as _time
+
+                    _last = float(st.session_state.get("_auth_last_activity_at", 0) or 0)
+                    if _last and _time.time() - _last > auth_service.idle_timeout_seconds():
+                        st.rerun(scope="app")  # tự làm mới không tính là thao tác: hết hạn thì về cổng đăng nhập
                     render_dashboard_activity_feed(wh, st.session_state)
 
                 _dashboard_live_activity()
