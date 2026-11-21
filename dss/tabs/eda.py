@@ -1,4 +1,5 @@
 import hashlib
+import html as _h
 from datetime import datetime
 from io import BytesIO
 
@@ -19,6 +20,7 @@ from dss.core.feature_utils import (
 )
 from dss.core.trainers import DataPreprocessor
 from dss.core.utils import st_step_header
+from dss.security.export_safety import safe_for_spreadsheet
 from dss.security.upload_security import UploadValidationError, parse_tabular_upload
 from dss.services import model_service
 from dss.tabs import ui_kit
@@ -1113,7 +1115,7 @@ def data_exploration_tab(df, wh=None):
 
                     st.markdown(
                         f"<div style='padding:1rem;border-left:4px solid {corr_color};background:var(--bg-secondary);'>"
-                        f"<p><strong>He so tuong quan voi {target_for_analysis}:</strong></p>"
+                        f"<p><strong>He so tuong quan voi {_h.escape(str(target_for_analysis))}:</strong></p>"
                         f"<h3 style='color:{corr_color}'>{correlation:.4f}</h3>"
                         f"<p>Muc do: <strong>{corr_level}</strong></p></div>",
                         unsafe_allow_html=True,
@@ -1410,7 +1412,7 @@ def data_exploration_tab(df, wh=None):
                         exp = operation_explanations[operation]
                         st.markdown(
                             "<div class='dss-notice dss-notice--info'>"
-                            f"<div class='dss-notice-title'>Phép toán: {operation}</div>"
+                            f"<div class='dss-notice-title'>Phép toán: {_h.escape(str(operation))}</div>"
                             f"<p class='dss-notice-body' style='margin:4px 0;'><strong>Công thức:</strong> <code>{exp['formula']}</code></p>"
                             f"<p class='dss-notice-body' style='margin:4px 0;'><strong>Lý do:</strong> {exp['why']}</p>"
                             f"<p class='dss-notice-body' style='margin:4px 0;'><strong>Ảnh hưởng:</strong> {exp['impact']}</p></div>",
@@ -1624,7 +1626,7 @@ def data_exploration_tab(df, wh=None):
         # Xuất Excel
         buffer = BytesIO()
         with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
-            final_df.to_excel(writer, index=False, sheet_name='Processed Data')
+            safe_for_spreadsheet(final_df).to_excel(writer, index=False, sheet_name='Processed Data')
 
         st.download_button(
             label="📥 Xuất file Excel (.xlsx)",

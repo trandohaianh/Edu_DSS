@@ -85,6 +85,15 @@ def seed_demo_users(session, org: Organization, roles: dict[str, Role]) -> None:
 
 
 def run_seed() -> None:
+    # Bước 7 (21/11/2026): tạo tài khoản demo có mật khẩu đã biết (admin/admin123...) — KHÔNG bao giờ
+    # được chạy trên CSDL production. Dùng đúng điều kiện của auth_service (runtime_mode).
+    from dss.core.runtime_mode import demo_accounts_seed_allowed
+
+    if not demo_accounts_seed_allowed():
+        raise SystemExit(
+            "Từ chối seed: tài khoản demo chỉ được tạo khi EDUDSS_ENV=development/test và không bật "
+            "EDUDSS_PUBLIC_DEMO. Không đặt EDUDSS_ENV thì hệ thống coi là production."
+        )
     with session_scope() as session:
         roles = seed_roles(session)
         org = seed_demo_organization(session)

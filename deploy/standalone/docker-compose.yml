@@ -22,6 +22,7 @@ x-app: &app
       required: false
   environment:
     EDUDSS_ENV: development
+    EDUDSS_CLIENT_IP_HEADER: X-Real-IP  # do Caddy ghi đè (Caddyfile, header_up), dùng cho khoá đăng nhập
     EDUDSS_PUBLIC_DEMO: "1"
     EDUDSS_MODE: DEMO_SYNTHETIC
     EDUDSS_DATA_ROOT: /app/data_warehouse

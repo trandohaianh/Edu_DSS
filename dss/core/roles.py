@@ -256,4 +256,5 @@ TAB_ACCESS = {
 
 
 def filter_tabs_for_role(all_tabs, role):
-    return [t for t in all_tabs if role in TAB_ACCESS.get(t, set(ROLES))]
+    # Bước 7 (21/11/2026): trang CHƯA khai báo trong TAB_ACCESS thì không ai thấy (trước đây: mọi vai trò).
+    return [t for t in all_tabs if role in TAB_ACCESS.get(t, set())]

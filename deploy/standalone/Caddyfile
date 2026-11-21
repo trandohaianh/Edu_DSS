@@ -42,6 +42,9 @@
 		# stream_close_delay giữ kết nối WebSocket đang mở khi Caddy reload cấu hình,
 		# để người dùng không bị mất phiên Streamlit mỗi lần đổi Caddyfile.
 		reverse_proxy app:8501 {
+			# Bước 7 (21/11/2026): Caddy GHI ĐÈ X-Real-IP bằng IP thật của kết nối (client không giả được);
+			# app đọc nó qua EDUDSS_CLIENT_IP_HEADER để khoá đăng nhập theo từng máy, không theo IP proxy chung.
+			header_up X-Real-IP {remote_host}
 			health_uri /_stcore/health
 			health_interval 30s
 			stream_close_delay 5m

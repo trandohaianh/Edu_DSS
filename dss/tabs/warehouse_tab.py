@@ -1,5 +1,7 @@
 """Shared runtime imports for Streamlit tab modules."""
 
+import html as _h
+
 from dss.config import *  # noqa: F403
 from dss.core.runtime_mode import synthetic_data_allowed
 from dss.core.target_utils import is_id_like
@@ -185,8 +187,8 @@ def warehouse_tab(warehouse, role=None):
                             badge_color = "#10B981" if ev.status == "processed" else "#EF4444"
                             st.markdown(
                                 f"<div style='border-left: 3px solid {badge_color}; background:var(--bg-secondary); padding:0.4rem 0.6rem; border-radius:4px; margin-bottom:4px; font-size:var(--fs-caption);'>"
-                                f"<b>[{ev.source}]</b> {ev.student_id} · <b>{ev.event_type}</b> · {ev.description} "
-                                f"<span style='color:var(--text-secondary); float:right;'>{ev.timestamp}</span>"
+                                f"<b>[{_h.escape(str(ev.source))}]</b> {_h.escape(str(ev.student_id))} · <b>{_h.escape(str(ev.event_type))}</b> · {_h.escape(str(ev.description))} "
+                                f"<span style='color:var(--text-secondary); float:right;'>{_h.escape(str(ev.timestamp))}</span>"
                                 f"</div>",
                                 unsafe_allow_html=True,
                             )
@@ -640,9 +642,9 @@ def warehouse_tab(warehouse, role=None):
             for item in history:
                 st.markdown(
                     '<div class="history-item">'
-                    f"<strong>Model:</strong> {item['model_name']}<br>"
-                    f"<strong>Training ID:</strong> <code>{item['training_id']}</code><br>"
-                    f"<strong>Time:</strong> {item['trained_at']}</div>",
+                    f"<strong>Model:</strong> {_h.escape(str(item['model_name']))}<br>"
+                    f"<strong>Training ID:</strong> <code>{_h.escape(str(item['training_id']))}</code><br>"
+                    f"<strong>Time:</strong> {_h.escape(str(item['trained_at']))}</div>",
                     unsafe_allow_html=True,
                 )
 
@@ -659,9 +661,9 @@ def warehouse_tab(warehouse, role=None):
                 st.markdown(
                     '<div class="history-item" style="border-left:4px solid var(--primary)">'
                     f"<strong>Type:</strong> {prediction_type}<br>"
-                    f"<strong>Model:</strong> {item['metadata'].get('model_name', 'unknown')}<br>"
-                    f"<strong>Result:</strong> {predicted_value_display}<br>"
-                    f"<strong>Time:</strong> {item['predicted_at']}</div>",
+                    f"<strong>Model:</strong> {_h.escape(str(item['metadata'].get('model_name', 'unknown')))}<br>"
+                    f"<strong>Result:</strong> {_h.escape(str(predicted_value_display))}<br>"
+                    f"<strong>Time:</strong> {_h.escape(str(item['predicted_at']))}</div>",
                     unsafe_allow_html=True,
                 )
 

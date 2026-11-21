@@ -18,12 +18,24 @@ _PATTERNS = (
     (re.compile(r"(?i)\bSV\d{3,}\b"), "SV[REDACTED]"),
 )
 
+# Bước 7 (21/11/2026): tên đăng nhập (có thể là mã SV không theo mẫu "SV...", hoặc tên thật) không
+# được ghi nguyên văn. Thay bằng mã băm ngắn: vẫn lần theo được cùng một tài khoản trong log
+# (ví dụ nhiều lần đăng nhập sai) mà không lộ tên.
+_USERNAME_RE = re.compile(r"(?i)\b(username|user_id|user)=([^\s,;]+)")
+
+
+def _hash_username(match: re.Match) -> str:
+    import hashlib
+
+    digest = hashlib.sha256(match.group(2).strip("'\"").lower().encode("utf-8")).hexdigest()[:10]
+    return f"{match.group(1)}=u#{digest}"
+
 
 def redact_text(value: object) -> str:
     text = str(value)
     for pattern, replacement in _PATTERNS:
         text = pattern.sub(replacement, text)
-    return text
+    return _USERNAME_RE.sub(_hash_username, text)
 
 
 class RedactingFormatter(logging.Formatter):

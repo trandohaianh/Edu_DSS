@@ -19,6 +19,7 @@ x-app: &app
   env_file: .env
   environment:
     EDUDSS_ENV: development
+    EDUDSS_CLIENT_IP_HEADER: X-Real-IP  # do Caddy ghi đè (Caddyfile, header_up), dùng cho khoá đăng nhập
     EDUDSS_PUBLIC_DEMO: "1"
     EDUDSS_MODE: DEMO_SYNTHETIC
     EDUDSS_DATA_ROOT: /app/data_warehouse
@@ -59,7 +60,7 @@ services:
       edudss: {condition: service_started}
 
   caddy:
-    image: caddy:2
+    image: caddy:2.10.2-alpine@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d  # ghim phiên bản + digest (bước 7, 21/11/2026), giống deploy/standalone
     profiles: [standalone]
     restart: unless-stopped
     ports: ["80:80", "443:443"]

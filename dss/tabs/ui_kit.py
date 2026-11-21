@@ -125,7 +125,9 @@ STATUS_PRESETS = {
 def badge_html(text, kind="neutral"):
     """Chuỗi HTML 1 nhãn trạng thái (chấm màu + chữ) — ghép vào markdown khác."""
     variant = _STATUS_KINDS.get(kind, "neutral")
-    label = _html.escape(strip_decoration(text)) if "<" not in str(text) else strip_decoration(text)
+    # Bước 7 (21/11/2026): LUÔN thoát ký tự — trước đây bỏ qua khi chuỗi có "<" (lỗ XSS); không nơi
+    # gọi nào cố ý truyền HTML vào nhãn.
+    label = _html.escape(strip_decoration(text))
     return f"<span class='dss-status dss-status--{variant}'>{label}</span>"
 
 
@@ -433,8 +435,19 @@ def source_citation_badge(source_name: str, section: str = None, page: str = Non
         details.append(section)
     if page:
         details.append(f"trang {page}" if not str(page).lower().startswith("slide") else str(page))
-    detail_str = f" ({', '.join(details)})" if details else ""
-    return f"<span class='dss-citation'>{source_name}{detail_str}</span>"
+    detail_str = f" ({', '.join(str(d) for d in details)})" if details else ""
+    # Tên tài liệu/bài giảng là dữ liệu do người dùng tải lên → thoát ký tự (bước 7, 21/11/2026).
+    return f"<span class='dss-citation'>{_html.escape(str(source_name))}{_html.escape(detail_str)}</span>"
+
+
+def markdown_keep_br_only(text: str) -> str:
+    """Markdown an toàn để render với ``unsafe_allow_html=True``: thoát MỌI thẻ HTML (``&`` và ``<``)
+    rồi chỉ khôi phục thẻ xuống dòng ``<br>`` (bảng markdown cần nó để xuống dòng trong ô).
+    Giữ nguyên ``>`` để trích dẫn markdown vẫn hiển thị. Dùng cho văn bản do AI sinh (bước 7, 21/11/2026)."""
+    import re as _re
+
+    escaped = str(text or "").replace("&", "&amp;").replace("<", "&lt;")
+    return _re.sub(r"&lt;br\s*/?>", "<br>", escaped, flags=_re.I)
 
 
 def coming_soon(title, description, icon=None):

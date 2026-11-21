@@ -18,6 +18,7 @@ from sklearn.preprocessing import LabelEncoder
 
 from dss.config import OPENPYXL_AVAILABLE, XLSXWRITER_AVAILABLE
 from dss.core.utils import _safe_n_splits, st_step_header
+from dss.security.export_safety import safe_for_spreadsheet
 
 try:
     # imbalanced-learn (tùy chọn) cho SMOTE/Borderline/ADASYN
@@ -676,7 +677,7 @@ def to_excel(df):
         return None
     try:
         with pd.ExcelWriter(output, engine=engine) as writer:
-            df.to_excel(writer, index=False, sheet_name='Predictions')
+            safe_for_spreadsheet(df).to_excel(writer, index=False, sheet_name='Predictions')
         return output.getvalue()
     except Exception as exc:
         st.error(f"⚠️ Không thể tạo file Excel: {exc}")
@@ -776,7 +777,7 @@ def create_detailed_evaluation_excel(results, evaluation_frames, target_col, mod
 
             if metrics_data:
                 metrics_df = pd.DataFrame(metrics_data)
-                metrics_df.to_excel(writer, index=False, sheet_name='Tổng quan Metrics')
+                safe_for_spreadsheet(metrics_df).to_excel(writer, index=False, sheet_name='Tổng quan Metrics')
 
             # Sheet 2-N: So sánh Thực tế vs Dự đoán cho từng mô hình
             for name, eval_df in evaluation_frames.items():
@@ -792,7 +793,7 @@ def create_detailed_evaluation_excel(results, evaluation_frames, target_col, mod
                         eval_df = eval_df.sort_values('Sai số tuyệt đối', ascending=False)
 
                         sheet_name = name[:31] if len(name) <= 31 else name[:28] + '...'  # Excel sheet name limit
-                        eval_df.to_excel(writer, index=False, sheet_name=sheet_name)
+                        safe_for_spreadsheet(eval_df).to_excel(writer, index=False, sheet_name=sheet_name)
 
         return output.getvalue()
     except Exception as exc:

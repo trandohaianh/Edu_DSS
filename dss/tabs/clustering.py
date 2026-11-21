@@ -1,5 +1,7 @@
 """Shared runtime imports for Streamlit tab modules."""
 
+import html as _h
+
 import plotly.graph_objects as go
 
 from dss.config import *  # noqa: F403
@@ -766,9 +768,9 @@ def clustering_hybrid_tab(df, wh=None, role="Giảng viên / CVHT", current_stud
                             ].tolist()
                             st.markdown(
                                 "<div style='background:var(--surface);color:var(--text-primary);padding:12px 14px;border-radius:10px;margin-top:8px;border:1px solid var(--border);'>"
-                                f"<span style='color:var(--text-primary) !important;'><b>📌 Tóm tắt hành động cụm {cluster_to_analyze}:</b></span><br>"
-                                f"<span style='color:var(--text-primary) !important;'>- Ưu tiên cao: {', '.join(high_priority[:4]) if high_priority else 'Không có'}</span><br>"
-                                f"<span style='color:var(--text-primary) !important;'>- Ưu tiên trung bình: {', '.join(medium_priority[:4]) if medium_priority else 'Không có'}</span><br>"
+                                f"<span style='color:var(--text-primary) !important;'><b>📌 Tóm tắt hành động cụm {_h.escape(str(cluster_to_analyze))}:</b></span><br>"
+                                f"<span style='color:var(--text-primary) !important;'>- Ưu tiên cao: {_h.escape(', '.join(map(str, high_priority[:4]))) if high_priority else 'Không có'}</span><br>"
+                                f"<span style='color:var(--text-primary) !important;'>- Ưu tiên trung bình: {_h.escape(', '.join(map(str, medium_priority[:4]))) if medium_priority else 'Không có'}</span><br>"
                                 f"<span style='color:var(--text-primary) !important;'>- Quy mô cụm: {len(df_cluster_only)} sinh viên</span>"
                                 "</div>",
                                 unsafe_allow_html=True,

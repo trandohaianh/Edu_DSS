@@ -974,7 +974,15 @@ def _render_ai_chat_section(profile: StudentCareerProfile, ranked, role, student
 
         chat_auto = llm_service.resolve_auto_provider(llm_integration) if llm_integration else None
         if chat_auto:
+            from dss.services.llm_gateway import GatewayError, LLMGateway
+            from dss.services.output_guard import guard_stream
+
             try:
+                # Bước 7 (21/11/2026): trước đây gọi provider thẳng, bỏ qua hạn ngạch người dùng, giới hạn
+                # tần suất, trần ngân sách AI và bộ lọc lời khuyên có hại. Nay đi qua cùng các cổng đó.
+                LLMGateway(llm_integration).check_quota_and_rate_limit(
+                    profile.student_pseudonym, role or "Sinh viên", prompt
+                )
                 with st.spinner("AI đang phân tích hồ sơ hướng nghiệp..."):
                     kwargs = {"model_name": chat_auto["model_name"]}
                     if chat_auto["provider_key"] in ("gemini", "groq", "openai"):
@@ -984,7 +992,7 @@ def _render_ai_chat_section(profile: StudentCareerProfile, ranked, role, student
 
                         kwargs["base_url"] = ollama_base_url()
                     stream = llm_integration.call_ai_provider(prompt, provider=chat_auto["provider_key"], **kwargs)
-                    answer = "".join(stream)
+                    answer = "".join(guard_stream(stream, role=role or "Sinh viên", request_type="career_advisor_chat"))
 
                 token_tracker.record_usage(
                     user_id=profile.student_pseudonym,
@@ -995,6 +1003,9 @@ def _render_ai_chat_section(profile: StudentCareerProfile, ranked, role, student
                     input_tokens=len(prompt) // 4,
                     output_tokens=len(answer) // 4,
                 )
+            except GatewayError as exc:
+                # Hết hạn ngạch / chạm trần ngân sách / quá tần suất: không gọi AI, trả lời theo dữ liệu.
+                answer = f"⚠️ {exc}\n\n" + generate_offline_grounded_answer(question, profile, ranked)
             except Exception:
                 _logger.exception("Lỗi kết nối AI Provider — chuyển sang Deterministic Grounded Advisor")
                 answer = generate_offline_grounded_answer(question, profile, ranked)

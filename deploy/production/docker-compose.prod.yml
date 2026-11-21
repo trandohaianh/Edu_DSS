@@ -63,6 +63,7 @@ services:
     restart: always
     environment:
       EDUDSS_ENV: production
+      EDUDSS_CLIENT_IP_HEADER: X-Real-IP  # do Caddy ghi đè (Caddyfile, header_up), dùng cho khoá đăng nhập
       EDUDSS_MODE: ${EDUDSS_MODE:-REAL_LMS}
       EDUDSS_ORGANIZATION_ID: ${EDUDSS_ORGANIZATION_ID:?set EDUDSS_ORGANIZATION_ID}
       DATABASE_URL: postgresql+psycopg2://${DB_APP_USER}:${DB_APP_PASSWORD}@postgres:5432/${DB_NAME}
@@ -106,7 +107,7 @@ services:
       start_period: 120s
 
   proxy:
-    image: caddy:2
+    image: caddy:2.10.2-alpine@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d  # ghim phiên bản + digest (bước 7, 21/11/2026), giống deploy/standalone
     restart: always
     ports:
       - "80:80"

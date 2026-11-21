@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html as _h
 from datetime import datetime
 from io import BytesIO
 
@@ -28,6 +29,7 @@ from dss.core.data_helpers import (
 )
 from dss.core.logging_config import get_logger
 from dss.core.models import AI_MODEL_CATALOG, _check_ollama_running, ollama_base_url
+from dss.security.export_safety import safe_for_spreadsheet
 from dss.services import (
     admin_ai_config,
     ai_router,
@@ -787,7 +789,7 @@ def ai_advisor_tab(df, llm_integration, role=None, current_student_id=None, wh=N
         with st.container(border=True):
             st.markdown("##### Phân tích điểm yếu")
             if weaknesses_llm:
-                weakness_md = "<br>".join([f"- {w}" for w in weaknesses_llm[:8]])
+                weakness_md = "<br>".join([f"- {_h.escape(str(w))}" for w in weaknesses_llm[:8]])
                 st.markdown(f"**Điểm yếu phát hiện ({len(weaknesses_llm)}):**")
                 st.markdown(weakness_md, unsafe_allow_html=True)
             else:
@@ -1343,7 +1345,7 @@ def ai_advisor_tab(df, llm_integration, role=None, current_student_id=None, wh=N
                     st.markdown(
                         f"<div style='padding:0.5rem 0.7rem;border:1px solid var(--border);border-radius:8px;"
                         f"margin-bottom:0.5rem;font-size:var(--fs-support);color:var(--text-primary);background:var(--bg-secondary);'>"
-                        f"📄 {_src}</div>",
+                        f"📄 {_h.escape(str(_src))}</div>",
                         unsafe_allow_html=True,
                     )
             elif st.session_state.get("_last_rag_retrieval_status") in (
@@ -1674,8 +1676,11 @@ def ai_advisor_tab(df, llm_integration, role=None, current_student_id=None, wh=N
                     # Sau khi stream xong, nếu phát hiện có <br>, render lại đúng 1 lần cuối có
                     # cho phép HTML để bảng hiển thị đúng.
                     if plan and "<br" in plan.lower():
+                        # Bước 7 (21/11/2026): KHÔNG render HTML thô của AI (XSS qua tài liệu RAG/câu
+                        # hỏi). Thoát mọi thẻ rồi chỉ khôi phục đúng thẻ xuống dòng <br>.
+                        _safe_plan = ui_kit.markdown_keep_br_only(plan)
                         with plan_placeholder.container():
-                            st.markdown(plan, unsafe_allow_html=True)
+                            st.markdown(_safe_plan, unsafe_allow_html=True)
 
                 # H-2: dùng LẠI đúng tập tài liệu đã truy xuất 1 lần ở trên
                 # (`_plan_relevant_docs`) — KHÔNG gọi lại retrieve_unified_context
@@ -1771,7 +1776,7 @@ def ai_advisor_tab(df, llm_integration, role=None, current_student_id=None, wh=N
                                 }
                             ]
                         )
-                        plan_df_export.to_excel(writer, index=False, sheet_name='Study Plan')
+                        safe_for_spreadsheet(plan_df_export).to_excel(writer, index=False, sheet_name='Study Plan')
 
                     st.download_button(
                         label="📥 Xuất Excel (.xlsx)",

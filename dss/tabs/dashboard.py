@@ -7,6 +7,7 @@ from dss.core.data_helpers import feature_label
 from dss.core.init_app import clear_all_session_state_for_new_data
 from dss.core.roles import ALL_TABS, HOME_TAB_LABEL, filter_tabs_for_role
 from dss.core.target_utils import is_id_like
+from dss.security.export_safety import safe_for_spreadsheet
 from dss.services import model_service
 from dss.services.model_service import compute_lecturer_dashboard_overview
 from dss.tabs import ui_kit
@@ -568,7 +569,7 @@ def main_dashboard_tab(df, wh=None):
             with _hdr_export:
                 st.download_button(
                     "📥 Export",
-                    data=_table_df.to_csv(index=False).encode("utf-8-sig"),
+                    data=safe_for_spreadsheet(_table_df).to_csv(index=False).encode("utf-8-sig"),
                     file_name="sinh_vien_rui_ro_cao.csv",
                     mime="text/csv",
                     key="export_highrisk_csv",

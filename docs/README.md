@@ -8,6 +8,7 @@
 | `operations/` | Vận hành: sao lưu/khôi phục, quy trình phát hành, khôi phục Streamlit, xử lý dữ liệu cá nhân trong lịch sử git. |
 | `planning/` | Kế hoạch, danh sách việc cần làm (TODO) và ghi chép quá trình phát triển (lịch sử, không phải đặc tả hiện hành). |
 | `requirements/` | Yêu cầu sản phẩm (bản nháp): `PRD.md`, phạm vi bản đầu `MVP_SCOPE.md`, tiêu chí nghiệm thu `ACCEPTANCE_CRITERIA.md`. |
+| `security/` | Checklist bảo mật bước 7 và rủi ro còn tồn tại (`SECURITY_CHECKLIST.md`). |
 | `ux/` | Bản đồ màn hình theo vai trò (`SCREEN_MAP.md`, bản nháp). |
 | `CONVENTIONS.md` | Quy tắc đặt tên, lint/format, nhánh và commit. |
 

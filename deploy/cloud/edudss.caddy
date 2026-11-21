@@ -19,6 +19,9 @@ __DOMAIN__ {
 	}
 	handle {
 		reverse_proxy edudss:8501 {
+			# Bước 7 (21/11/2026): Caddy GHI ĐÈ X-Real-IP bằng IP thật của kết nối (client không giả được);
+			# app đọc nó qua EDUDSS_CLIENT_IP_HEADER để khoá đăng nhập theo từng máy, không theo IP proxy chung.
+			header_up X-Real-IP {remote_host}
 			health_uri /_stcore/health
 			health_interval 30s
 		}

@@ -19,12 +19,14 @@ import streamlit as st
 from dss.core.data_helpers import feature_label
 from dss.core.logging_config import get_logger
 from dss.services import lecturer_reports as lr
+from dss.services.auth_service import require_role
 from dss.services.model_explainability import get_production_feature_importance
 from dss.services.model_service import compute_lecturer_dashboard_overview
 from dss.tabs import ui_kit
 
 _logger = get_logger(__name__)
 AI_TAB = "🤖 Tư vấn — AI (LLM)"
+LECTURER_ROLE = "Giảng viên / CVHT"
 _PLOT_CONFIG = {"displayModeBar": False}
 _RISK_COLORS = {"Nguy cơ cao": "#D94B3F", "Nguy cơ trung bình": "#F3B21C", "Nguy cơ thấp": "#17A673"}
 
@@ -101,6 +103,7 @@ def _bar(df, x, y, colors=None, height=300, horizontal=False):
 
 
 # ------------------------------------------------------------------ 1. Phân tích rủi ro
+@require_role(LECTURER_ROLE)  # chặn cả ở tầng hàm, không chỉ dựa vào menu (bước 7)
 def render_risk_analysis_tab(df, wh) -> None:
     ui_kit.section_header("Phân tích rủi ro", "Theo dõi nhóm nguy cơ và các yếu tố ảnh hưởng chính của lớp.")
     if _need_data(df, wh, "phân tích rủi ro"):
@@ -164,6 +167,7 @@ def render_risk_analysis_tab(df, wh) -> None:
 
 
 # ------------------------------------------------------------------ 2. Lịch sử tư vấn
+@require_role(LECTURER_ROLE)  # chặn cả ở tầng hàm, không chỉ dựa vào menu (bước 7)
 def render_consultation_history_tab(wh, current_username: str | None) -> None:
     ui_kit.section_header("Lịch sử tư vấn", "Theo dõi các phiên tư vấn đã lưu.")
     if wh is None:
@@ -212,6 +216,7 @@ def render_consultation_history_tab(wh, current_username: str | None) -> None:
 
 
 # ------------------------------------------------------------------ 3. Báo cáo
+@require_role(LECTURER_ROLE)  # chặn cả ở tầng hàm, không chỉ dựa vào menu (bước 7)
 def render_reports_tab(df, wh) -> None:
     ui_kit.section_header("Báo cáo", "Tổng hợp rủi ro, dự đoán và tư vấn của lớp.")
     if _need_data(df, wh, "xem báo cáo"):

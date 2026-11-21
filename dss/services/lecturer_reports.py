@@ -16,6 +16,8 @@ from datetime import date, datetime
 
 import pandas as pd
 
+from dss.security.export_safety import safe_for_spreadsheet
+
 RISK_LEVELS = ("cao", "trung bình", "thấp")
 RISK_LABELS = {"cao": "Nguy cơ cao", "trung bình": "Nguy cơ trung bình", "thấp": "Nguy cơ thấp"}
 UNKNOWN_ACTOR = "không rõ"
@@ -238,7 +240,8 @@ def build_report_workbook(sheets: dict[str, pd.DataFrame]) -> bytes | None:
     buf = io.BytesIO()
     with pd.ExcelWriter(buf, engine=engine) as writer:
         for name, frame in sheets.items():
-            frame = frame if frame is not None else pd.DataFrame()
+            # Chống chèn công thức Excel (bước 7, 21/11/2026).
+            frame = safe_for_spreadsheet(frame if frame is not None else pd.DataFrame())
             sheet = str(name)[:31]
             frame.to_excel(writer, sheet_name=sheet, index=False)
             ws = writer.sheets[sheet]

@@ -127,4 +127,7 @@ def test_caller_secret_never_reaches_the_log_file_when_caller_is_correct(tmp_pat
     log_file = tmp_path / "logs" / "technical.log"
     content = log_file.read_text(encoding="utf-8")
     assert secret_password not in content
-    assert "someuser" in content  # the username itself is fine to log
+    # Bước 7 (21/11/2026): tên đăng nhập KHÔNG còn được ghi nguyên văn — thay bằng mã băm ổn định
+    # (dss/security/log_redaction.py) để vẫn lần theo được cùng một tài khoản trong log.
+    assert "someuser" not in content
+    assert "username=u#" in content
