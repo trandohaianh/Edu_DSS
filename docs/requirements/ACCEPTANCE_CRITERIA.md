@@ -1,6 +1,7 @@
 # EduDSS — Tiêu chí chấp nhận (đo được)
 
-> **Trạng thái: BẢN NHÁP — chờ chủ dự án duyệt** (soạn 21/11/2026, dựa trên commit 6e9710d)
+> **Trạng thái: BẢN NHÁP — đã cập nhật theo quyết định của chủ dự án ngày 21/11/2026.** Còn chờ: RPO/RTO
+> (§5), AC-ML-11/12 có chặn bàn giao không (§7). Soạn dựa trên commit 6e9710d.
 
 Tài liệu này biến các biên bản nghiệm thu đã có trong `reports/` thành **tiêu chí đo được**. Mỗi tiêu chí
 có mã riêng, cách kiểm, bằng chứng đang có và trạng thái. Không có con số nào được tự đặt ra: ngưỡng lấy từ
@@ -35,6 +36,7 @@ Tài liệu liên quan: [PRD.md](PRD.md) · [MVP_SCOPE.md](MVP_SCOPE.md) ·
 | AC-SV-06 | Lịch sử tư vấn chỉ hiện các lượt của đúng mã SV đang đăng nhập | So sánh lịch sử của 2 tài khoản SV | `reports/final_ui_functional_audit/STUDENT_ACCEPTANCE.md:33` | Đạt có bằng chứng |
 | AC-SV-07 | Làm bài đánh giá trong lớp: không thấy đáp án, nộp trùng không tạo 2 lượt, kế hoạch gắn theo lớp | Làm bài, bấm nộp 2 lần, xem kế hoạch | `reports/stage23/ACCEPTANCE.md:14-15`, `:55` | Đạt có bằng chứng (thí điểm kỹ thuật) |
 | AC-SV-08 | Màn cảnh báo rủi ro hiện quy tắc đơn giản "G1 < 10" ngay cạnh kết quả mô hình. Eval ghi rằng ở giữa kỳ mô hình **không thắng** quy tắc này | Mở màn rủi ro, tìm dòng quy tắc | Yêu cầu nằm ở `evals/README.md:79-80` và `evals/thresholds.json:39`. Không tìm thấy chuỗi "G1 < 10" trong `dss/` | Chưa có bằng chứng |
+| AC-SV-09 | **(mới 21/11)** Trên điện thoại (375×812 và 430×932): Trang chủ, Dự đoán từ dữ liệu của mình, Kế hoạch học tập, Lịch sử tư vấn không tràn ngang, chữ ≥ 14px, nút bấm cao ≥ 40px, đăng nhập được | Playwright ở 2 khổ, so `scrollWidth` với `clientWidth`; thêm vào `tests/e2e/test_c1_3_ui_journeys_e2e.py` | Chưa có (xem [SCREEN_MAP.md](../ux/SCREEN_MAP.md) §6) | Chưa có bằng chứng |
 
 ## 3. Giảng viên / CVHT
 
@@ -48,6 +50,9 @@ Tài liệu liên quan: [PRD.md](PRD.md) · [MVP_SCOPE.md](MVP_SCOPE.md) ·
 | AC-GV-06 | "Dự đoán — Hàng loạt" xuất được kết quả cho cả lớp | Chạy dự đoán hàng loạt, tải tệp kết quả | `dss/main.py:779-797`, `dss/tabs/ml_hub.py:1026`. Biên bản giảng viên không có dòng này | Chưa có bằng chứng |
 | AC-GV-07 | Soạn bài MCQ, xuất bản thành phiên bản không sửa được, xem tiến độ lớp | Soạn → xuất bản → sửa thử bản đã xuất bản | `reports/stage23/ACCEPTANCE.md:12-13`, `:55` | Đạt có bằng chứng (thí điểm kỹ thuật) |
 | AC-GV-08 | Duyệt tài liệu chỉ cho môn giảng viên phụ trách | Đăng nhập GV môn A, thử duyệt tài liệu môn B | `dss/tabs/knowledge_base.py:422`, chú thích `dss/core/roles.py:212-217` | Chưa có bằng chứng |
+| AC-GV-09 | **(mới 21/11)** Trang **Báo cáo** của giảng viên có đủ các khối trong `ui_reference/lecturer/reports.html`, chỉ hiện dữ liệu lớp mình phụ trách | Đối chiếu mockup; đăng nhập GV khác lớp để kiểm phân quyền | Trang chưa có code | Chưa có bằng chứng |
+| AC-GV-10 | **(mới 21/11)** Trang **Lịch sử** của giảng viên theo `ui_reference/lecturer/history.html`, có lọc theo thời gian và sinh viên | Như trên | Trang chưa có code | Chưa có bằng chứng |
+| AC-GV-11 | **(mới 21/11)** Trang **Phân tích rủi ro** theo `ui_reference/lecturer/risk_analysis.html`. Số SV rủi ro cao khớp với Dashboard (`dss/tabs/dashboard.py:540`) | So số liệu 2 trang trên cùng dataset | Trang chưa có code | Chưa có bằng chứng |
 
 ## 4. Quản trị (Admin, Platform Admin)
 
@@ -92,14 +97,12 @@ Tài liệu liên quan: [PRD.md](PRD.md) · [MVP_SCOPE.md](MVP_SCOPE.md) ·
 | AC-HN-01 | Dự đoán theo lô 20.000 bản ghi: **< 5 giây và > 5.000 bản ghi/giây**. Đây là dự đoán theo lô, **không phải** 20.000 người dùng đồng thời | Chạy benchmark 20K | Ngưỡng ở `reports/production_readiness/ABC_ONBOARDING_INTEGRATION.md:54`. Kết quả đo dao động giữa các lần (xem Mâu thuẫn số 4) | Đạt có bằng chứng ở phần lớn các lần đo, nhưng **không ổn định** |
 | AC-HN-02 | 50 thao tác CSDL đồng thời: p95 ≤ 500 ms, lỗi ≤ 1% (SLO thử nghiệm ở `reports/production_readiness/WORKSTREAM_D_SCALE_RECOVERY.md:124-126`) | `tests/load/test_concurrency_capacity.py` | `reports/final_acceptance/COMMERCIAL_RELEASE_READINESS.md:222` (50 đồng thời, p95 452 ms, 0 lỗi, 1 máy dev) | Đạt có bằng chứng (xem Mâu thuẫn số 5) |
 | AC-HN-03 | Chạy liên tục 300 giây không lỗi | `tests/load/test_soak.py` | `reports/final_acceptance/COMMERCIAL_RELEASE_READINESS.md:223` (70.887 thao tác, 0 lỗi; **không phải** 72 giờ) | Đạt có bằng chứng |
-| AC-HN-04 | Số **phiên trình duyệt** đồng thời đạt mức mục tiêu của trường | Thử tải bằng trình duyệt thật | `reports/final_acceptance/COMMERCIAL_RELEASE_READINESS.md:224` ghi "never measured" | Chưa có bằng chứng |
+| AC-HN-04 | **50 phiên trình duyệt** đồng thời (mức đã chốt 21/11) chạy được, lỗi ≤ 1% (như AC-HN-02). ⏳ Ngưỡng thời gian phản hồi cho trình duyệt: repo chưa có số, cần chốt khi đo | Thử tải bằng trình duyệt thật | `reports/final_acceptance/COMMERCIAL_RELEASE_READINESS.md:224` ghi "never measured" | Chưa có bằng chứng |
 | AC-HN-05 | Không tràn ngang trang ở 1920×1080, 1440×900, 1366×768 và 1024×768 | Playwright so `scrollWidth` với `clientWidth`; `tests/e2e/test_c1_3_ui_journeys_e2e.py:141-142` | `reports/final_ui_functional_audit/RESPONSIVE_ACCESSIBILITY_REPORT.md:3-13`, `reports/final_acceptance/C1_3_UI_UX_ACCEPTANCE.md:106-107` | Đạt có bằng chứng |
 | AC-HN-06 | Container khởi động "healthy"; `/healthz` và `/readyz` trả 200 khi sẵn sàng | `docker compose ps`; gọi 2 đường dẫn (`dss/core/health_server.py:57-89`) | `reports/final_acceptance/COMMERCIAL_RELEASE_READINESS.md:37` (container smoke, readiness ready); `reports/BO_KHUNG_DU_AN.md:165-168` | Đạt có bằng chứng |
 
-> ⏳ **CHỜ CHỦ DỰ ÁN CHỌN: mức người dùng đồng thời cho AC-HN-04.**
-> - Repo chưa có con số mục tiêu (PRD §2, ⏳ thứ hai).
-> - **(đề xuất)** ≤ 50 người dùng đồng thời cho thí điểm 1 trường, giống đề xuất ở PRD, và phải đo bằng
->   phiên trình duyệt thật trước khi hứa.
+> ✅ **ĐÃ CHỐT (21/11/2026): AC-HN-04 dùng mức 50 phiên trình duyệt đồng thời** (thí điểm 1 trường, PRD §2).
+> - Phải đo bằng phiên trình duyệt thật trên máy chủ sẽ dùng, trước khi bàn giao.
 
 ## 7. Chất lượng mô hình và AI
 
@@ -122,6 +125,11 @@ Dữ liệu ML là cohort mô phỏng 2.000 SV (huấn luyện) và 1.000 SV đ�
 | AC-ML-10 | Bộ holdout an toàn: lời khuyên có hại v1 ≥ 0,60, v2 ≥ 0,55; chặn injection v1 và v2 ≥ 0,85; gắn nhầm v2 ≤ 0,10 (`evals/thresholds.json:16-19`, `:29-31`) | Như trên | Từ khoá + bộ phân loại: 75% / 65%; 100% / 93,3%; 0% (`evals/README.md:52-55`) | Đạt có bằng chứng (xem Mâu thuẫn số 3) |
 | AC-ML-11 | Tập kiểm tra an toàn do **bên thứ ba** viết, trước khi đưa số liệu cho khách hàng | Thuê/nhờ người ngoài viết tập mới | README ghi mọi tập do cùng một người viết (`evals/README.md:61-62`) | Chưa có bằng chứng |
 | AC-ML-12 | Mô hình được kiểm định trên sinh viên thật của trường thí điểm | Thí điểm với dữ liệu trường | `README.md:171-182`; `docs/architecture/EDUDSS_MINISTRY_ROADMAP.md:60` | Chưa có bằng chứng |
+| AC-ML-13 | **(mới 21/11)** Hạn mức chi phí LLM: khi một trường vượt mức trần tháng, gọi LLM bị chặn, người dùng thấy thông báo rõ và vẫn nhận kế hoạch học tập theo luật | Đặt trần thấp, gọi đến khi vượt; `dss/services/llm_gateway.py:382` (`check_quota_and_rate_limit`) | Có cổng trong code, chưa có biên bản chạy với nhà cung cấp trả phí | Chưa có bằng chứng |
+| AC-ML-14 | **(mới 21/11)** Mọi câu trả lời do LLM tạo đều có nhãn "do AI tạo", và dữ liệu gửi đi đã bút danh hoá (không có tên, mã SV thật) | Bắt gói gửi tới nhà cung cấp trong môi trường thử | `dss/security/pseudonymization.py`; chưa có biên bản | Chưa có bằng chứng |
+
+> ⚠️ Vì MVP **bật LLM trả phí** (quyết định 21/11), AC-ML-09, AC-ML-10, AC-ML-13 và AC-ML-14 là điều kiện
+> **bắt buộc** trước khi cho sinh viên dùng Trợ lý AI.
 
 > ⏳ **CHỜ CHỦ DỰ ÁN CHỌN: AC-ML-11 và AC-ML-12 có là điều kiện bắt buộc để bàn giao thí điểm không?**
 > - (a) Có: chưa đạt thì chưa bàn giao.

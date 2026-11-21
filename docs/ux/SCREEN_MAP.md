@@ -1,6 +1,6 @@
 # EduDSS — Bản đồ màn hình (Screen map)
 
-> **Trạng thái: BẢN NHÁP — chờ chủ dự án duyệt** (soạn 21/11/2026, dựa trên commit 6e9710d)
+> **Trạng thái: BẢN NHÁP — đã cập nhật theo quyết định của chủ dự án ngày 21/11/2026** (soạn dựa trên commit 6e9710d)
 
 Tài liệu này cho biết mỗi vai trò thấy những trang nào, người dùng đi qua các trang theo thứ tự nào,
 và mockup nào khớp với trang nào trong code. Mọi tên trang lấy đúng từ code. Không có màn hình nào mới
@@ -216,16 +216,15 @@ Có **2 bộ mockup**, cùng tên tệp nhưng nội dung khác nhau:
 | — | Tích hợp LMS/CMS, Lớp học, Chương trình, Học liệu của trường (Admin) | **Không có mockup** |
 | — | Mọi trang của Platform Admin | **Không có mockup** |
 
-> ⏳ **CHỜ CHỦ DỰ ÁN CHỌN: bộ mockup nào là bản đã duyệt?**
-> - (a) `ui_reference/` (không dấu, có thêm 2 trang giảng viên).
-> - (b) `EduDSS_UI_Reference_Kit/` (có dấu).
-> - (c) Không bộ nào. Coi code hiện tại là chuẩn, mockup chỉ để tham khảo.
-> - **(đề xuất) (c)**. Lý do: code đã có trang mà cả 2 bộ mockup đều không có, và có 3 mockup giảng viên
->   không có trang tương ứng. Nếu chọn (a) hay (b) thì phải vẽ thêm mockup cho các trang còn thiếu.
-
-> ⏳ **CHỜ CHỦ DỰ ÁN CHỌN: 3 mockup giảng viên không có trang (`reports`, `history`, `risk_analysis`).**
-> - (a) Làm thêm trang theo mockup · (b) Bỏ mockup, giữ code như hiện tại.
-> - **(đề xuất) (b)**. Lý do: nội dung rủi ro đã có ở Trang chủ và Dashboard (`dss/tabs/dashboard.py:540`).
+> ✅ **ĐÃ CHỐT (21/11/2026): làm thêm 3 trang giảng viên theo mockup** (`reports`, `history`, `risk_analysis`).
+> - Mẫu dùng: `ui_reference/lecturer/reports.html`, `history.html`, `risk_analysis.html`. Bộ
+>   `EduDSS_UI_Reference_Kit/` cũng có các file cùng tên; nếu hai bộ khác nhau thì lấy `ui_reference/`,
+>   vì `ui_reference/README.md` tự ghi là "visual source-of-truth". *(Suy ra từ quyết định, chủ dự án xác
+>   nhận lại nếu muốn khác.)*
+> - Với các trang **đã có**, giao diện trong code là chuẩn. Trang nào chưa có mockup thì không cần vẽ thêm.
+> - Trước khi lập trình (bước 6) cần đặc tả nội dung từng trang và phân biệt với các trang gần giống:
+>   Dashboard "Sinh viên rủi ro cao", Kho dữ liệu — History, Lịch sử tư vấn.
+> - Tiêu chí nghiệm thu: AC-GV-09, AC-GV-10, AC-GV-11 ([ACCEPTANCE_CRITERIA.md](../requirements/ACCEPTANCE_CRITERIA.md)).
 
 ## 5. Thiết kế dùng chung
 
@@ -274,9 +273,9 @@ hiện tại. Độ tương phản của màu hiện tại **chưa có bằng ch
 Còn mở về trợ năng: chưa kiểm viền focus, chưa kiểm cấu trúc cho trình đọc màn hình, chưa chạy axe-core
 (`reports/final_ui_functional_audit/RESPONSIVE_ACCESSIBILITY_REPORT.md:45-50`).
 
-> ⏳ **CHỜ CHỦ DỰ ÁN CHỌN: có hỗ trợ điện thoại không?** (cùng câu hỏi ở PRD §3)
-> - (a) Chỉ desktop/laptop, từ 1024px trở lên (đúng phần đã có bằng chứng).
-> - (b) Thêm "xem được trên điện thoại" cho các trang sinh viên: cần kiểm ở 375–390px, thêm vào
->   `tests/e2e/test_c1_3_ui_journeys_e2e.py:141`.
-> - (c) Ứng dụng mobile riêng (ngoài phạm vi code hiện có).
-> - **(đề xuất) (a)** cho MVP, ghi (b) vào danh sách "Để sau", giống PRD §3.
+> ✅ **ĐÃ CHỐT (21/11/2026): máy tính cho mọi vai trò + sinh viên xem được trên điện thoại** (phương án a + b).
+> - Trang sinh viên phải dùng được ở khổ 375–430 px: Trang chủ, Dự đoán từ dữ liệu của mình, Kế hoạch học
+>   tập, Lịch sử tư vấn. Đã có quy tắc CSS 640/480 px nhưng **chưa có bằng chứng kiểm thử**.
+> - Việc cần làm: thêm khổ điện thoại vào `tests/e2e/test_c1_3_ui_journeys_e2e.py:141`, sửa chỗ tràn, kiểm
+>   thanh bên Streamlit thu gọn được trên điện thoại. Tiêu chí: AC-SV-09.
+> - Không làm ứng dụng mobile riêng.

@@ -1,6 +1,7 @@
 # EduDSS — Tài liệu yêu cầu sản phẩm (PRD)
 
-> **Trạng thái: BẢN NHÁP — chờ chủ dự án duyệt** (soạn 21/11/2026, dựa trên commit 6e9710d)
+> **Trạng thái: ĐÃ CÓ QUYẾT ĐỊNH CỦA CHỦ DỰ ÁN (21/11/2026)** cho các mục ✅. Mục ⏳ còn lại: mốc thời gian.
+> Soạn dựa trên commit 6e9710d.
 
 Tài liệu này **gom lại** những gì repo đã có (README, code, roadmap, báo cáo nghiệm thu). Không có yêu
 cầu nào mới được bịa thêm. Mỗi ý đều ghi nguồn. Chỗ nào chỉ chủ dự án quyết được thì đánh dấu
@@ -46,21 +47,18 @@ trong `dss/core/roles.py`.
 | `Admin` | Quản trị viên của một trường | "Quản trị dữ liệu, vận hành hệ thống": người dùng, dữ liệu, mô hình, tri thức RAG, cấu hình AI, tích hợp LMS |
 | `Platform Admin` | Đơn vị quản lý chương trình nhiều trường | Đăng ký trường, tạo chương trình, giao quyền (`docs/STAGE23_PILOT_GUIDE.md:67`). Có trong `seed.py` và `TAB_ACCESS` nhưng **không** có trong danh sách `ROLES` |
 
-> ⏳ **CHỜ CHỦ DỰ ÁN CHỌN: `Platform Admin` có là vai trò chính thức của sản phẩm không?**
-> - (a) **Có**: thêm vào `ROLES`, có nhóm điều hướng riêng và mockup riêng.
-> - (b) **Không**: chỉ là vai trò vận hành nội bộ cho thí điểm Stage 3, ẩn khỏi tài liệu người dùng.
-> - **(đề xuất) (b)** cho bản đầu tiên. Lý do: roadmap ghi Stage 3 mới là thí điểm và chưa có thỏa
->   thuận với Bộ (`docs/architecture/EDUDSS_MINISTRY_ROADMAP.md:3-8`).
+> ✅ **ĐÃ CHỐT (21/11/2026): `Platform Admin` chỉ là vai trò nội bộ** (phương án b).
+> - Giữ trong code để vận hành thí điểm. Không đưa vào tài liệu người dùng và nghiệm thu bản đầu.
+> - Lý do: roadmap ghi Stage 3 mới là thí điểm (`docs/architecture/EDUDSS_MINISTRY_ROADMAP.md:3-8`).
 
-> ⏳ **CHỜ CHỦ DỰ ÁN CHỌN: trường đầu tiên dùng là trường nào, và bao nhiêu người dùng?**
-> - Repo **chưa có** con số mục tiêu. Chỉ có tiêu đề kế hoạch "~20.000 Sinh Viên/Năm"
->   (`docs/planning/walkthrough.md:1`) và một phép đo **dự đoán theo lô** 20.000 bản ghi. Nhiều báo cáo
->   ghi rõ đó **không phải** 20.000 người dùng đồng thời (`reports/production_readiness/FINAL_MUST_NOT_SAY.md:14`).
-> - Mức đồng thời đã đo được: 50 thao tác CSDL đồng thời, p95 452 ms, trên một máy dev
->   (`reports/final_acceptance/COMMERCIAL_RELEASE_READINESS.md:222`). **Chưa đo** số phiên trình duyệt đồng thời.
-> - Cần chủ dự án điền: số sinh viên, số giảng viên, số người dùng đồng thời giờ cao điểm.
-> - **(đề xuất)** thí điểm 1 trường với khoảng ≤ 50 người dùng đồng thời (mức đã có bằng chứng gần nhất),
->   rồi đo tải thật trước khi hứa con số lớn hơn.
+> ✅ **ĐÃ CHỐT (21/11/2026): thí điểm 1 trường, tối đa 50 người dùng đồng thời.**
+> - Căn cứ: mức đã đo được là 50 thao tác CSDL đồng thời, p95 452 ms, trên một máy dev
+>   (`reports/final_acceptance/COMMERCIAL_RELEASE_READINESS.md:222`).
+> - **Chưa đo** số phiên trình duyệt đồng thời. Phải đo trên máy chủ thật trước khi nghiệm thu
+>   (AC-HN-04 trong [ACCEPTANCE_CRITERIA.md](ACCEPTANCE_CRITERIA.md)).
+> - Không hứa "20.000 người dùng". Con số 20.000 chỉ là phép đo **dự đoán theo lô**
+>   (`reports/production_readiness/FINAL_MUST_NOT_SAY.md:14`).
+> - Tên trường thí điểm: chưa có. Chủ dự án bổ sung khi có.
 
 ## 3. Loại ứng dụng
 
@@ -68,11 +66,11 @@ trong `dss/core/roles.py`.
 - **Không** có ứng dụng mobile riêng. Kiểm tra giao diện mới chỉ làm ở 3 độ phân giải desktop
   (`reports/final_ui_functional_audit/RESPONSIVE_ACCESSIBILITY_REPORT.md:3`).
 
-> ⏳ **CHỜ CHỦ DỰ ÁN CHỌN: có cần hỗ trợ điện thoại không?**
-> - (a) Chỉ desktop/laptop (như hiện tại).
-> - (b) Desktop + "xem được trên điện thoại" cho trang của sinh viên (cần kiểm thử thêm ở 375 px).
-> - (c) Ứng dụng mobile riêng (ngoài phạm vi code hiện có).
-> - **(đề xuất) (a)** cho MVP, ghi (b) vào danh sách "Để sau".
+> ✅ **ĐÃ CHỐT (21/11/2026): mọi vai trò dùng trên máy tính, sinh viên xem được kết quả trên điện thoại**
+> (phương án a + b, "giống LMS").
+> - Không làm ứng dụng mobile riêng. Đây vẫn là web, mở bằng trình duyệt điện thoại.
+> - Trang sinh viên phải dùng được ở khổ 375–430 px: Trang chủ, Dự đoán từ dữ liệu của mình, Kế hoạch học
+>   tập, Lịch sử tư vấn. **Chưa kiểm thử**, đây là việc mới ở bước 6 và bước 8.
 
 ## 4. Đăng nhập và phân quyền
 
@@ -85,12 +83,18 @@ trong `dss/core/roles.py`.
 | Tách dữ liệu giữa các trường | PostgreSQL Row Level Security theo `app.organization_id` | `dss/db/migrations/versions/cbae9b411ed5_*.py` |
 | Chế độ production "an toàn mặc định" | Không đặt `EDUDSS_ENV` thì coi là production: không tài khoản demo, không dữ liệu mô phỏng | `README.md:72-74` |
 
-> ⏳ **CHỜ CHỦ DỰ ÁN CHỌN: có kết nối HLU và SSO của trường trong phạm vi không?**
-> - Repo ghi: "Kết nối HLU, mua sắm và triển khai diện rộng chưa được nghiệm thu" (`docs/STAGE23_PILOT_GUIDE.md:4`, mục 124+).
->   Có connector Moodle REST (`dss/services/moodle_connector.py`) và webhook LMS ký HMAC, nhưng chưa
->   chạy với LMS thật của trường nào.
-> - (a) Trong phạm vi MVP · (b) Để sau, MVP chỉ nhập dữ liệu bằng file Excel/CSV + Google OIDC.
-> - **(đề xuất) (b).**
+> ✅ **ĐÃ CHỐT (21/11/2026): kết nối LMS (Moodle/HLU) và SSO của trường để sau** (phương án b).
+> - MVP nhập dữ liệu bằng file Excel/CSV và đăng nhập bằng tài khoản EduDSS hoặc Google OIDC.
+> - Connector Moodle REST (`dss/services/moodle_connector.py`) và webhook LMS ký HMAC vẫn giữ trong code,
+>   nhưng chưa chạy với LMS thật (`docs/STAGE23_PILOT_GUIDE.md:4`).
+
+### 4.1 Trợ lý AI dùng LLM
+
+> ✅ **ĐÃ CHỐT (21/11/2026): bật Trợ lý AI dùng nhà cung cấp LLM trả phí** (OpenAI/Gemini/Groq).
+> - Chi tiết, rủi ro và biện pháp: [MVP_SCOPE.md](MVP_SCOPE.md) §6.
+> - Ràng buộc: hạn mức chi phí theo ngân sách §7, bộ lọc an toàn phải đạt ngưỡng trước khi sinh viên dùng,
+>   bút danh hoá trước khi gửi dữ liệu.
+> - Gửi dữ liệu ra máy chủ nước ngoài cần rà soát quy định về bảo vệ dữ liệu cá nhân tại Việt Nam (bước 7).
 
 ## 5. Lưu trữ dữ liệu (tóm tắt)
 
@@ -107,15 +111,15 @@ Danh sách đầy đủ theo trang và vai trò, kèm cột Bắt buộc/Để s
 
 ## 7. Ngân sách và tiến độ
 
-> ⏳ **CHỜ CHỦ DỰ ÁN CHỌN: ngân sách và mốc thời gian.**
-> - Repo **không có** số liệu ngân sách hay lịch biểu. Chỉ có ghi chú "chưa có thỏa thuận mua sắm
->   hay tài trợ của Bộ" (`docs/architecture/EDUDSS_MINISTRY_ROADMAP.md:7-8`). Phiên bản hiện tại là
->   `1.0.0-rc.1` (`VERSION`).
-> - Cần điền: chi phí hạ tầng/tháng (máy chủ, tên miền, khoá API AI), ngày bảo vệ/bàn giao, ngày thí điểm.
-> - Gợi ý mục cần dự trù, rút từ code: máy chủ chạy Docker (~6 GB đĩa cho PyTorch CPU, `README.md:66`),
->   PostgreSQL, tên miền HTTPS (`deploy/standalone/`), khoá AI tuỳ chọn (OpenAI/Gemini/Groq). Ollama
->   chạy cục bộ thì không tốn phí API.
-> - **(đề xuất)** không có số mặc định. Chủ dự án phải tự điền.
+> ✅ **ĐÃ CHỐT (21/11/2026): ngân sách hạ tầng dưới 500.000 đ/tháng**, gồm máy chủ, tên miền và phí API AI.
+> - Phải chứa được: máy chủ chạy Docker (~6 GB đĩa cho PyTorch CPU, `README.md:66`), PostgreSQL,
+>   tên miền HTTPS (`deploy/standalone/`) và phí API LLM.
+> - Phần còn lại cho API AI sau khi trả máy chủ và tên miền sẽ là **mức trần chi phí AI mỗi tháng**. Đặt bằng
+>   cổng hạn mức đã có (`dss/services/llm_gateway.py:382`).
+> - ⚠️ Cần kiểm chứng: một VPS đủ RAM cho PyTorch + PostgreSQL có vừa ngân sách không. Đo khi làm bước 9.
+
+> ⏳ **CHỜ CHỦ DỰ ÁN CHỌN: mốc thời gian** (ngày bảo vệ/bàn giao, ngày bắt đầu thí điểm).
+> Phiên bản hiện tại là `1.0.0-rc.1` (`VERSION`).
 
 ## 8. Tiêu chí chấp nhận
 

@@ -1,6 +1,7 @@
 # EduDSS — Phạm vi bản đầu tiên (MVP)
 
-> **Trạng thái: BẢN NHÁP — chờ chủ dự án duyệt** (soạn 21/11/2026, dựa trên commit 6e9710d)
+> **Trạng thái: ĐÃ CHỐT PHẠM VI** — chủ dự án chọn "dùng đề xuất, sửa theo các quyết định" ngày 21/11/2026
+> (soạn dựa trên commit 6e9710d). Các dòng đã đổi so với đề xuất ban đầu được đánh dấu **(đã đổi 21/11)**.
 
 Tài liệu này liệt kê **mọi trang và tính năng con đang có trong code**, theo từng vai trò, rồi đề xuất
 cái nào **Bắt buộc** cho bản đầu tiên và cái nào **Để sau**. Không có tính năng nào mới được thêm vào.
@@ -12,15 +13,18 @@ Tài liệu liên quan: [PRD.md](PRD.md) · [ACCEPTANCE_CRITERIA.md](ACCEPTANCE_
 
 ---
 
-> ⏳ **CHỜ CHỦ DỰ ÁN CHỌN: toàn bộ cột "Đề xuất" trong tài liệu này.**
-> - Cột "Đề xuất" chỉ là gợi ý. Repo **không có** văn bản nào chốt phạm vi MVP.
-> - Cách chọn đã dùng: chỉ giữ "Bắt buộc" cho những gì phục vụ trực tiếp lời hứa cốt lõi ở PRD §1:
+> ✅ **ĐÃ CHỐT (21/11/2026): dùng cột "Đề xuất" làm phạm vi MVP, có sửa theo các quyết định sau.**
+> - Cách chọn: chỉ "Bắt buộc" cho những gì phục vụ trực tiếp lời hứa cốt lõi ở PRD §1, tức
 >   **phát hiện sớm sinh viên có nguy cơ** và **đưa ra lời khuyên học tập** (`README.md:1-12`).
->   Phần còn lại để "Để sau", kể cả khi code đã có sẵn.
 > - "Để sau" **không** có nghĩa là xoá code. Nghĩa là không đưa vào nghiệm thu bản đầu tiên và không
 >   hứa với trường.
-> - (a) Duyệt nguyên bảng · (b) Sửa từng dòng · (c) Đưa mọi trang đã có vào MVP.
-> - **(đề xuất) (b)**: chủ dự án đánh dấu lại những dòng không đồng ý, giữ các dòng còn lại.
+> - Quyết định của chủ dự án làm thay đổi bảng:
+>   1. **Bật Trợ lý AI dùng LLM trả phí** (OpenAI/Gemini/Groq). Ngân sách hạ tầng **dưới 500.000 đ/tháng**
+>      (PRD §7), nên phải đặt hạn mức chi phí AI.
+>   2. **Sinh viên xem được kết quả trên điện thoại**, giống LMS. Các vai trò khác dùng máy tính.
+>   3. **Làm thêm 3 trang cho giảng viên** theo mockup: Báo cáo, Lịch sử, Phân tích rủi ro. Code chưa có.
+>   4. `Platform Admin` chỉ dùng nội bộ. LMS/SSO để sau. Thí điểm 1 trường, ≤ 50 người dùng đồng thời.
+>   5. Stage 2/3 (lớp học – bài đánh giá) **để sau**, theo đề xuất.
 
 ## 1. Cách đọc bảng
 
@@ -72,6 +76,9 @@ Menu của giảng viên: `dss/main.py:233-240`.
 | Kho dữ liệu — Datasets (tải dữ liệu lớp) | Giảng viên / CVHT, Admin | `dss/tabs/warehouse_tab.py:26-28`, `dss/tabs/warehouse_tab.py:196-198` | **Bắt buộc** | Không có dữ liệu thì không dự đoán được |
 | Kho dữ liệu — AI Models (xem; GV không đổi được Production) | Giảng viên / CVHT, Admin | `dss/tabs/warehouse_tab.py:433-443`, `dss/tabs/warehouse_tab.py:616-619` | **Bắt buộc** | Biết mô hình nào đang phục vụ dự đoán |
 | Kho dữ liệu — History (nhật ký thô) | Giảng viên / CVHT, Admin | `dss/tabs/warehouse_tab.py:26-28` | Để sau | Báo cáo ghi là "plain-text log", đủ dùng nhưng thô (`reports/final_ui_functional_audit/LECTURER_ACCEPTANCE.md:19`) |
+| **Trang mới — Báo cáo** (theo mockup `ui_reference/lecturer/reports.html`) | Giảng viên / CVHT | **chưa có code** | **Bắt buộc (đã đổi 21/11)** | Chủ dự án chọn làm thêm. Nội dung chi tiết cần đặc tả trước khi lập trình (bước 6) |
+| **Trang mới — Lịch sử** (theo mockup `ui_reference/lecturer/history.html`) | Giảng viên / CVHT | **chưa có code** | **Bắt buộc (đã đổi 21/11)** | Như trên. Cần phân biệt với "Kho dữ liệu — History" (nhật ký thô) và "Lịch sử tư vấn" |
+| **Trang mới — Phân tích rủi ro** (theo mockup `ui_reference/lecturer/risk_analysis.html`) | Giảng viên / CVHT | **chưa có code** | **Bắt buộc (đã đổi 21/11)** | Như trên. Có thể dùng lại dữ liệu của Dashboard "Sinh viên rủi ro cao" |
 
 ## 4. Quản trị trường (`Admin`)
 
@@ -88,7 +95,7 @@ Menu của Admin: `dss/main.py:241-252`.
 | Khám phá — Xử lý dữ liệu | Admin | `dss/tabs/eda.py:233` | Để sau | Như dòng của giảng viên |
 | Học liệu của trường (Nạp & Quản lý, Duyệt Quiz, Dashboard phân tích) | Admin | `dss/main.py:434-435`, `dss/tabs/learning_explainer_tab.py:410` | Để sau | Đi cùng CMS/RAG |
 | Quản lý tri thức (RAG): tài liệu môn học, nguồn tham khảo, không gian tri thức, tải lên | Admin | `dss/tabs/knowledge_base.py:53`, `dss/tabs/knowledge_base.py:110-115` | Để sau | Kế hoạch học tập chạy được không cần RAG. Quy chế còn lưu ở JSON cục bộ, chưa có giao diện duyệt (`reports/final_acceptance/COMMERCIAL_RELEASE_READINESS.md:70`) |
-| Cấu hình AI (nhà cung cấp, kiểm tra kết nối) | Admin | `dss/tabs/ai_advisor.py:1823` | Để sau | Tuỳ quyết định có dùng LLM trong MVP hay không (xem ⏳ ở §6) |
+| Cấu hình AI (nhà cung cấp, kiểm tra kết nối) | Admin | `dss/tabs/ai_advisor.py:1823` | **Bắt buộc (đã đổi 21/11)** | MVP bật LLM trả phí (§6), nên Admin cần chỗ nhập khoá API và kiểm tra kết nối |
 | Trợ lý AI (Admin xem tư vấn) | Admin | `dss/tabs/ai_advisor.py:457` | Để sau | Người tư vấn chính là giảng viên/CVHT |
 | Chương trình và cấp phát (công bố số liệu tổng hợp) | Admin | `dss/tabs/programs_tab.py:184-190` | Để sau | Thí điểm Stage 3 |
 | Tích hợp LMS/CMS | Admin | `dss/tabs/admin_settings.py:171` | Để sau | PRD §4 đề xuất (b): chưa nối LMS thật |
@@ -118,8 +125,9 @@ trang. Hai chỗ này mâu thuẫn; code (dòng 178) mới là cái có hiệu l
 | Bút danh hoá dữ liệu trước khi gửi cho AI | Tất cả | `dss/security/pseudonymization.py` | **Bắt buộc** | Bảo vệ dữ liệu cá nhân sinh viên |
 | Kho mô hình: Candidate → Production → Archived, không tự lên Production | GV, Admin | `dss/services/model_registry.py`, `dss/services/model_service.py:227-248` | **Bắt buộc** | Dự đoán chỉ dùng mô hình đã duyệt |
 | Giải thích dự đoán (SHAP, "yếu tố ảnh hưởng") | SV, GV | `dss/services/model_explainability.py` | **Bắt buộc** | Lời khuyên phải có lý do (`dss/core/roles.py:115`) |
-| Trợ lý AI có LLM: định tuyến 3 tầng, nhà cung cấp OpenAI/Gemini/Groq/Ollama | Tất cả | `dss/services/ai_router.py`, `docs/ai/AI_ROUTING_MATRIX.md` | Để sau (⏳ bên dưới) | Kế hoạch học tập đã chạy được không cần LLM (`reports/stage1_learning/ACCEPTANCE.md:16`) |
-| Bộ lọc an toàn AI (từ khoá + bộ phân loại) | Tất cả | `dss/services/safety_classifier.py`, `dss/services/prompt_security.py` | **Bắt buộc nếu bật LLM** | Holdout mới đạt 65–75% với lời khuyên có hại (`evals/README.md:52-53`) |
+| Trợ lý AI có LLM: định tuyến 3 tầng, nhà cung cấp OpenAI/Gemini/Groq/Ollama | Tất cả | `dss/services/ai_router.py`, `docs/ai/AI_ROUTING_MATRIX.md` | **Bắt buộc (đã đổi 21/11)** | Chủ dự án chọn dùng nhà cung cấp trả phí. Kế hoạch học tập theo luật vẫn phải chạy được khi AI lỗi hoặc hết hạn mức (`reports/stage1_learning/ACCEPTANCE.md:16`) |
+| Hạn mức chi phí AI theo trường (đếm token, chặn khi vượt) | Admin, Vận hành | `dss/services/llm_gateway.py:382` (`check_quota_and_rate_limit`), bảng `ai_token_usage`, `quota_usage` | **Bắt buộc (đã đổi 21/11)** | Code đã có cổng kiểm tra hạn mức. Ngân sách < 500.000 đ/tháng cho cả máy chủ lẫn API, nên cần đặt mức trần cụ thể khi chọn nhà cung cấp |
+| Bộ lọc an toàn AI (từ khoá + bộ phân loại) | Tất cả | `dss/services/safety_classifier.py`, `dss/services/prompt_security.py` | **Bắt buộc (đã đổi 21/11)** | ⚠️ Rủi ro lớn nhất của quyết định bật LLM. Holdout mới chặn được 65–75% lời khuyên có hại (`evals/README.md:52-53`). Phải đạt ngưỡng ở [ACCEPTANCE_CRITERIA.md](ACCEPTANCE_CRITERIA.md) trước khi cho sinh viên dùng |
 | RAG trên bài giảng và quy chế | Tất cả | `dss/services/rag_service.py` | Để sau | Embedding tiếng Việt chưa đo (`evals/thresholds.json:37`) |
 | Cổng AI ngoài (`engine_advisor_tab`, bật bằng `EDUDSS_ENGINE_URL`) | Tất cả | `dss/main.py:815-819`, `dss/services/engine_gateway.py:39-41` | Để sau | Chỉ chạy khi có cấu hình, thay cho Trợ lý AI thường |
 | Webhook LMS ký HMAC, connector Moodle REST | Admin | `dss/services/lms_live_sync.py:44-52`, `dss/services/moodle_connector.py` | Để sau | Chưa chạy với Moodle thật (`evals/README.md:96`) |
@@ -129,29 +137,36 @@ trang. Hai chỗ này mâu thuẫn; code (dòng 178) mới là cái có hiệu l
 | Sao lưu và khôi phục PostgreSQL | Vận hành | `ops/backup_recovery.py`, `docs/operations/BACKUP_RECOVERY_RUNBOOK.md` | **Bắt buộc** | Mất dữ liệu học tập là không chấp nhận được |
 | Triển khai HTTPS độc lập (Caddy) | Vận hành | `deploy/standalone/` | **Bắt buộc** | Đăng nhập qua Internet cần HTTPS |
 | Giao diện sáng/tối/theo hệ thống | Tất cả | `dss/styles/main.css:113`, `dss/styles/main.css:144-145` | Để sau | Đã có sẵn, không cần nghiệm thu thêm cho MVP |
+| **Trang của sinh viên xem được trên điện thoại** (khổ 375–430 px): Trang chủ, Dự đoán từ dữ liệu của mình, Kế hoạch học tập, Lịch sử tư vấn | Sinh viên | `dss/styles/main.css` (`@media` quanh dòng 1216, 1219, 1569) | **Bắt buộc (đã đổi 21/11)** | Chủ dự án muốn dùng giống LMS. **Chưa kiểm thử** ở khổ điện thoại (xem [SCREEN_MAP.md](../ux/SCREEN_MAP.md)). Streamlit có giới hạn bố cục trên điện thoại, cần thử sớm |
 
-> ⏳ **CHỜ CHỦ DỰ ÁN CHỌN: bản đầu tiên có dùng LLM (AI tạo văn bản) không?**
-> - (a) **Không**: chỉ dùng kế hoạch học tập theo luật và dữ liệu (đã chạy được không cần LLM,
->   `reports/stage1_learning/ACCEPTANCE.md:16`). Ẩn "Cấu hình AI".
-> - (b) **Có, chỉ Ollama chạy cục bộ**: không tốn phí API (PRD §7), nhưng cần máy đủ mạnh.
-> - (c) **Có, dùng nhà cung cấp trả phí** (OpenAI/Gemini/Groq): cần khoá API và ngân sách (PRD §7).
-> - **(đề xuất) (a)**. Lý do: bộ lọc lời khuyên có hại trên tập holdout mới đạt 65–75%
->   (`evals/README.md:52-53`), và README ghi cần tập do bên thứ ba viết trước khi đưa số liệu cho khách
->   hàng (`evals/README.md:61-62`).
+> ✅ **ĐÃ CHỐT (21/11/2026): bản đầu tiên dùng LLM của nhà cung cấp trả phí** (OpenAI/Gemini/Groq).
+> - Chủ dự án chọn phương án (c). Đề xuất ban đầu là (a) "không dùng LLM".
+> - ⚠️ **Rủi ro đã biết, bắt buộc xử lý trước khi cho sinh viên dùng:**
+>   - Bộ lọc lời khuyên có hại trên tập holdout mới đạt 65–75% (`evals/README.md:52-53`).
+>   - README ghi cần một tập kiểm thử do bên thứ ba viết (`evals/README.md:61-62`).
+> - Biện pháp ghi vào nghiệm thu:
+>   - hạn mức chi phí theo trường;
+>   - bút danh hoá trước khi gửi dữ liệu ra nước ngoài (PRD §4);
+>   - tự chuyển về kế hoạch học tập theo luật khi AI lỗi hoặc hết hạn mức;
+>   - ghi rõ trên giao diện rằng câu trả lời do AI tạo.
+> - Gửi dữ liệu sinh viên (dù đã bút danh hoá) tới máy chủ nước ngoài cần rà soát quy định về dữ liệu cá
+>   nhân tại Việt Nam. Việc này thuộc bước 7.
 
-> ⏳ **CHỜ CHỦ DỰ ÁN CHỌN: vòng lớp học – bài đánh giá – kế hoạch (Stage 2/3) có vào MVP không?**
+> ✅ **ĐÃ CHỐT (21/11/2026): vòng lớp học – bài đánh giá – kế hoạch (Stage 2/3) để sau**, theo đề xuất (b).
 > - Code đã có và đã nghiệm thu kỹ thuật (`reports/stage23/ACCEPTANCE.md:8-31`), nhưng **chưa** thử
->   với trường thật (`reports/stage23/ACCEPTANCE.md:3-6`).
-> - (a) Vào MVP: trường có thêm nguồn dữ liệu (điểm theo chủ đề) ngoài file Excel.
-> - (b) Để sau: MVP chỉ dùng dữ liệu nhập từ Kho dữ liệu.
-> - **(đề xuất) (b)**, để bản đầu tập trung vào dự đoán rủi ro và kế hoạch học tập.
+>   với trường thật (`reports/stage23/ACCEPTANCE.md:3-6`). MVP chỉ dùng dữ liệu nhập từ Kho dữ liệu.
 
 ## 7. Tóm tắt đề xuất
 
 - **Bắt buộc (sinh viên):** Trang chủ, dự đoán từ dữ liệu của mình, kế hoạch học tập, lịch sử tư vấn.
+  Cả 4 trang phải **xem được trên điện thoại**.
 - **Bắt buộc (giảng viên/CVHT):** Trang chủ, Dashboard rủi ro, tìm sinh viên, huấn luyện + đánh giá mô hình,
-  dự đoán hàng loạt, Trợ lý AI, Kho dữ liệu (Datasets, AI Models).
-- **Bắt buộc (Admin):** Tổng quan/Báo cáo, Người dùng, nhập dữ liệu, Promote/Rollback mô hình.
+  dự đoán hàng loạt, Trợ lý AI, Kho dữ liệu (Datasets, AI Models), và **3 trang mới**: Báo cáo, Lịch sử,
+  Phân tích rủi ro (chưa có code).
+- **Bắt buộc (Admin):** Tổng quan/Báo cáo, Người dùng, nhập dữ liệu, Promote/Rollback mô hình, **Cấu hình AI**.
 - **Bắt buộc (dùng chung):** đăng nhập, khoá tài khoản, Google, phân quyền, chế độ production an toàn, RLS,
-  bút danh hoá, kho mô hình, SHAP, nhập CSV/Excel, health check, sao lưu, HTTPS.
+  bút danh hoá, kho mô hình, SHAP, nhập CSV/Excel, health check, sao lưu, HTTPS, **Trợ lý AI có LLM trả phí,
+  hạn mức chi phí AI, bộ lọc an toàn AI**.
+- **Việc phải làm thêm (bước 6):** 3 trang giảng viên mới, giao diện điện thoại cho sinh viên, hạn mức chi phí
+  AI, nâng bộ lọc an toàn AI cho đạt ngưỡng.
 - Tiêu chí nghiệm thu cho từng mục: [ACCEPTANCE_CRITERIA.md](ACCEPTANCE_CRITERIA.md).
