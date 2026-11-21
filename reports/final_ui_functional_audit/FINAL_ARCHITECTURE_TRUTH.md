@@ -1,5 +1,7 @@
 # EduDSS — Final Architecture Truth Map
 
+> ⚠️ **Tài liệu lỗi thời** (21/11/2026): file này nói không có RDBMS và `PgVectorStore` là stub, nhưng code hiện có PostgreSQL + pgvector, 10 migration Alembic và Row Level Security. Xem bản hiện hành: [../../docs/architecture/ARCHITECTURE.md](../../docs/architecture/ARCHITECTURE.md).
+
 This document is the single authoritative layer-by-layer architecture reference for
 thesis defense. It supersedes any older architecture description in
 `SYSTEM_TECHNICAL_HANDBOOK.md` or `Bao_cao_phan_tich_he_thong_DSS.docx` wherever they

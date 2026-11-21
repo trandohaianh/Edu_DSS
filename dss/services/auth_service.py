@@ -6,10 +6,15 @@ trong bản đánh giá kiến trúc):
     2. `_render_student_login_gate()` (dss/main.py cũ)   — tự chọn student_id từ dropdown.
 
 bằng MỘT cổng đăng nhập username/password thật, băm bằng PBKDF2-HMAC-SHA256
-(thư viện chuẩn `hashlib`, không cần cài thêm dependency). Tài khoản lưu trong
-1 file JSON cục bộ (`app/data_warehouse/users.json`) — vì hệ thống hiện chưa có
-CSDL SQL thật (xem mục "Database" trong bản đánh giá kiến trúc); đây là mức
-triển khai đơn giản phù hợp quy mô đồ án nhưng vẫn đúng luồng kiến trúc
+(thư viện chuẩn `hashlib`, không cần cài thêm dependency). Nơi lưu tài khoản
+chọn bằng biến môi trường `EDUDSS_IDENTITY_STORE` (xem
+`dss/core/persistence_config.py::repository_for`):
+    - `local` (mặc định, môi trường dev): file JSON cục bộ `users.json` trong
+      thư mục dữ liệu (`get_data_root()`, mặc định `data_warehouse/`).
+    - `postgres` (bản production, `deploy/production/docker-compose.prod.yml`):
+      bảng `users` trong PostgreSQL qua `UserRepository`, có Row Level Security
+      theo `organization_id`.
+Luồng kiến trúc giữ nguyên ở cả hai chế độ
 (authenticate -> identify user -> identify role -> create session).
 
 GIỚI HẠN ĐÃ BIẾT (ghi rõ để không ai nhầm là bảo mật cấp production thật):

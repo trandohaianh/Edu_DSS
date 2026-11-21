@@ -1,5 +1,7 @@
 # TODO Progress: Modify 1.1.1.py - Data Warehouse Integration and Model Consolidation
 
+> ⚠️ **Tài liệu lỗi thời** (21/11/2026): file này nói về `1.1.1.py` không còn tồn tại; điểm vào hiện là `run_dss.py` → `dss/main.py`. Xem bản hiện hành: [../architecture/ARCHITECTURE.md](../architecture/ARCHITECTURE.md).
+
 ## Completed Tasks
 - [x] Analyze current 1.1.1.py structure and data warehouse
 - [x] Understand data warehouse structure (datasets/, history/, metadata/)

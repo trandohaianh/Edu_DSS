@@ -1,5 +1,7 @@
 # TODO: Add Save Model/Data Functionality with History
 
+> ⚠️ **Tài liệu lỗi thời** (21/11/2026): file này mô tả thư mục Flask `web-app/` không còn tồn tại; giao diện hiện là Streamlit trong `dss/`. Xem bản hiện hành: [../architecture/ARCHITECTURE.md](../architecture/ARCHITECTURE.md).
+
 ## Current Status
 - [x] Analyzed existing codebase
 - [x] Created implementation plan
