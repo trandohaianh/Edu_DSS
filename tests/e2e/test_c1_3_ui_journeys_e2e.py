@@ -154,3 +154,72 @@ def test_no_horizontal_page_overflow_on_laptop_viewports(browser, base_url, wait
         assert overflow <= 1, f"Tràn ngang {overflow}px ở {width}x{height}"
     finally:
         ctx.close()
+
+
+# ---------------------------------------------------------------- phone (AC-SV-09)
+_MOBILE_NAV = ".st-key-dss_mobile_nav"
+_STUDENT_PHONE_PAGES = {
+    "Trang chủ": "Xin chào",
+    "Dự đoán": "Dự đoán kết quả học tập",
+    "Kế hoạch": "Kế hoạch học tập",
+    "Lịch sử": "Lịch sử tư vấn",
+}
+_LAYOUT_PROBE = """() => {
+    const h = document.querySelector('[data-testid="stMain"] h1, [data-testid="stMain"] h2');
+    const sb = document.querySelector('[data-testid="stSidebar"]');
+    return {
+        overflow: document.documentElement.scrollWidth - window.innerWidth,
+        headingX: h ? h.getBoundingClientRect().x : null,
+        sidebarRight: sb ? sb.getBoundingClientRect().right : 0,
+    };
+}"""
+
+
+@pytest.mark.parametrize("width,height", [(375, 812), (430, 932)])
+def test_student_pages_usable_on_phone(browser, base_url, wait_ready, width, height):
+    """AC-SV-09: 4 trang chính của sinh viên dùng được trên điện thoại.
+
+    Không tràn ngang, sidebar thu gọn không che mép trái nội dung, và thanh điều
+    hướng trên cùng (dss/main.py MOBILE_NAV_ITEMS) chuyển được cả 4 trang.
+    """
+    ctx = browser.new_context(viewport={"width": width, "height": height}, is_mobile=True, has_touch=True)
+    try:
+        page = ctx.new_page()
+        page.goto(base_url, wait_until="domcontentloaded")
+        page.locator("input[aria-label='Mật khẩu']").wait_for(timeout=90000)
+        page.fill("input[aria-label='Tên đăng nhập / Mã số sinh viên']", "sv913")
+        page.fill("input[aria-label='Mật khẩu']", "sv913123")
+        page.get_by_role("button", name="Đăng nhập").click()
+        nav = page.locator(_MOBILE_NAV)
+        nav.wait_for(state="visible", timeout=240000)
+        wait_ready(page)
+        # initial_sidebar_state="auto": trên màn hẹp Streamlit tự thu gọn sidebar. Nếu vì lý do
+        # nào đó nó đang mở thì đóng lại như người dùng (nút đóng chỉ bấm được khi sidebar mở).
+        sidebar = page.locator("[data-testid='stSidebar']")
+        if sidebar.get_attribute("aria-expanded") == "true":
+            page.locator("[data-testid='stSidebarCollapseButton'] button").click()
+            page.wait_for_timeout(800)
+        assert sidebar.get_attribute("aria-expanded") == "false", "Sidebar không thu gọn trên điện thoại"
+        for label, heading in _STUDENT_PHONE_PAGES.items():
+            nav.get_by_role("button", name=label, exact=True).click(timeout=30000)
+            page.locator(f"{_MOBILE_NAV} button[kind='primary']", has_text=label).wait_for(timeout=60000)
+            wait_ready(page, timeout=40)
+            # Tìm trong vùng nội dung (sidebar thu gọn cũng có chữ "Lịch sử tư vấn" nhưng bị ẩn).
+            page.locator("[data-testid='stMain']").get_by_text(heading, exact=False).first.wait_for(timeout=30000)
+            probe = page.evaluate(_LAYOUT_PROBE)
+            assert probe["overflow"] <= 1, f"{label}: tràn ngang {probe['overflow']}px ở {width}px"
+            assert probe["sidebarRight"] <= 1, f"{label}: sidebar thu gọn còn che {probe['sidebarRight']}px"
+            assert probe["headingX"] is not None and probe["headingX"] >= 8, f"{label}: tiêu đề bị che mép trái"
+            buttons = nav.get_by_role("button")
+            for i in range(buttons.count()):
+                assert buttons.nth(i).bounding_box()["height"] >= 40, "Nút điều hướng thấp hơn 40px, khó chạm"
+    finally:
+        ctx.close()
+
+
+def test_mobile_nav_hidden_on_desktop(login, wait_ready):
+    """Thanh điều hướng điện thoại không được hiện trên máy tính (giao diện desktop giữ nguyên)."""
+    page = login("sv914", "sv914123")
+    assert page.locator(_MOBILE_NAV).count() == 1
+    assert page.locator(_MOBILE_NAV).is_hidden()
+    assert page.locator(_NAV).is_visible()

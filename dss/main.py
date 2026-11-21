@@ -328,6 +328,30 @@ with st.sidebar.container(key="dss_sidebar_footer"):
         auth_service.logout()
         st.rerun()
 
+# Thanh điều hướng trên cùng cho ĐIỆN THOẠI (MVP_SCOPE §6, AC-SV-09): trên màn hẹp,
+# sidebar Streamlit bị thu gọn và khó mở, nên sinh viên chuyển 4 trang chính bằng
+# hàng nút này. CSS chỉ hiện container `dss_mobile_nav` ở khổ ≤ 640px (main.css §15);
+# trên máy tính nó bị ẩn, giao diện không đổi. Các trang "Để sau" vẫn mở được qua sidebar.
+MOBILE_NAV_ITEMS = {
+    "Sinh viên": [
+        (HOME_TAB_LABEL, "Trang chủ"),
+        ("🧪 Huấn luyện — Dự đoán", "Dự đoán"),
+        ("🤖 Tư vấn — AI (LLM)", "Kế hoạch"),
+        ("📝 Lịch sử tư vấn", "Lịch sử"),
+    ],
+}
+_mobile_items = [(k, lbl) for k, lbl in MOBILE_NAV_ITEMS.get(current_role, []) if k in tabs_list]
+if _mobile_items:
+    with st.container(key="dss_mobile_nav", horizontal=True, gap="small"):
+        for _tab_key, _label in _mobile_items:
+            if st.button(
+                _label,
+                key=f"mobile_nav_btn_{_tab_key}",
+                type="primary" if _tab_key == selected_nav_tab else "secondary",
+            ):
+                st.session_state["main_nav_radio"] = _tab_key
+                st.rerun()
+
 
 # Thông báo kết quả thao tác của lượt chạy trước (lưu/nạp dữ liệu...).
 if 'show_success_message' in st.session_state:

@@ -1645,6 +1645,78 @@ div[data-testid="stAppViewContainer"]:has(.st-key-dss_loading_screen_error) [dat
     [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] { min-width: 100% !important; }
 }
 
+/* --------------------------------------------------------------------------
+   15b. ĐIỆN THOẠI (≤ 640px) — trang sinh viên xem được trên điện thoại
+   (MVP_SCOPE §6, AC-SV-09). Chỉ có hiệu lực ở màn hẹp; máy tính không đổi.
+   -------------------------------------------------------------------------- */
+/* Thanh điều hướng trên cùng (dss/main.py, MOBILE_NAV_ITEMS): ẩn trên máy tính. */
+.st-key-dss_mobile_nav { display: none !important; }
+@media (max-width: 640px) {
+    /* Sidebar rộng 288px (--sidebar-width) nhưng khi thu gọn Streamlit chỉ dịch
+       theo độ rộng mặc định của nó, để lại một dải ~32px che mép trái nội dung.
+       Đẩy hẳn ra ngoài màn hình khi thu gọn. */
+    [data-testid="stSidebar"][aria-expanded="false"] {
+        transform: translateX(-100%) !important;
+        visibility: hidden !important;
+    }
+    /* Khi mở, sidebar nằm đè lên nội dung (không đẩy trang) và không rộng quá màn hình. */
+    [data-testid="stSidebar"][aria-expanded="true"] {
+        position: fixed !important;
+        top: 0; left: 0; bottom: 0;
+        z-index: 1000 !important;
+        min-width: min(var(--sidebar-width), 85vw) !important;
+        max-width: min(var(--sidebar-width), 85vw) !important;
+        box-shadow: 0 0 24px rgba(15, 23, 42, 0.25);
+    }
+    /* Nút mở menu: Streamlit đặt trong header cao 0px nên bị lệch lên trên mép.
+       Ghim cố định ở góc trên trái, đủ lớn để chạm (40px). */
+    [data-testid="stExpandSidebarButton"],
+    [data-testid="stSidebarCollapsedControl"] {
+        position: fixed !important;
+        top: 8px !important;
+        left: 8px !important;
+        z-index: 999 !important;
+    }
+    [data-testid="stExpandSidebarButton"],
+    [data-testid="stSidebarCollapsedControl"] button {
+        width: 40px !important;
+        height: 40px !important;
+        background: var(--surface) !important;
+        border: 1px solid var(--border) !important;
+        border-radius: var(--radius-md) !important;
+    }
+    /* Chừa chỗ cho nút menu ở góc trên trái. */
+    [data-testid="stMainBlockContainer"] { padding-top: 56px !important; }
+
+    /* Thanh điều hướng sinh viên: 4 nút chia đều 2 cột. */
+    .st-key-dss_mobile_nav {
+        display: flex !important;
+        flex-wrap: wrap !important;
+        gap: 6px !important;
+        margin-bottom: 8px;
+    }
+    .st-key-dss_mobile_nav > div { flex: 1 1 calc(50% - 6px) !important; min-width: 0 !important; }
+    .st-key-dss_mobile_nav button { width: 100% !important; min-height: 40px !important; }
+
+    /* Hàng thẻ (st.tabs) xuống dòng thay vì bị khuất bên phải. */
+    [data-testid="stTabs"] [data-baseweb="tab-list"] { flex-wrap: wrap !important; }
+    [data-testid="stTabs"] [data-baseweb="tab-highlight"],
+    [data-testid="stTabs"] [data-baseweb="tab-border"] { display: none !important; }
+    /* Bỏ vạch gạch chân (không đúng vị trí khi xuống dòng) → tô nền thẻ đang chọn. */
+    [data-testid="stTabs"] [data-baseweb="tab"][aria-selected="true"] {
+        background: var(--primary-soft) !important;
+        border-radius: var(--radius-md) !important;
+    }
+
+    /* Ô số liệu ở màn đăng nhập: không ngắt chữ giữa từ. */
+    .dss-login-mini-cards { gap: 8px; }
+    .dss-login-mini-card { padding: 10px 6px; }
+    .dss-login-mini-card .label { letter-spacing: 0; word-break: keep-all; overflow-wrap: normal; }
+
+    /* Thanh công cụ biểu đồ Plotly (nút 22px, khó chạm): ẩn trên điện thoại. */
+    .modebar-container { display: none !important; }
+}
+
 /* Google Sign-In: vạch "hoặc" giữa form mật khẩu và nút Google (auth_service.render_login_gate). */
 .dss-login-divider { display: flex; align-items: center; gap: 12px; margin: 14px 0 6px; color: #5f6368; font-size: 0.85rem; }
 .dss-login-divider::before, .dss-login-divider::after { content: ""; flex: 1; border-top: 1px solid #dadce0; }

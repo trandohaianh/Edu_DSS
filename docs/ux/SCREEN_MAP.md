@@ -268,7 +268,7 @@ hiện tại. Độ tương phản của màu hiện tại **chưa có bằng ch
 | 1920 / 1440 / 1366 px | `@media (max-width: 1366px)` (`dss/styles/main.css:1634`) | Đạt (`reports/final_ui_functional_audit/RESPONSIVE_ACCESSIBILITY_REPORT.md:3-13`) |
 | 1024 px | `@media (max-width: 1024px)` (`dss/styles/main.css:1216`, `:1637`) | Đạt (`reports/final_acceptance/C1_3_UI_UX_ACCEPTANCE.md:106-107`) |
 | 900 px (trang đăng nhập xếp 1 cột) | `dss/styles/main.css:1569` | Có ghi trong `reports/final_acceptance/C1_3_UI_UX_ACCEPTANCE.md:107` |
-| 640 px, 480 px (điện thoại) | `dss/styles/main.css:1642`, `:1219` | **Chưa có bằng chứng.** C1.3 ghi "Phone widths were not in scope" (`reports/final_acceptance/C1_3_UI_UX_ACCEPTANCE.md:107`). Báo cáo cũ hơn nói đã kiểm 390×844 (`reports/final_ui_functional_audit/RESPONSIVE_ACCESSIBILITY_REPORT.md:26-29`), nhưng không có ảnh hay test đi kèm trong repo |
+| 640 px trở xuống (điện thoại) | `dss/styles/main.css` mục 15b: sidebar thu gọn ẩn hẳn, nút menu cố định 40px, thanh điều hướng sinh viên `dss_mobile_nav`, thẻ xuống dòng, ẩn thanh công cụ biểu đồ | Đạt ở 375 và 430 px cho 4 trang sinh viên (`tests/e2e/test_c1_3_ui_journeys_e2e.py::test_student_pages_usable_on_phone`, 21/11/2026). Trang của giảng viên/Admin **không** nằm trong phạm vi điện thoại |
 
 Còn mở về trợ năng: chưa kiểm viền focus, chưa kiểm cấu trúc cho trình đọc màn hình, chưa chạy axe-core
 (`reports/final_ui_functional_audit/RESPONSIVE_ACCESSIBILITY_REPORT.md:45-50`).

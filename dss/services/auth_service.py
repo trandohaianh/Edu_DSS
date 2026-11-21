@@ -973,11 +973,14 @@ def render_login_gate() -> Optional[UserRecord]:
             "<div class='dss-login-point-item'><span class='dss-login-point-mark'>3</span><div><strong>Trợ lý có dẫn nguồn</strong><small>Trả lời dựa trên dữ liệu, quy chế và tiến độ học tập đã có trong hệ thống.</small></div></div>"
             "</div>"
             "<div class='dss-login-mini-cards'>"
-            "<div class='dss-login-mini-card blue'><span class='label'>Accuracy</span><span class='value'>92.5%</span></div>"
-            "<div class='dss-login-mini-card yellow'><span class='label'>F1</span><span class='value'>71.5%</span></div>"
-            "<div class='dss-login-mini-card green'><span class='label'>R²</span><span class='value'>99.3%</span></div>"
+            # Số liệu lấy từ lượt eval 16/11/2026 (evals/README.md:26-27, ngưỡng ở evals/thresholds.json).
+            # Đổi mô hình/dữ liệu thì cập nhật cùng README — xem ACCEPTANCE_CRITERIA AC-ML-01/02.
+            "<div class='dss-login-mini-card blue'><span class='label'>Accuracy</span><span class='value'>95,7%</span></div>"
+            "<div class='dss-login-mini-card yellow'><span class='label'>Macro-F1</span><span class='value'>0,817</span></div>"
+            "<div class='dss-login-mini-card green'><span class='label'>R²</span><span class='value'>0,992</span></div>"
             "</div>"
-            "<div class='dss-login-footer'>Kết quả đánh giá trên 1.000 mẫu dữ liệu mô phỏng — không phải độ chính xác trên sinh viên thật.</div>"
+            "<div class='dss-login-footer'>Kết quả đánh giá trên 1.000 sinh viên mô phỏng độc lập (eval 16/11/2026) — "
+            "không phải độ chính xác trên sinh viên thật.</div>"
             "</div>"
             "</div>",
             unsafe_allow_html=True,
