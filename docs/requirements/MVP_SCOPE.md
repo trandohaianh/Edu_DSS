@@ -76,9 +76,9 @@ Menu của giảng viên: `dss/main.py:233-240`.
 | Kho dữ liệu — Datasets (tải dữ liệu lớp) | Giảng viên / CVHT, Admin | `dss/tabs/warehouse_tab.py:26-28`, `dss/tabs/warehouse_tab.py:196-198` | **Bắt buộc** | Không có dữ liệu thì không dự đoán được |
 | Kho dữ liệu — AI Models (xem; GV không đổi được Production) | Giảng viên / CVHT, Admin | `dss/tabs/warehouse_tab.py:433-443`, `dss/tabs/warehouse_tab.py:616-619` | **Bắt buộc** | Biết mô hình nào đang phục vụ dự đoán |
 | Kho dữ liệu — History (nhật ký thô) | Giảng viên / CVHT, Admin | `dss/tabs/warehouse_tab.py:26-28` | Để sau | Báo cáo ghi là "plain-text log", đủ dùng nhưng thô (`reports/final_ui_functional_audit/LECTURER_ACCEPTANCE.md:19`) |
-| **Trang mới — Báo cáo** (theo mockup `ui_reference/lecturer/reports.html`) | Giảng viên / CVHT | **chưa có code** | **Bắt buộc (đã đổi 21/11)** | Chủ dự án chọn làm thêm. Nội dung chi tiết cần đặc tả trước khi lập trình (bước 6) |
-| **Trang mới — Lịch sử** (theo mockup `ui_reference/lecturer/history.html`) | Giảng viên / CVHT | **chưa có code** | **Bắt buộc (đã đổi 21/11)** | Như trên. Cần phân biệt với "Kho dữ liệu — History" (nhật ký thô) và "Lịch sử tư vấn" |
-| **Trang mới — Phân tích rủi ro** (theo mockup `ui_reference/lecturer/risk_analysis.html`) | Giảng viên / CVHT | **chưa có code** | **Bắt buộc (đã đổi 21/11)** | Như trên. Có thể dùng lại dữ liệu của Dashboard "Sinh viên rủi ro cao" |
+| Báo cáo (theo mockup `ui_reference/lecturer/reports.html`) | Giảng viên / CVHT | `dss/tabs/lecturer_pages.py::render_reports_tab` | **Bắt buộc** (thêm 21/11) | Đã làm 21/11/2026. Xem AC-GV-09 |
+| Lịch sử tư vấn của giảng viên (theo mockup `ui_reference/lecturer/history.html`) | Giảng viên / CVHT | `dss/tabs/lecturer_pages.py::render_consultation_history_tab` | **Bắt buộc** (thêm 21/11) | Đã làm 21/11/2026. Xem AC-GV-10 |
+| Phân tích rủi ro (theo mockup `ui_reference/lecturer/risk_analysis.html`) | Giảng viên / CVHT | `dss/tabs/lecturer_pages.py::render_risk_analysis_tab` | **Bắt buộc** (thêm 21/11) | Đã làm 21/11/2026. Xem AC-GV-11 |
 
 ## 4. Quản trị trường (`Admin`)
 
@@ -167,6 +167,6 @@ trang. Hai chỗ này mâu thuẫn; code (dòng 178) mới là cái có hiệu l
 - **Bắt buộc (dùng chung):** đăng nhập, khoá tài khoản, Google, phân quyền, chế độ production an toàn, RLS,
   bút danh hoá, kho mô hình, SHAP, nhập CSV/Excel, health check, sao lưu, HTTPS, **Trợ lý AI có LLM trả phí,
   hạn mức chi phí AI, bộ lọc an toàn AI**.
-- **Việc phải làm thêm (bước 6):** 3 trang giảng viên mới, giao diện điện thoại cho sinh viên, hạn mức chi phí
-  AI, nâng bộ lọc an toàn AI cho đạt ngưỡng.
+- **Việc phải làm thêm (bước 6):** hạn mức chi phí AI, nâng bộ lọc an toàn AI cho đạt ngưỡng. Đã xong 21/11/2026:
+  giao diện điện thoại cho sinh viên, 3 trang giảng viên.
 - Tiêu chí nghiệm thu cho từng mục: [ACCEPTANCE_CRITERIA.md](ACCEPTANCE_CRITERIA.md).

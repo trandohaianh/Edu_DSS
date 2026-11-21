@@ -36,6 +36,20 @@ def _current_organization_id() -> int:
     return int(raw)
 
 
+def _current_actor() -> dict:
+    """Người đang đăng nhập (username, vai trò) để ghi vào phiên tư vấn.
+
+    Trả {} khi không có phiên Streamlit (script, test) — không bao giờ làm hỏng
+    việc lưu phiên tư vấn chỉ vì không biết ai thực hiện."""
+    try:
+        from dss.services.auth_service import current_user
+
+        user = current_user() or {}
+    except Exception:
+        return {}
+    return {k: user.get(k) for k in ("username", "role") if user.get(k)}
+
+
 # ------------------------------------------------------------------ ký artifact (audit 17/11/2026)
 # Trước đây mã băm SHA-256 nằm ngay trong metadata cạnh artifact, và ``model_path`` tuyệt đối trong metadata được
 # đưa thẳng vào ``joblib.load``: ai ghi được thư mục dữ liệu là thay được cả artifact lẫn mã băm, hoặc trỏ tới một
@@ -413,6 +427,11 @@ class DataWarehouse:
                 "top_documents": top_documents,
                 "generated_plan": consultation_data.get("generated_plan", ""),
                 "metadata": consultation_data.get("metadata", {}),
+                # Ai đã thực hiện phiên tư vấn (quyết định chủ dự án 21/11/2026, trang
+                # "Lịch sử tư vấn" của giảng viên lọc "do tôi tư vấn"). Phiên cũ không có
+                # trường này → hiển thị "không rõ".
+                "performed_by": consultation_data.get("performed_by") or _current_actor().get("username"),
+                "performed_by_role": consultation_data.get("performed_by_role") or _current_actor().get("role"),
             }
             self._add_to_history("advisor", payload)
 

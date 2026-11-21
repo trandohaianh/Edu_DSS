@@ -9,6 +9,10 @@ HOME_TAB_LABEL = "🏡 Trang chủ"
 CLASSROOM_TAB_LABEL = "🏫 Lớp học và đánh giá"
 PROGRAM_TAB_LABEL = "🏛️ Chương trình và cấp phát"
 MATERIALS_TAB_LABEL = "📖 Học liệu của trường"
+# 3 trang Giảng viên theo mockup ui_reference/lecturer/ (MVP_SCOPE §3, AC-GV-09..11).
+LECTURER_RISK_TAB_LABEL = "🚨 Phân tích rủi ro"
+LECTURER_HISTORY_TAB_LABEL = "🗂️ Lịch sử tư vấn — Giảng viên"
+LECTURER_REPORTS_TAB_LABEL = "📑 Báo cáo lớp"
 
 _LEADING_ICON_RE = re.compile(r"^\S+\s+")
 
@@ -30,6 +34,9 @@ TAB_SHORT_LABELS = {
     "⚙️ Cấu hình AI": "Cấu hình AI",
     "📈 Báo cáo hệ thống": "Báo cáo & giám sát",
     "📝 Lịch sử tư vấn": "Lịch sử tư vấn",
+    LECTURER_RISK_TAB_LABEL: "Phân tích rủi ro",
+    LECTURER_HISTORY_TAB_LABEL: "Lịch sử tư vấn",
+    LECTURER_REPORTS_TAB_LABEL: "Báo cáo",
     "🔧 Cài đặt": "Cài đặt",
     "👥 Người dùng": "Người dùng",
     "🔗 Tích hợp LMS/CMS": "Tích hợp LMS/CMS",
@@ -75,6 +82,9 @@ TAB_ICONS = {
     "⚙️ Cấu hình AI": "⚙️",
     "📈 Báo cáo hệ thống": "📈",
     "📝 Lịch sử tư vấn": "📝",
+    LECTURER_RISK_TAB_LABEL: "🚨",
+    LECTURER_HISTORY_TAB_LABEL: "🗂️",
+    LECTURER_REPORTS_TAB_LABEL: "📑",
     "🔧 Cài đặt": "🔧",
     "👥 Người dùng": "👥",
     "🔗 Tích hợp LMS/CMS": "🔗",
@@ -154,6 +164,9 @@ ALL_TABS = [
     MATERIALS_TAB_LABEL,
     PROGRAM_TAB_LABEL,
     "📊 Dashboard",
+    LECTURER_RISK_TAB_LABEL,
+    LECTURER_REPORTS_TAB_LABEL,
+    LECTURER_HISTORY_TAB_LABEL,
     "🔍 Khám phá — Xử lý dữ liệu",
     "🧪 Huấn luyện — Dự đoán",
     "🔬 Phân cụm — Gợi ý",
@@ -201,6 +214,11 @@ TAB_ACCESS = {
     # warehouse.get_history()/save_ai_consultation() đã được gọi thật trong
     # models.py. Xem dss/tabs/consultation_history.py.
     "📝 Lịch sử tư vấn": {"Sinh viên"},
+    # 3 trang Giảng viên (MVP 21/11/2026): CHỈ Giảng viên / CVHT. Phạm vi = bộ dữ liệu đang
+    # dùng; chỉ đọc dữ liệu thật (dss/tabs/lecturer_pages.py).
+    LECTURER_RISK_TAB_LABEL: {"Giảng viên / CVHT"},
+    LECTURER_HISTORY_TAB_LABEL: {"Giảng viên / CVHT"},
+    LECTURER_REPORTS_TAB_LABEL: {"Giảng viên / CVHT"},
     # Phase C (rebuild UI/UX): 4 trang Admin mới, mỗi trang dựng từ dữ liệu/
     # service THẬT đã có sẵn (model_registry/knowledge_base/admin_ai_config/
     # auth_service) — không thêm logic nghiệp vụ mới, chỉ thêm điểm điều

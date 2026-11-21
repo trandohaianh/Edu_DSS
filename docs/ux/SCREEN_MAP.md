@@ -196,13 +196,13 @@ Có **2 bộ mockup**, cùng tên tệp nhưng nội dung khác nhau:
 | `lecturer_home.html` (chỉ `ui_reference/`) | Trang chủ GV | Khớp |
 | `lecturer/dashboard.html`, `lecturer_dashboard.html` | Dashboard | Khớp |
 | `lecturer/students_data.html` (Sinh viên & dữ liệu) | Có thể là Kho dữ liệu hoặc Khám phá dữ liệu | **Suy đoán** |
-| `lecturer/risk_analysis.html` (Phân tích rủi ro) | **Không có trang riêng**. Rủi ro nằm trong Trang chủ và Dashboard | Không khớp |
+| `lecturer/risk_analysis.html` (Phân tích rủi ro) | Phân tích rủi ro (`dss/tabs/lecturer_pages.py`, thêm 21/11/2026) | Khớp |
 | `lecturer/training.html` | Huấn luyện mô hình | Khớp |
 | `lecturer/prediction.html` | Thẻ Dự đoán | Khớp |
 | `lecturer/clustering.html` | Phân cụm & gợi ý | Khớp |
 | `lecturer/ai_advisor.html` | Trợ lý AI | Khớp |
-| `lecturer/reports.html` (Báo cáo) | **Không có trang**. "Báo cáo hệ thống" chỉ dành cho Admin (`dss/core/roles.py:196-199`) | Không khớp |
-| `lecturer/history.html` (Lịch sử tư vấn) | **Không có trang**. "Lịch sử tư vấn" chỉ dành cho SV (`dss/core/roles.py:203`) | Không khớp |
+| `lecturer/reports.html` (Báo cáo) | Báo cáo (`dss/tabs/lecturer_pages.py`, thêm 21/11/2026). Số liệu thật, không dùng số trong mockup | Khớp |
+| `lecturer/history.html` (Lịch sử tư vấn) | Lịch sử tư vấn của giảng viên (`dss/tabs/lecturer_pages.py`, thêm 21/11/2026) | Khớp |
 | — | Lớp học, Chương trình, Duyệt tài liệu (GV) | **Không có mockup** |
 | `admin/dashboard.html` (Tổng quan hệ thống) | Tổng quan | Khớp |
 | `admin/data_management.html` | Kho dữ liệu | Khớp |

@@ -223,3 +223,18 @@ def test_mobile_nav_hidden_on_desktop(login, wait_ready):
     assert page.locator(_MOBILE_NAV).count() == 1
     assert page.locator(_MOBILE_NAV).is_hidden()
     assert page.locator(_NAV).is_visible()
+
+
+# ---------------------------------------------------------------- 3 trang giảng viên (AC-GV-09..11)
+def test_lecturer_pages_open_without_error_and_are_hidden_from_students(login, wait_ready):
+    page = login("giangvien", "gv123")
+    for label in ("Phân tích rủi ro", "Báo cáo", "Lịch sử tư vấn"):
+        _open(page, wait_ready, label)
+        main = page.locator("[data-testid='stMain']")
+        main.locator("h1", has_text=label).first.wait_for(timeout=30000)
+        assert page.locator("[data-testid='stException']").count() == 0, f"{label}: có traceback"
+        assert "Traceback" not in main.inner_text()
+    student = login("sv915", "sv915123")
+    nav = _nav_text(student)
+    for label in ("Phân tích rủi ro", "Báo cáo"):
+        assert label not in nav, f"Sinh viên thấy {label!r}"

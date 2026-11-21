@@ -118,10 +118,9 @@ def _sidebar_nav_groups():
         if isinstance(node, ast.Assign) and any(getattr(t, "id", None) == "SIDEBAR_NAV_GROUPS" for t in node.targets):
             return eval(
                 compile(ast.Expression(node.value), "main.py", "eval"),
-                {
-                    name: getattr(roles, name)
-                    for name in ("HOME_TAB_LABEL", "CLASSROOM_TAB_LABEL", "PROGRAM_TAB_LABEL", "MATERIALS_TAB_LABEL")
-                },
+                # Mọi hằng *_TAB_LABEL của roles.py (không liệt kê tay, để thêm trang mới
+                # như 3 trang giảng viên không phải sửa test này).
+                {name: getattr(roles, name) for name in dir(roles) if name.endswith("_TAB_LABEL")},
             )
     raise AssertionError("Không tìm thấy SIDEBAR_NAV_GROUPS trong main.py")
 

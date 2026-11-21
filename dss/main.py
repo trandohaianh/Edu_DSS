@@ -35,6 +35,9 @@ from dss.core.roles import (
     ALL_TABS,
     CLASSROOM_TAB_LABEL,
     HOME_TAB_LABEL,
+    LECTURER_HISTORY_TAB_LABEL,
+    LECTURER_REPORTS_TAB_LABEL,
+    LECTURER_RISK_TAB_LABEL,
     MATERIALS_TAB_LABEL,
     PROGRAM_TAB_LABEL,
     display_label,
@@ -231,12 +234,21 @@ SIDEBAR_NAV_GROUPS = {
         ("TRỢ LÝ AI", ["🤖 Tư vấn — AI (LLM)", "📝 Lịch sử tư vấn"]),
     ],
     "Giảng viên / CVHT": [
-        ("TỔNG QUAN", [HOME_TAB_LABEL, "📊 Dashboard"]),
+        ("TỔNG QUAN", [HOME_TAB_LABEL, "📊 Dashboard", LECTURER_RISK_TAB_LABEL, LECTURER_REPORTS_TAB_LABEL]),
         (
             "PHÂN TÍCH LỚP HỌC",
             [CLASSROOM_TAB_LABEL, "🔍 Khám phá — Xử lý dữ liệu", "🧪 Huấn luyện — Dự đoán", "🔬 Phân cụm — Gợi ý"],
         ),
-        ("HỖ TRỢ & TÀI LIỆU", [PROGRAM_TAB_LABEL, "🤖 Tư vấn — AI (LLM)", "📄 Duyệt tài liệu", "📦 Kho dữ liệu"]),
+        (
+            "HỖ TRỢ & TÀI LIỆU",
+            [
+                PROGRAM_TAB_LABEL,
+                "🤖 Tư vấn — AI (LLM)",
+                LECTURER_HISTORY_TAB_LABEL,
+                "📄 Duyệt tài liệu",
+                "📦 Kho dữ liệu",
+            ],
+        ),
     ],
     "Admin": [
         ("TỔNG QUAN", [HOME_TAB_LABEL]),
@@ -910,6 +922,22 @@ if True:  # khối nội dung trang (giữ thụt lề cũ để diff gọn)
     # --- TAB BÁO CÁO HỆ THỐNG (Admin) ---
     elif selected_main_tab == "📈 Báo cáo hệ thống":
         admin_reports_tab(wh, df=df)
+
+    # --- 3 TRANG GIẢNG VIÊN (MVP 21/11/2026, dss/tabs/lecturer_pages.py) ---
+    elif selected_main_tab == LECTURER_RISK_TAB_LABEL:
+        from dss.tabs.lecturer_pages import render_risk_analysis_tab
+
+        render_risk_analysis_tab(df, wh)
+
+    elif selected_main_tab == LECTURER_REPORTS_TAB_LABEL:
+        from dss.tabs.lecturer_pages import render_reports_tab
+
+        render_reports_tab(df, wh)
+
+    elif selected_main_tab == LECTURER_HISTORY_TAB_LABEL:
+        from dss.tabs.lecturer_pages import render_consultation_history_tab
+
+        render_consultation_history_tab(wh, (_user or {}).get("username"))
 
     # --- TAB LỊCH SỬ TƯ VẤN (Sinh viên) ---
     elif selected_main_tab == "📝 Lịch sử tư vấn":
