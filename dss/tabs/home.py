@@ -1,5 +1,7 @@
 """Trang chủ theo vai trò (Admin / Giảng viên / Sinh viên)."""
 
+import plotly.graph_objects as go
+
 from dss.config import *  # noqa: F403
 from dss.core.data_helpers import feature_label
 from dss.core.logging_config import get_logger

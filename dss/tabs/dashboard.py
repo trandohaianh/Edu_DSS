@@ -1,5 +1,7 @@
 """Shared runtime imports for Streamlit tab modules."""
 
+import plotly.graph_objects as go
+
 from dss.config import *  # noqa: F403
 from dss.core.data_helpers import feature_label
 from dss.core.init_app import clear_all_session_state_for_new_data
