@@ -126,7 +126,7 @@ trang. Hai chỗ này mâu thuẫn; code (dòng 178) mới là cái có hiệu l
 | Kho mô hình: Candidate → Production → Archived, không tự lên Production | GV, Admin | `dss/services/model_registry.py`, `dss/services/model_service.py:227-248` | **Bắt buộc** | Dự đoán chỉ dùng mô hình đã duyệt |
 | Giải thích dự đoán (SHAP, "yếu tố ảnh hưởng") | SV, GV | `dss/services/model_explainability.py` | **Bắt buộc** | Lời khuyên phải có lý do (`dss/core/roles.py:115`) |
 | Trợ lý AI có LLM: định tuyến 3 tầng, nhà cung cấp OpenAI/Gemini/Groq/Ollama | Tất cả | `dss/services/ai_router.py`, `docs/ai/AI_ROUTING_MATRIX.md` | **Bắt buộc (đã đổi 21/11)** | Chủ dự án chọn dùng nhà cung cấp trả phí. Kế hoạch học tập theo luật vẫn phải chạy được khi AI lỗi hoặc hết hạn mức (`reports/stage1_learning/ACCEPTANCE.md:16`) |
-| Hạn mức chi phí AI theo trường (đếm token, chặn khi vượt) | Admin, Vận hành | `dss/services/llm_gateway.py:382` (`check_quota_and_rate_limit`), bảng `ai_token_usage`, `quota_usage` | **Bắt buộc (đã đổi 21/11)** | Code đã có cổng kiểm tra hạn mức. Ngân sách < 500.000 đ/tháng cho cả máy chủ lẫn API, nên cần đặt mức trần cụ thể khi chọn nhà cung cấp |
+| Hạn mức chi phí AI (ngân sách 5 USD/tháng, chặn thật) | Admin, Vận hành | `dss/services/token_tracker.py::check_system_budget`, `dss/services/llm_gateway.py` | **Bắt buộc (đã đổi 21/11)** | Đã làm 21/11/2026 (AC-ML-13). Đổi mức bằng `EDUDSS_AI_MONTHLY_BUDGET_USD` |
 | Bộ lọc an toàn AI (từ khoá + bộ phân loại) | Tất cả | `dss/services/safety_classifier.py`, `dss/services/prompt_security.py` | **Bắt buộc (đã đổi 21/11)** | ⚠️ Rủi ro lớn nhất của quyết định bật LLM. Holdout mới chặn được 65–75% lời khuyên có hại (`evals/README.md:52-53`). Phải đạt ngưỡng ở [ACCEPTANCE_CRITERIA.md](ACCEPTANCE_CRITERIA.md) trước khi cho sinh viên dùng |
 | RAG trên bài giảng và quy chế | Tất cả | `dss/services/rag_service.py` | Để sau | Embedding tiếng Việt chưa đo (`evals/thresholds.json:37`) |
 | Cổng AI ngoài (`engine_advisor_tab`, bật bằng `EDUDSS_ENGINE_URL`) | Tất cả | `dss/main.py:815-819`, `dss/services/engine_gateway.py:39-41` | Để sau | Chỉ chạy khi có cấu hình, thay cho Trợ lý AI thường |
@@ -167,6 +167,6 @@ trang. Hai chỗ này mâu thuẫn; code (dòng 178) mới là cái có hiệu l
 - **Bắt buộc (dùng chung):** đăng nhập, khoá tài khoản, Google, phân quyền, chế độ production an toàn, RLS,
   bút danh hoá, kho mô hình, SHAP, nhập CSV/Excel, health check, sao lưu, HTTPS, **Trợ lý AI có LLM trả phí,
   hạn mức chi phí AI, bộ lọc an toàn AI**.
-- **Việc phải làm thêm (bước 6):** hạn mức chi phí AI, nâng bộ lọc an toàn AI cho đạt ngưỡng. Đã xong 21/11/2026:
-  giao diện điện thoại cho sinh viên, 3 trang giảng viên.
+- **Việc phải làm thêm (bước 6):** nâng bộ lọc an toàn AI cho đạt ngưỡng. Đã xong 21/11/2026: giao diện điện
+  thoại cho sinh viên, 3 trang giảng viên, ngân sách AI 5 USD/tháng chặn thật, tắt tự tải mô hình AI tại chỗ.
 - Tiêu chí nghiệm thu cho từng mục: [ACCEPTANCE_CRITERIA.md](ACCEPTANCE_CRITERIA.md).

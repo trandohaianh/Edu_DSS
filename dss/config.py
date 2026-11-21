@@ -333,6 +333,18 @@ TORCH_AVAILABLE = _importlib_util.find_spec("torch") is not None
 AutoTokenizer = AutoModelForCausalLM = AutoModel = None
 HF_AVAILABLE = _importlib_util.find_spec("transformers") is not None
 
+
+def local_hf_enabled() -> bool:
+    """AI sinh văn bản chạy TẠI CHỖ bằng Hugging Face/transformers chỉ được dùng khi
+    quản trị viên bật rõ ràng `EDUDSS_ENABLE_LOCAL_HF=1`.
+
+    Lý do (21/11/2026): trước đây chỉ cần cài `transformers` (có sẵn trong ảnh
+    Docker) là Hugging Face được coi là "sẵn sàng"; khi chưa có khoá API nào, bấm
+    "Tạo kế hoạch bằng AI" tự tải Qwen2.5-7B (~15 GB) và chạy trên CPU máy chủ.
+    Không ảnh hưởng mô hình embedding nhỏ dùng cho tìm kiếm tài liệu (RAG)."""
+    return os.environ.get("EDUDSS_ENABLE_LOCAL_HF", "").strip().lower() in ("1", "true", "yes", "on")
+
+
 _local_llm_libs_loaded = False
 
 # PERF-001 — instrumentation dev/test-only: bật bằng biến môi trường

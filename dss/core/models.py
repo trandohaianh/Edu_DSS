@@ -1304,6 +1304,14 @@ Viết tiếng Việt mạch lạc, ấm áp, không dùng giọng mệnh lệnh
             yield "Yêu cầu AI rỗng hoặc vượt giới hạn độ dài. Vui lòng rút gọn nội dung."
             return
         provider = provider.lower()
+        if provider == "huggingface" and not dss_config.local_hf_enabled():
+            # Chặn tải/chạy mô hình cục bộ (Qwen 7B ~15 GB) khi chưa bật rõ ràng. Bắt đầu
+            # bằng "Lỗi" để LLMGateway coi là provider thất bại và chuyển provider kế tiếp.
+            yield (
+                "Lỗi Hugging Face: AI chạy tại chỗ đang tắt trên máy chủ này "
+                "(quản trị viên bật bằng EDUDSS_ENABLE_LOCAL_HF=1 nếu máy đủ RAM/GPU)."
+            )
+            return
         if provider == "huggingface":
             dss_config._ensure_local_llm_libs()
 

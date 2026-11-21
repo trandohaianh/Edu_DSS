@@ -20,6 +20,9 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from dss.core.data_root import get_data_root
+from dss.core.logging_config import get_logger
+
+_logger = get_logger(__name__)
 
 _LOCK = threading.Lock()
 
@@ -103,11 +106,42 @@ DEFAULT_DAILY_QUOTA_BY_ROLE = {
     "Admin": 500_000,  # 500k tokens / ngày cho vận hành & test
 }
 
-SYSTEM_BUDGET_CONFIG = {
-    "daily_budget_usd": 15.0,  # $15/ngày cho trường
-    "monthly_budget_usd": 300.0,  # $300/tháng
-    "warning_threshold_ratio": 0.80,  # Cảnh báo khi chạm 80%
-}
+# Ngân sách AI của cả hệ thống (quyết định chủ dự án 21/11/2026: tổng hạ tầng < 500.000 đ/tháng,
+# trần AI 5 USD/tháng). Trước đây viết cứng 300 USD/tháng và CHỈ cảnh báo; nay đọc từ biến môi
+# trường và CHẶN thật (xem check_system_budget, gọi từ LLMGateway). Trần ngày mặc định = tháng / 30
+# để một ngày không tiêu hết tiền cả tháng.
+DEFAULT_MONTHLY_BUDGET_USD = 5.0
+DEFAULT_WARNING_RATIO = 0.80
+
+
+def _env_float(name: str, default: float) -> float:
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return default
+    try:
+        value = float(raw)
+    except ValueError:
+        return default
+    return value if value >= 0 else default
+
+
+def budget_config() -> Dict[str, float]:
+    """Ngân sách đọc lại từ môi trường MỖI lần gọi (đổi biến môi trường không cần sửa code).
+
+    EDUDSS_AI_MONTHLY_BUDGET_USD (mặc định 5), EDUDSS_AI_DAILY_BUDGET_USD (mặc định tháng/30),
+    EDUDSS_AI_BUDGET_WARNING_RATIO (mặc định 0,8)."""
+    monthly = _env_float("EDUDSS_AI_MONTHLY_BUDGET_USD", DEFAULT_MONTHLY_BUDGET_USD)
+    daily = _env_float("EDUDSS_AI_DAILY_BUDGET_USD", round(monthly / 30.0, 4))
+    ratio = _env_float("EDUDSS_AI_BUDGET_WARNING_RATIO", DEFAULT_WARNING_RATIO)
+    return {
+        "daily_budget_usd": daily,
+        "monthly_budget_usd": monthly,
+        "warning_threshold_ratio": ratio if 0 < ratio <= 1 else DEFAULT_WARNING_RATIO,
+    }
+
+
+# Giữ tên cũ cho mã/đọc cấu hình hiện có; giá trị lấy lúc import (budget_config() mới là nguồn chuẩn).
+SYSTEM_BUDGET_CONFIG = budget_config()
 
 
 @dataclass
@@ -325,9 +359,10 @@ def get_system_budget_status() -> Dict[str, Any]:
             monthly_cost += cost
             monthly_tokens += tokens
 
-    daily_budget = SYSTEM_BUDGET_CONFIG["daily_budget_usd"]
-    monthly_budget = SYSTEM_BUDGET_CONFIG["monthly_budget_usd"]
-    warn_ratio = SYSTEM_BUDGET_CONFIG["warning_threshold_ratio"]
+    _cfg = budget_config()
+    daily_budget = _cfg["daily_budget_usd"]
+    monthly_budget = _cfg["monthly_budget_usd"]
+    warn_ratio = _cfg["warning_threshold_ratio"]
 
     status = "normal"
     alert_message = None
@@ -356,6 +391,30 @@ def get_system_budget_status() -> Dict[str, Any]:
         "monthly_tokens": monthly_tokens,
         "total_requests": len(records),
     }
+
+
+def check_system_budget() -> Tuple[bool, str]:
+    """Còn được gọi AI TRẢ PHÍ không? (False khi chi phí tháng hoặc ngày đã chạm trần.)
+
+    Xét trần tháng và trần ngày ĐỘC LẬP (status của get_system_budget_status ưu tiên cảnh báo
+    tháng nên có thể che mất trường hợp vượt trần ngày). Lỗi đọc dữ liệu → cho qua và ghi log:
+    không chặn người dùng chỉ vì không đọc được sổ chi phí (hạn mức token theo người vẫn áp dụng)."""
+    try:
+        s = get_system_budget_status()
+    except Exception:
+        _logger.exception("Không đọc được sổ chi phí AI — bỏ qua kiểm tra ngân sách lượt này.")
+        return True, ""
+    if s["monthly_cost"] >= s["monthly_budget"]:
+        return False, (
+            f"Đã dùng hết ngân sách AI tháng này ({s['monthly_cost']:.2f}/{s['monthly_budget']:.2f} USD). "
+            "Trợ lý AI tạm dừng tới đầu tháng sau hoặc khi quản trị viên tăng ngân sách."
+        )
+    if s["daily_cost"] >= s["daily_budget"]:
+        return False, (
+            f"Đã dùng hết ngân sách AI hôm nay ({s['daily_cost']:.2f}/{s['daily_budget']:.2f} USD). "
+            "Trợ lý AI sẽ mở lại vào ngày mai."
+        )
+    return True, ""
 
 
 def get_usage_summary(start_date: Optional[str] = None, end_date: Optional[str] = None) -> Dict[str, Any]:

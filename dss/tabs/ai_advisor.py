@@ -153,7 +153,9 @@ def _list_ready_cloud_providers(llm_integration, available_map):
             candidates.append((_prov_key, _prov_label))
     if _check_ollama_running():
         candidates.append(("ollama", "Ollama (Local)"))
-    if dss_config.HF_AVAILABLE:
+    # Chỉ coi là "sẵn sàng" khi quản trị viên bật rõ (dss_config.local_hf_enabled) — chỉ
+    # cài transformers thôi không đủ, tránh tự tải mô hình ~15 GB khi chưa có khoá API.
+    if dss_config.HF_AVAILABLE and dss_config.local_hf_enabled():
         candidates.append(("huggingface", "Hugging Face (Local/Cloud)"))
     return candidates
 

@@ -19,7 +19,7 @@ env:
   EDUDSS_SKIP_DOTENV: "1"
   RUFF_VERSION: "0.14.5"
   # Số cảnh báo ruff còn lại được chấp nhận. Chỉ được GIẢM; sửa bớt cảnh báo thì hạ số này.
-  RUFF_BASELINE: "457"
+  RUFF_BASELINE: "456"
 
 jobs:
   lint:

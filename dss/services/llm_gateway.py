@@ -38,6 +38,9 @@ from dss.services.context_budget import approximate_token_count
 
 _logger = logging.getLogger(__name__)
 
+# Nhà cung cấp tính tiền theo token — bị chặn khi chạm trần ngân sách AI (token_tracker.check_system_budget).
+PAID_PROVIDERS = frozenset({"gemini", "groq", "openai"})
+
 # H-1 (CRITICAL, đợt audit kiến trúc thương mại 2026-09): request_type nào
 # thực sự cần đường "sinh kế hoạch cá nhân hóa" (MultiAIProvider.
 # generate_personalized_advice — tự xây prompt riêng từ student_weaknesses/
@@ -407,6 +410,10 @@ class LLMGateway:
         if not ok:
             raise QuotaExceededError(quota_msg)
 
+        budget_ok, budget_msg = token_tracker.check_system_budget()
+        if not budget_ok:
+            raise QuotaExceededError(budget_msg)
+
         self._check_rate_limit()
 
     def _safe_get_secret(self, key_name: str) -> Optional[str]:
@@ -476,7 +483,10 @@ class LLMGateway:
             p_key = default_cfg["provider_key"]
             m_name = default_cfg["model_name"]
             api_k = explicit_api_key or self.resolve_api_key(p_key)
-            if p_key in ("ollama", "huggingface") or api_k:
+            from dss.config import local_hf_enabled
+
+            # Hugging Face cục bộ chỉ dùng khi bật rõ EDUDSS_ENABLE_LOCAL_HF=1 (tránh tải ~15 GB).
+            if p_key == "ollama" or (p_key == "huggingface" and local_hf_enabled()) or api_k:
                 return p_key, m_name, api_k
 
         # 2. Nếu Giảng viên / Admin tự chọn trên panel — đây là lựa chọn THỦ CÔNG,
@@ -614,6 +624,20 @@ class LLMGateway:
             if p and p not in dedup_chain:
                 dedup_chain.append(p)
 
+        # Ngân sách AI cả hệ thống (mặc định 5 USD/tháng, token_tracker.budget_config): chạm trần
+        # thì bỏ mọi provider TRẢ PHÍ; nếu không còn provider miễn phí thật nào thì báo rõ và dừng
+        # (không gọi nhà cung cấp, không tính thêm tiền).
+        budget_ok, budget_msg = token_tracker.check_system_budget()
+        if not budget_ok:
+            _logger.warning("LLMGateway [%s]: cham tran ngan sach AI, bo provider tra phi.", correlation_id)
+            dedup_chain = [p for p in dedup_chain if p not in PAID_PROVIDERS]
+            if not [p for p in dedup_chain if p != "demo"]:
+                yield (
+                    f"⚠️ {budget_msg}\n\nBạn vẫn dùng được **Kế hoạch học tập** (tạo theo dữ liệu, "
+                    "không cần AI) ở trang Trợ lý AI."
+                )
+                return
+
         acquired = _GATEWAY_SEMAPHORE.acquire(timeout=45.0)
         if not acquired:
             # Production Demo Policy (audit 2026-09): trước đây luôn "Đang chuyển
@@ -657,6 +681,9 @@ class LLMGateway:
                 # không có gì để yield). "demo" luôn là phần tử cuối của
                 # dedup_chain nên vòng lặp vẫn tới được nhánh thông báo trung
                 # thực bên dưới sau khi bỏ qua các provider thật đang mở mạch.
+                if not budget_ok and p_key in PAID_PROVIDERS:
+                    # Provider mặc định do Admin đặt có thể là provider trả phí dù chuỗi đã lọc.
+                    continue
                 if p_key != "demo" and not circuit_breaker.allow_request(p_key):
                     _logger.warning(
                         "LLMGateway [%s]: mach Circuit Breaker dang OPEN cho provider '%s' "
