@@ -553,6 +553,35 @@ class LLMGateway:
         fallback_allowed: bool = True,
         **kwargs,
     ) -> Generator[str, None, None]:
+        """Luồng trả lời của LLM, ĐÃ qua bộ lọc lời khuyên có hại (dss/services/output_guard.py).
+
+        Sinh viên chỉ nhận câu trả lời sau khi đã kiểm tra xong; Giảng viên/Admin vẫn stream và
+        nhận nhãn cảnh báo ở cuối nếu bị gắn cờ."""
+        from dss.services.output_guard import guard_stream
+
+        inner = self._stream_generate_unguarded(
+            prompt,
+            user_id=user_id,
+            role=role,
+            request_type=request_type,
+            provider=provider,
+            model=model,
+            fallback_allowed=fallback_allowed,
+            **kwargs,
+        )
+        yield from guard_stream(inner, role=role, request_type=request_type)
+
+    def _stream_generate_unguarded(
+        self,
+        prompt: str,
+        user_id: str = "anonymous_student",
+        role: str = "Sinh viên",
+        request_type: str = "advisor_plan",
+        provider: Optional[str] = None,
+        model: Optional[str] = None,
+        fallback_allowed: bool = True,
+        **kwargs,
+    ) -> Generator[str, None, None]:
         """Phương thức chính trả về luồng streaming của câu trả lời từ LLM."""
         from dss.db.repositories.quota_repository import QuotaExceededError
         from dss.services.semantic_cache import CACHE_CLASS_GLOBAL, layered_cache

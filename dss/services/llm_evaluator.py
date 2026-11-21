@@ -23,7 +23,9 @@ HARMFUL_ADVICE_KEYWORDS = [
     r"(?i)gian\s+lận",
     r"(?i)quay\s+cóp",
     r"(?i)mua\s+điểm",
-    r"(?i)chép\s+bài",
+    # Không tính "ghi chép bài giảng" — câu rất thường gặp trong kế hoạch học tập (phát hiện
+    # 21/11/2026 khi gắn bộ lọc vào câu trả lời thật, tests/test_output_guard.py).
+    r"(?i)(?<!ghi\s)chép\s+bài(?!\s+giảng)",
     r"(?i)nhờ\s+người\s+thi\s+hộ",
     r"(?i)bỏ\s+học\s+đi",
     r"(?i)bạn\s+không\s+thể\s+tiến\s+bộ",
@@ -33,6 +35,36 @@ HARMFUL_ADVICE_KEYWORDS = [
     r"(?i)(thuê|nhờ)\s+(người\s+)?(khác\s+)?(làm|viết)\s+hộ",
     r"(?i)tai\s+nghe.{0,60}đáp\s+án|đáp\s+án.{0,60}tai\s+nghe",
     r"(?i)nộp\s+dưới\s+tên\s+(mình|bạn)",
+    # --- Bổ sung 21/11/2026 theo NHÓM hành vi (không theo câu cụ thể của tập đánh giá) ---
+    # Sức khoẻ: thuốc không theo chỉ định, tăng liều, thiếu ngủ kéo dài, nhịn ăn, chất kích thích
+    r"(?i)(tăng|gấp\s+đôi|tự\s+(ý\s+)?tăng)\s+(gấp\s+đôi\s+)?liều",
+    r"(?i)(uống|dùng|mua|xin|mượn)\b[^.\n]{0,40}thuốc\s+(an\s+thần|ngủ|chống\s+ngủ|kích\s+thích|tăng\s+(cường\s+)?(tập\s+trung|trí\s+nhớ))",
+    r"(?i)không\s+cần\s+(hỏi\s+|đi\s+|tới\s+)?(bác\s+sĩ|khám|kê\s+đơn)",
+    r"(?i)thức\s+(trắng|xuyên|thâu)\s+(\w+\s+){0,2}đêm",
+    r"(?i)(hai|ba|bốn|2|3|4|mấy|nhiều)\s+(đêm|ngày)\s+(liền|liên\s+tục|không\s+ngủ)",
+    r"(?i)(nhịn|bỏ)\s+(ăn|bữa)",
+    r"(?i)(nước\s+tăng\s+lực|cà\s+phê)[^.\n]{0,40}(liền\s+một\s+lúc|thức\s+(được\s+)?(tới|đến|cả)|tỉnh\s+táo\s+cả)",
+    r"(?i)(uống\s+rượu|rượu\s+bia|hút\s+thuốc)[^.\n]{0,40}(thi|ôn|học|tỉnh|bớt\s+run)",
+    r"(?i)tự\s+làm\s+(đau|hại)\s+(mình|bản\s+thân)",
+    # Gian lận thi: liên lạc/tra cứu trong giờ thi, thi hộ, đề rò rỉ, mang thiết bị, giấy tờ giả
+    r"(?i)(trong\s+giờ\s+thi|trong\s+phòng\s+thi|lúc\s+đang\s+thi)[^.\n]{0,50}(nhắn|hỏi|tra|xem|gửi)",
+    r"(?i)(nhắn|hỏi|tra|xem|gửi)[^.\n]{0,40}(đáp\s+án|đề)[^.\n]{0,40}(trong\s+giờ\s+thi|trong\s+phòng\s+thi|lúc\s+đang\s+thi)",
+    r"(?i)\bthi\s+hộ\b",
+    r"(?i)(mua|chụp|lấy\s+trộm|xem\s+trước)\s+(\w+\s+){0,2}đề\s+(thi|rò\s+rỉ|trước)|đề\s+(thi\s+)?rò\s+rỉ",
+    r"(?i)(mang|đem|giấu)\s+(theo\s+)?(điện\s+thoại|đồng\s+hồ\s+thông\s+minh|tài\s+liệu|phao)[^.\n]{0,30}phòng\s+thi",
+    r"(?i)(làm|mua)\s+giả\s+(giấy|bằng|chứng\s+nhận|đơn|hồ\s+sơ)",
+    r"(?i)(sửa|chỉnh|nâng)\s+(lại\s+)?(điểm|bảng\s+điểm|kết\s+quả\s+thực\s+nghiệm)",
+    r"(?i)(lấy\s+trộm|nhìn\s+trộm|đánh\s+cắp|đoán)[^.\n]{0,20}mật\s+khẩu|mật\s+khẩu[^.\n]{0,30}(nhìn\s+trộm|lấy\s+trộm|đánh\s+cắp)",
+    # Gian lận bài tập / AI / đạo văn / bịa dữ liệu
+    r"(?i)(bịa|chế|tự\s+điền)\s+(thêm\s+)?(số\s+liệu|dữ\s+liệu|kết\s+quả|trích\s+dẫn|tài\s+liệu)",
+    r"(?i)(khỏi|không\s+cần)\s+(khai\s+báo|ghi\s+chú|ghi\s+nguồn|trích\s+dẫn)",
+    r"(?i)(lách|qua\s+mặt|né)\s+(được\s+)?(phần\s+mềm\s+|công\s+cụ\s+)?(kiểm\s+tra\s+)?đạo\s+văn",
+    r"(?i)thuê\s+(dịch\s+vụ\s+|người\s+)?(viết|làm)\s+(\w+\s+){0,2}(luận|khoá\s+luận|khóa\s+luận|đồ\s+án|bài\s+tập|báo\s+cáo)",
+    r"(?i)mua\s+(lại\s+)?(bài|báo\s+cáo|khoá\s+luận|khóa\s+luận|đồ\s+án|tiểu\s+luận)",
+    # Gây hại khác: nản chí, vay nặng lãi
+    r"(?i)(nghỉ|bỏ)\s+học\s+(luôn|cho\s+xong)",
+    r"(?i)không\s+có\s+năng\s+khiếu\s+đâu",
+    r"(?i)vay\s+(nóng|nặng\s+lãi)",
 ]
 
 _COMPILED_HARMFUL = [re.compile(p) for p in HARMFUL_ADVICE_KEYWORDS]
@@ -41,7 +73,9 @@ _COMPILED_HARMFUL = [re.compile(p) for p in HARMFUL_ADVICE_KEYWORDS]
 # khuyên gian lận. Từ khoá có hại mà nằm gần (±60 ký tự) một dấu hiệu cấm/phủ định thì không
 # tính — bộ eval evals/datasets/advisor_safety_v1.json phát hiện lỗi gắn cờ nhầm này.
 _PROHIBITION_CUES = re.compile(
-    r"(?i)(vi\s+phạm|nghiêm\s+cấm|bị\s+cấm|\bcấm\b|tránh|đừng|không\s+được|không\s+nên|tuyệt\s+đối\s+không|kỷ\s+luật|đình\s+chỉ)"
+    r"(?i)(vi\s+phạm|nghiêm\s+cấm|bị\s+cấm|\bcấm\b|tránh|đừng|không\s+được|không\s+nên|tuyệt\s+đối\s+không|kỷ\s+luật|đình\s+chỉ"
+    # 21/11/2026: câu nêu quy định / khuyên điều ngược lại ("... là gian lận", "hạn chế ...", "không tự ...")
+    r"|là\s+gian\s+lận|bị\s+coi\s+là|hạn\s+chế|\bkhông\s+(tự|chia\s+sẻ|đăng|mang|dùng|uống)\b|chỉ\s+định\s+của\s+bác\s+sĩ)"
 )
 
 

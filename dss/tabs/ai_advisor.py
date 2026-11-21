@@ -1630,6 +1630,10 @@ def ai_advisor_tab(df, llm_integration, role=None, current_student_id=None, wh=N
                             use_warehouse_data=use_warehouse_data,
                             student_profile=student_profile,
                         )
+                    # Nhánh này không qua LLMGateway → tự bọc bộ lọc lời khuyên có hại.
+                    from dss.services.output_guard import guard_stream
+
+                    plan_stream = guard_stream(plan_stream, role=role or "Sinh viên", request_type="advisor_plan")
                 else:
                     # Gemini/Groq/OpenAI/Ollama — đi qua LLM Gateway tập trung (Section S):
                     # kiểm tra hạn ngạch/token, retry+backoff, giới hạn đồng thời, tự ghi

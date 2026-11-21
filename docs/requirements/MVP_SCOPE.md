@@ -127,7 +127,7 @@ trang. Hai chỗ này mâu thuẫn; code (dòng 178) mới là cái có hiệu l
 | Giải thích dự đoán (SHAP, "yếu tố ảnh hưởng") | SV, GV | `dss/services/model_explainability.py` | **Bắt buộc** | Lời khuyên phải có lý do (`dss/core/roles.py:115`) |
 | Trợ lý AI có LLM: định tuyến 3 tầng, nhà cung cấp OpenAI/Gemini/Groq/Ollama | Tất cả | `dss/services/ai_router.py`, `docs/ai/AI_ROUTING_MATRIX.md` | **Bắt buộc (đã đổi 21/11)** | Chủ dự án chọn dùng nhà cung cấp trả phí. Kế hoạch học tập theo luật vẫn phải chạy được khi AI lỗi hoặc hết hạn mức (`reports/stage1_learning/ACCEPTANCE.md:16`) |
 | Hạn mức chi phí AI (ngân sách 5 USD/tháng, chặn thật) | Admin, Vận hành | `dss/services/token_tracker.py::check_system_budget`, `dss/services/llm_gateway.py` | **Bắt buộc (đã đổi 21/11)** | Đã làm 21/11/2026 (AC-ML-13). Đổi mức bằng `EDUDSS_AI_MONTHLY_BUDGET_USD` |
-| Bộ lọc an toàn AI (từ khoá + bộ phân loại) | Tất cả | `dss/services/safety_classifier.py`, `dss/services/prompt_security.py` | **Bắt buộc (đã đổi 21/11)** | ⚠️ Rủi ro lớn nhất của quyết định bật LLM. Holdout mới chặn được 65–75% lời khuyên có hại (`evals/README.md:52-53`). Phải đạt ngưỡng ở [ACCEPTANCE_CRITERIA.md](ACCEPTANCE_CRITERIA.md) trước khi cho sinh viên dùng |
+| Bộ lọc an toàn AI (từ khoá + bộ phân loại), **gắn vào câu trả lời thật** | Tất cả | `dss/services/output_guard.py`, `dss/services/llm_evaluator.py`, `dss/services/safety_classifier.py` | **Bắt buộc (đã đổi 21/11)** | Đã làm 21/11/2026 (AC-ML-16): holdout v3 bắt 92,5% câu có hại, không gắn nhầm câu an toàn. Vẫn cần tập do bên thứ ba viết trước khi công bố số liệu (AC-ML-11) |
 | RAG trên bài giảng và quy chế | Tất cả | `dss/services/rag_service.py` | Để sau | Embedding tiếng Việt chưa đo (`evals/thresholds.json:37`) |
 | Cổng AI ngoài (`engine_advisor_tab`, bật bằng `EDUDSS_ENGINE_URL`) | Tất cả | `dss/main.py:815-819`, `dss/services/engine_gateway.py:39-41` | Để sau | Chỉ chạy khi có cấu hình, thay cho Trợ lý AI thường |
 | Webhook LMS ký HMAC, connector Moodle REST | Admin | `dss/services/lms_live_sync.py:44-52`, `dss/services/moodle_connector.py` | Để sau | Chưa chạy với Moodle thật (`evals/README.md:96`) |
@@ -167,6 +167,7 @@ trang. Hai chỗ này mâu thuẫn; code (dòng 178) mới là cái có hiệu l
 - **Bắt buộc (dùng chung):** đăng nhập, khoá tài khoản, Google, phân quyền, chế độ production an toàn, RLS,
   bút danh hoá, kho mô hình, SHAP, nhập CSV/Excel, health check, sao lưu, HTTPS, **Trợ lý AI có LLM trả phí,
   hạn mức chi phí AI, bộ lọc an toàn AI**.
-- **Việc phải làm thêm (bước 6):** nâng bộ lọc an toàn AI cho đạt ngưỡng. Đã xong 21/11/2026: giao diện điện
-  thoại cho sinh viên, 3 trang giảng viên, ngân sách AI 5 USD/tháng chặn thật, tắt tự tải mô hình AI tại chỗ.
+- **Bước 6 (MVP) đã xong 21/11/2026:** giao diện điện thoại cho sinh viên, 3 trang giảng viên, ngân sách AI
+  5 USD/tháng chặn thật, tắt tự tải mô hình AI tại chỗ, bộ lọc an toàn AI gắn vào câu trả lời thật.
+  Còn mở: tập kiểm thử an toàn do bên thứ ba viết (AC-ML-11).
 - Tiêu chí nghiệm thu cho từng mục: [ACCEPTANCE_CRITERIA.md](ACCEPTANCE_CRITERIA.md).

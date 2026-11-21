@@ -14,7 +14,17 @@ làm việc" mà đợt audit này yêu cầu tìm."""
 
 from __future__ import annotations
 
+import pytest
+
 from dss.services import token_tracker
+
+
+@pytest.fixture(autouse=True)
+def _no_safety_classifier_on_fake_answers(monkeypatch):
+    """Test này kiểm cache/định tuyến của LLMGateway với câu trả lời GIẢ (ECHO::..., chữ in hoa).
+    Từ 21/11/2026 câu trả lời đi qua bộ lọc an toàn (dss/services/output_guard.py); bộ phân loại
+    học được cho các chuỗi giả này điểm ~0,55 nên tắt riêng nó ở đây (lớp từ khoá vẫn chạy)."""
+    monkeypatch.setenv("EDUDSS_SAFETY_CLASSIFIER", "0")
 
 
 def test_record_usage_accepts_cache_hit_without_raising():

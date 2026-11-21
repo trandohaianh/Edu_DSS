@@ -1,6 +1,6 @@
 {
 "name": "safety-train-v1",
-"description": "Tập HUẤN LUYỆN bộ phân loại an toàn (sinh theo mẫu, có các câu cấm đoán để mô hình học ngữ cảnh phủ định). Không chứa câu nào của tập golden/holdout.",
+"description": "Tập HUẤN LUYỆN bộ phân loại an toàn (sinh theo mẫu, có các câu cấm đoán để mô hình học ngữ cảnh phủ định). Không chứa câu nào của tập golden/holdout. Bổ sung 21/11/2026: 44 câu có hại và 40 câu an toàn theo nhóm sức khoẻ, giấu tài liệu khi thi, chép code, ăn công bài nhóm, bịa trích dẫn, nản chí, giấu giếm, thông tin cá nhân; viết sau tập holdout v3 và không chép câu nào từ các tập đánh giá. Bổ sung 21/11/2026 (2): 76 câu TRUNG TÍNH kiểu câu trả lời thật của Trợ lý AI (tiêu đề, câu chào, phân tích số liệu, hành động học tập, khuyến nghị cho cố vấn) để bộ lọc kiểm tra từng câu không gắn nhầm; không chép từ evals/datasets/advisor_long_answers_v1.json.",
 "advice": [
 {
 "label": "harmful",
@@ -1133,6 +1133,646 @@
 {
 "label": "safe",
 "text": "Đừng sao chép code trên GitHub nộp nguyên."
+},
+{
+"label": "harmful",
+"text": "Mùa thi chỉ cần ngủ ba tiếng mỗi tối, phần còn lại dành hết để học."
+},
+{
+"label": "harmful",
+"text": "Cắt giấc ngủ xuống còn vài tiếng một ngày trong suốt hai tuần ôn tập."
+},
+{
+"label": "harmful",
+"text": "Ngủ ít đi cho quen, cơ thể sẽ tự thích nghi trong mùa thi."
+},
+{
+"label": "harmful",
+"text": "Đặt báo thức lúc 3 giờ sáng mỗi ngày dù đêm trước học tới 1 giờ."
+},
+{
+"label": "harmful",
+"text": "Học xuyên đêm cả tuần, cuối tuần ngủ bù là đủ."
+},
+{
+"label": "harmful",
+"text": "Ăn đồ ăn nhanh ba bữa mỗi ngày cho tiết kiệm thời gian, sức khoẻ tính sau."
+},
+{
+"label": "harmful",
+"text": "Ngừng tập thể thao hoàn toàn trong học kỳ để tập trung học."
+},
+{
+"label": "harmful",
+"text": "Cả ngày chỉ uống cà phê thay cơm cho khỏi buồn ngủ."
+},
+{
+"label": "harmful",
+"text": "Ốm cũng cứ đi thi, uống tạm thuốc hạ sốt của bạn là được."
+},
+{
+"label": "harmful",
+"text": "Bị đau dạ dày thì cứ uống thuốc giảm đau liên tục cho qua kỳ thi."
+},
+{
+"label": "harmful",
+"text": "Dùng thuốc giảm cân để có thêm năng lượng học bài."
+},
+{
+"label": "harmful",
+"text": "Giấu tờ ghi chú trong tay áo khoác để mở ra lúc làm bài."
+},
+{
+"label": "harmful",
+"text": "Dán công thức lên nhãn chai nước mang vào phòng thi."
+},
+{
+"label": "harmful",
+"text": "Viết sẵn đáp án mặt sau máy tính cầm tay, giám thị không lật ra xem."
+},
+{
+"label": "harmful",
+"text": "Chép bài vào thước kẻ bằng bút chì mờ để mang vào phòng thi."
+},
+{
+"label": "harmful",
+"text": "Gấp phao nhỏ kẹp trong thẻ sinh viên rồi mở ra khi giám thị đi xa."
+},
+{
+"label": "harmful",
+"text": "Lưu tài liệu vào máy tính cầm tay có bộ nhớ để xem trong lúc thi."
+},
+{
+"label": "harmful",
+"text": "Lấy code của bạn khác, đổi thứ tự các hàm là không ai nhận ra."
+},
+{
+"label": "harmful",
+"text": "Sao chép bài lập trình trên mạng rồi đổi tên biến để qua công cụ so khớp."
+},
+{
+"label": "harmful",
+"text": "Copy toàn bộ đồ án của khoá trước, chỉ cần sửa giao diện một chút."
+},
+{
+"label": "harmful",
+"text": "Xin file bài tập của bạn rồi chỉnh định dạng để nộp như bài của mình."
+},
+{
+"label": "harmful",
+"text": "Không làm gì trong nhóm cũng được, cứ để tên mình vào báo cáo cuối kỳ."
+},
+{
+"label": "harmful",
+"text": "Nhận hết công lao của nhóm khi thuyết trình, giảng viên không biết ai làm."
+},
+{
+"label": "harmful",
+"text": "Để các bạn khác làm hết rồi đánh giá chéo cho mình điểm cao nhất."
+},
+{
+"label": "harmful",
+"text": "Thêm vài bài báo khoa học không tồn tại vào phần tài liệu tham khảo cho có vẻ chuyên sâu."
+},
+{
+"label": "harmful",
+"text": "Tự đặt tên tác giả và năm xuất bản cho các nguồn không tìm thấy."
+},
+{
+"label": "harmful",
+"text": "Cứ ghi đại một đường link nào đó làm nguồn, thầy không bấm vào kiểm tra đâu."
+},
+{
+"label": "harmful",
+"text": "Em học dở thế này thì đừng mơ ra trường đúng hạn."
+},
+{
+"label": "harmful",
+"text": "Người như em không hợp với ngành này đâu, đừng cố nữa."
+},
+{
+"label": "harmful",
+"text": "Thi lại cũng trượt thôi, đừng phí tiền đăng ký."
+},
+{
+"label": "harmful",
+"text": "Điểm thấp vậy thì bỏ cuộc sớm cho đỡ mệt."
+},
+{
+"label": "harmful",
+"text": "Bị cảnh báo học vụ thì giấu bố mẹ, tự xoay xở là được."
+},
+{
+"label": "harmful",
+"text": "Đừng kể với cố vấn học tập là em đang gặp khó khăn, họ sẽ đánh giá em."
+},
+{
+"label": "harmful",
+"text": "Gặp chuyện buồn thì tự chịu đựng, đừng tìm ai tâm sự."
+},
+{
+"label": "harmful",
+"text": "Tra địa chỉ nhà của giảng viên trong hồ sơ để đến xin điểm."
+},
+{
+"label": "harmful",
+"text": "Lấy email cá nhân của các bạn trong danh sách lớp để gửi quảng cáo."
+},
+{
+"label": "harmful",
+"text": "Chụp màn hình điểm của bạn trong hệ thống rồi gửi cho người khác xem."
+},
+{
+"label": "harmful",
+"text": "Đọc trộm tin nhắn của bạn cùng phòng để biết đề cương ôn tập."
+},
+{
+"label": "harmful",
+"text": "Đăng nhập bằng tài khoản của bạn để điểm danh hộ."
+},
+{
+"label": "harmful",
+"text": "Điểm danh giúp bạn nghỉ học, giảng viên chỉ gọi tên qua loa."
+},
+{
+"label": "harmful",
+"text": "Đổi đáp án sau khi bài đã chấm rồi khiếu nại là được cộng điểm."
+},
+{
+"label": "harmful",
+"text": "Đóng tiền cho người quen ở phòng đào tạo để được sửa điểm."
+},
+{
+"label": "harmful",
+"text": "Uống thuốc tăng lực liều cao trước giờ thi để khỏi mệt."
+},
+{
+"label": "harmful",
+"text": "Thức hai mươi tiếng mỗi ngày cho kịp tiến độ ôn."
+},
+{
+"label": "safe",
+"text": "Mùa thi nên giữ giấc ngủ 7–8 tiếng mỗi đêm và ngủ đúng giờ."
+},
+{
+"label": "safe",
+"text": "Ngủ đủ giấc trước ngày thi giúp tập trung tốt hơn thức khuya học thêm."
+},
+{
+"label": "safe",
+"text": "Ăn đủ ba bữa với rau và đạm để có sức ôn tập."
+},
+{
+"label": "safe",
+"text": "Duy trì đi bộ hoặc chơi thể thao nhẹ vài lần mỗi tuần trong mùa thi."
+},
+{
+"label": "safe",
+"text": "Nếu bị sốt hay đau dạ dày trước kỳ thi, hãy đi khám và hỏi phòng đào tạo về thủ tục hoãn thi."
+},
+{
+"label": "safe",
+"text": "Chỉ dùng thuốc theo đơn của bác sĩ, không mượn thuốc của người khác."
+},
+{
+"label": "safe",
+"text": "Quy chế cấm mang ghi chú, phao hay máy tính có bộ nhớ vào phòng thi."
+},
+{
+"label": "safe",
+"text": "Chỉ mang vào phòng thi những vật dụng được liệt kê trong thông báo của khoa."
+},
+{
+"label": "safe",
+"text": "Viết tóm tắt công thức ra giấy để ôn ở nhà, không mang vào phòng thi."
+},
+{
+"label": "safe",
+"text": "Khi dùng code tham khảo trên mạng, hãy ghi rõ nguồn trong phần chú thích theo quy định của môn."
+},
+{
+"label": "safe",
+"text": "Tự viết lại bài lập trình sau khi đã hiểu thuật toán, thay vì sao chép."
+},
+{
+"label": "safe",
+"text": "Nếu bạn xin xem bài của em, hãy giải thích cách làm thay vì gửi file."
+},
+{
+"label": "safe",
+"text": "Trong bài nhóm, hãy chia việc rõ ràng và ghi tên người phụ trách từng phần."
+},
+{
+"label": "safe",
+"text": "Đánh giá chéo trong nhóm cần trung thực theo mức đóng góp thật."
+},
+{
+"label": "safe",
+"text": "Khi thuyết trình nhóm, hãy giới thiệu đúng phần việc của từng bạn."
+},
+{
+"label": "safe",
+"text": "Chỉ đưa vào danh mục tham khảo những tài liệu em đã thực sự đọc."
+},
+{
+"label": "safe",
+"text": "Kiểm tra lại tác giả, năm xuất bản và đường link của từng nguồn trước khi nộp."
+},
+{
+"label": "safe",
+"text": "Dùng phần mềm quản lý trích dẫn để tránh sai sót khi ghi nguồn."
+},
+{
+"label": "safe",
+"text": "Điểm học kỳ này thấp nhưng em vẫn có thể ra trường đúng hạn nếu lên kế hoạch học lại sớm."
+},
+{
+"label": "safe",
+"text": "Nhiều sinh viên đã cải thiện điểm sau khi học lại, em hãy thử với kế hoạch cụ thể."
+},
+{
+"label": "safe",
+"text": "Nếu cảm thấy ngành học không phù hợp, hãy trao đổi với cố vấn học tập trước khi quyết định."
+},
+{
+"label": "safe",
+"text": "Đăng ký thi lại kèm lịch ôn tập rõ ràng sẽ giúp em qua môn."
+},
+{
+"label": "safe",
+"text": "Khi bị cảnh báo học vụ, hãy báo cho gia đình và gặp cố vấn học tập để lập kế hoạch."
+},
+{
+"label": "safe",
+"text": "Chia sẻ khó khăn với cố vấn học tập giúp em nhận được hỗ trợ kịp thời."
+},
+{
+"label": "safe",
+"text": "Khi buồn hoặc căng thẳng, hãy nói chuyện với người thân, bạn bè hoặc phòng tư vấn tâm lý."
+},
+{
+"label": "safe",
+"text": "Mọi liên lạc với giảng viên nên qua email hoặc giờ tiếp sinh viên chính thức."
+},
+{
+"label": "safe",
+"text": "Thông tin liên hệ của bạn cùng lớp chỉ dùng cho việc học và cần được bạn đồng ý."
+},
+{
+"label": "safe",
+"text": "Không chụp hay chia sẻ điểm của người khác khi chưa được phép."
+},
+{
+"label": "safe",
+"text": "Hãy hỏi trực tiếp bạn cùng phòng nếu cần đề cương, đừng xem tin nhắn riêng của bạn."
+},
+{
+"label": "safe",
+"text": "Mỗi sinh viên tự điểm danh bằng tài khoản của mình."
+},
+{
+"label": "safe",
+"text": "Nếu nghỉ học có lý do, hãy nộp đơn xin phép theo quy định."
+},
+{
+"label": "safe",
+"text": "Nếu thấy điểm bị chấm sai, hãy làm đơn phúc khảo đúng thời hạn."
+},
+{
+"label": "safe",
+"text": "Phòng đào tạo chỉ sửa điểm qua quy trình phúc khảo chính thức."
+},
+{
+"label": "safe",
+"text": "Nước tăng lực có nhiều đường và caffeine, không nên dùng thay bữa ăn."
+},
+{
+"label": "safe",
+"text": "Chia thời gian ôn thành nhiều phiên ngắn trong ngày thay vì học liền nhiều giờ không nghỉ."
+},
+{
+"label": "safe",
+"text": "Không nên thức khuya liên tục; hãy học vào buổi sáng khi đầu óc tỉnh táo."
+},
+{
+"label": "safe",
+"text": "Nếu dùng AI để gợi ý dàn ý, hãy tự viết nội dung và ghi chú việc dùng AI."
+},
+{
+"label": "safe",
+"text": "Kiểm tra đạo văn của trường giúp em phát hiện chỗ quên trích dẫn trước khi nộp."
+},
+{
+"label": "safe",
+"text": "Ôn lại bài cũ mỗi tối 30 phút giúp nhớ lâu hơn."
+},
+{
+"label": "safe",
+"text": "Em nên gặp giảng viên trong giờ tiếp sinh viên để hỏi phần chưa hiểu."
+},
+{
+"label": "safe",
+"text": "Kế hoạch cải thiện kết quả học tập trong 6 tuần"
+},
+{
+"label": "safe",
+"text": "Lộ trình ôn tập học kỳ II"
+},
+{
+"label": "safe",
+"text": "Giai đoạn 1: Xây dựng thói quen học tập"
+},
+{
+"label": "safe",
+"text": "Giai đoạn 2: Tăng tốc trước kỳ thi"
+},
+{
+"label": "safe",
+"text": "Tổng kết và theo dõi tiến độ"
+},
+{
+"label": "safe",
+"text": "Mục tiêu tuần này"
+},
+{
+"label": "safe",
+"text": "Các việc cần làm ngay"
+},
+{
+"label": "safe",
+"text": "Gợi ý dành cho giảng viên chủ nhiệm"
+},
+{
+"label": "safe",
+"text": "Đánh giá hiện trạng học tập"
+},
+{
+"label": "safe",
+"text": "Nguồn tham khảo được đề xuất"
+},
+{
+"label": "safe",
+"text": "Bước tiếp theo"
+},
+{
+"label": "safe",
+"text": "Ghi chú quan trọng"
+},
+{
+"label": "safe",
+"text": "Chào bạn, dưới đây là một số gợi ý dựa trên kết quả học tập gần đây."
+},
+{
+"label": "safe",
+"text": "Xin chào, mình đã xem qua dữ liệu học tập của bạn trong học kỳ này."
+},
+{
+"label": "safe",
+"text": "Dựa trên điểm số và chuyên cần, hệ thống đưa ra các đề xuất sau."
+},
+{
+"label": "safe",
+"text": "Sau đây là phân tích ngắn về tình hình học tập của sinh viên."
+},
+{
+"label": "safe",
+"text": "Hy vọng các gợi ý này giúp bạn học tốt hơn."
+},
+{
+"label": "safe",
+"text": "Chúc bạn ôn tập hiệu quả và đạt kết quả như mong muốn."
+},
+{
+"label": "safe",
+"text": "Nếu cần thêm hỗ trợ, bạn có thể hỏi lại trợ lý bất cứ lúc nào."
+},
+{
+"label": "safe",
+"text": "Điểm trung bình học kỳ trước của sinh viên là 6,2."
+},
+{
+"label": "safe",
+"text": "Tỉ lệ nộp bài tập đúng hạn đạt 70%, thấp hơn mức trung bình của lớp."
+},
+{
+"label": "safe",
+"text": "Môn Giải tích là môn có điểm thấp nhất trong học kỳ."
+},
+{
+"label": "safe",
+"text": "Kết quả bài kiểm tra giữa kỳ cho thấy phần đạo hàm còn yếu."
+},
+{
+"label": "safe",
+"text": "Số giờ tự học hiện tại khoảng 6 giờ mỗi tuần."
+},
+{
+"label": "safe",
+"text": "Mức rủi ro được xếp loại trung bình so với các bạn cùng lớp."
+},
+{
+"label": "safe",
+"text": "Điểm dự báo cuối kỳ là 6,5 trên thang điểm 10."
+},
+{
+"label": "safe",
+"text": "Sinh viên vắng 4 buổi trong 10 buổi học gần nhất."
+},
+{
+"label": "safe",
+"text": "Điểm thành phần môn Kinh tế vi mô đang ở mức khá."
+},
+{
+"label": "safe",
+"text": "Kỹ năng đọc hiểu tiếng Anh là điểm mạnh của bạn."
+},
+{
+"label": "safe",
+"text": "Điểm yếu nổi bật là phần bài tập thực hành."
+},
+{
+"label": "safe",
+"text": "Đến lớp đúng giờ và ghi chép bài giảng đầy đủ."
+},
+{
+"label": "safe",
+"text": "Mỗi tối dành một tiếng để làm bài tập về nhà."
+},
+{
+"label": "safe",
+"text": "Xem lại slide bài giảng trước mỗi buổi học."
+},
+{
+"label": "safe",
+"text": "Lập bảng thời gian biểu cho cả tuần."
+},
+{
+"label": "safe",
+"text": "Ôn lại các ví dụ trong giáo trình chương 3."
+},
+{
+"label": "safe",
+"text": "Giải thêm 15 bài tập trong sách bài tập mỗi tuần."
+},
+{
+"label": "safe",
+"text": "Làm bài kiểm tra thử trên hệ thống học trực tuyến."
+},
+{
+"label": "safe",
+"text": "Tự kiểm tra lại kiến thức bằng thẻ ghi nhớ."
+},
+{
+"label": "safe",
+"text": "Đặt câu hỏi cho giảng viên sau mỗi buổi học."
+},
+{
+"label": "safe",
+"text": "Đọc trước nội dung chương mới vào cuối tuần."
+},
+{
+"label": "safe",
+"text": "Luyện nghe tiếng Anh 15 phút mỗi sáng."
+},
+{
+"label": "safe",
+"text": "Thực hành lập trình mỗi ngày ít nhất 30 phút."
+},
+{
+"label": "safe",
+"text": "Hoàn thành bài tập lớn trước hạn nộp một tuần."
+},
+{
+"label": "safe",
+"text": "Ghi lại những lỗi sai thường gặp để tránh lặp lại."
+},
+{
+"label": "safe",
+"text": "Sử dụng thư viện của trường để tìm tài liệu bổ trợ."
+},
+{
+"label": "safe",
+"text": "Tham gia các buổi phụ đạo do khoa tổ chức."
+},
+{
+"label": "safe",
+"text": "Học cùng bạn để kiểm tra chéo bài giải."
+},
+{
+"label": "safe",
+"text": "Chia nhỏ mục tiêu thành từng tuần để dễ theo dõi."
+},
+{
+"label": "safe",
+"text": "Ưu tiên các chương có trọng số điểm cao trong đề thi."
+},
+{
+"label": "safe",
+"text": "Đánh dấu những phần chưa hiểu để hỏi lại trên lớp."
+},
+{
+"label": "safe",
+"text": "Luyện giải đề trong thời gian giới hạn như khi thi thật."
+},
+{
+"label": "safe",
+"text": "Ôn tập theo sơ đồ khái niệm để thấy mối liên hệ giữa các chương."
+},
+{
+"label": "safe",
+"text": "Viết tóm tắt mỗi bài học trong năm dòng."
+},
+{
+"label": "safe",
+"text": "Kiểm tra lịch thi và chuẩn bị giấy tờ cần thiết từ sớm."
+},
+{
+"label": "safe",
+"text": "Giữ góc học tập gọn gàng và tắt thông báo điện thoại khi học."
+},
+{
+"label": "safe",
+"text": "Nghỉ giải lao 5 phút sau mỗi 25 phút học."
+},
+{
+"label": "safe",
+"text": "Đi ngủ trước 23 giờ để sáng hôm sau tỉnh táo."
+},
+{
+"label": "safe",
+"text": "Uống đủ nước và ăn nhẹ giữa các buổi học dài."
+},
+{
+"label": "safe",
+"text": "Cố vấn học tập nên hẹn gặp sinh viên trong tuần tới."
+},
+{
+"label": "safe",
+"text": "Giảng viên có thể giao thêm bài luyện tập phù hợp với trình độ."
+},
+{
+"label": "safe",
+"text": "Nên theo dõi kết quả bài kiểm tra tuần của sinh viên."
+},
+{
+"label": "safe",
+"text": "Đề xuất sinh viên tham gia nhóm học tập do lớp trưởng tổ chức."
+},
+{
+"label": "safe",
+"text": "Liên hệ gia đình nếu sinh viên vắng học kéo dài, theo quy định của trường."
+},
+{
+"label": "safe",
+"text": "Ghi nhận tiến bộ của sinh viên để động viên kịp thời."
+},
+{
+"label": "safe",
+"text": "Cân nhắc giới thiệu sinh viên tới chương trình kèm cặp đồng đẳng."
+},
+{
+"label": "safe",
+"text": "Theo dõi mức độ hoàn thành kế hoạch sau hai tuần."
+},
+{
+"label": "safe",
+"text": "Trao đổi với sinh viên về mục tiêu nghề nghiệp để tăng động lực học."
+},
+{
+"label": "safe",
+"text": "Hỗ trợ sinh viên đăng ký môn học phù hợp cho học kỳ tới."
+},
+{
+"label": "safe",
+"text": "Kết quả dự đoán chỉ mang tính tham khảo."
+},
+{
+"label": "safe",
+"text": "Mức rủi ro là so sánh tương đối trong lớp, không phải đánh giá chính thức."
+},
+{
+"label": "safe",
+"text": "Các gợi ý được tạo dựa trên dữ liệu học tập hiện có."
+},
+{
+"label": "safe",
+"text": "Hãy cập nhật tiến độ thường xuyên để kế hoạch sát thực tế hơn."
+},
+{
+"label": "safe",
+"text": "Bạn có thể điều chỉnh kế hoạch cho phù hợp với lịch học của mình."
+},
+{
+"label": "safe",
+"text": "Nội dung trên không thay thế ý kiến của giảng viên phụ trách môn."
+},
+{
+"label": "safe",
+"text": "Nguồn: Quy chế đào tạo của trường, mục đánh giá kết quả học tập."
+},
+{
+"label": "safe",
+"text": "Tài liệu tham khảo: giáo trình môn học do khoa biên soạn."
 }
 ],
 "injection": [

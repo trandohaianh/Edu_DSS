@@ -63,6 +63,49 @@ Lưu ý khi đọc bảng:
 - Câu chèn lệnh bị phát hiện được **gắn nhãn cảnh báo, không bị xoá**, để báo nhầm không làm mất
   nội dung.
 
+## Cập nhật 21/11/2026: bộ lọc được gắn vào câu trả lời thật, tập holdout v3
+
+**Phát hiện:** trước ngày này, bộ phát hiện lời khuyên có hại chỉ chạy trong `evals/`. Không đường nào
+trong app gọi nó với câu trả lời của Trợ lý AI, nên câu có hại vẫn hiện thẳng cho sinh viên.
+Nay đã gắn vào `LLMGateway.stream_generate` qua `dss/services/output_guard.py`:
+- Sinh viên nhận câu trả lời **sau khi** đã kiểm tra từng câu. Có 1–2 câu bị gắn cờ thì chỉ ẩn các câu
+  đó; từ 3 câu hoặc từ 30% số câu trở lên thì ẩn toàn bộ và chỉ sang Kế hoạch học tập. Chỉ cờ **mạnh**
+  (khớp từ khoá, hoặc bộ phân loại ≥ 0,65) mới được tính để ẩn toàn bộ; cờ chỉ từ bộ phân loại với
+  điểm thấp hơn chỉ ẩn đúng câu đó, vì bộ phân loại cho điểm 0,5–0,65 với cả vài câu an toàn lạ.
+- Giảng viên/Admin vẫn stream; câu trả lời bị gắn cờ được nối nhãn cảnh báo ở cuối.
+
+**Tập mới, viết TRƯỚC khi chỉnh:**
+- `advisor_safety_holdout_v3.json`: 40 câu có hại và 30 câu an toàn. Phủ các nhóm sức khoẻ, gian lận
+  thi, gian lận bài tập/AI, nản chí, quyền riêng tư và vay nặng lãi.
+- `advisor_long_answers_v1.json`: 3 câu trả lời dài, an toàn, theo đúng kiểu kế hoạch thật.
+
+| Chỉ số | Trước | Sau |
+|---|---|---|
+| Holdout v3: lời khuyên có hại bắt được / an toàn bị gắn nhầm | 42,5% / 6,7% | **92,5% / 0%** |
+| Holdout v2: có hại / gắn nhầm | 65% / 0% | **95% / 0%** |
+| Holdout v1: có hại / gắn nhầm | 75% / 16,7% | **87,5% / 0%** |
+| Golden: có hại / gắn nhầm | 100% / 0% | 100% / 0% |
+| Câu trả lời dài an toàn: câu bị gắn nhầm / câu trả lời bị ẩn toàn bộ | 6/37 câu, 1/3 bị ẩn | **0 / 0** |
+
+**Đã thay đổi:**
+- Thêm khoảng 30 từ khoá theo **nhóm hành vi**, không theo câu cụ thể: tăng liều, thuốc không kê đơn,
+  thức nhiều đêm, nhịn ăn, liên lạc trong giờ thi, giấy tờ giả, lấy trộm mật khẩu, nộp bài AI không khai báo...
+- Thêm các dấu hiệu "câu nêu quy định", ví dụ "... là gian lận", "hạn chế", "không tự...".
+- Sửa từ khoá cũ `chép bài` đang gắn nhầm "ghi chép bài giảng".
+- Thêm 84 câu huấn luyện theo nhóm và 76 câu trung tính kiểu câu trả lời thật (tiêu đề, câu chào, phân
+  tích số liệu) vào `dss/resources/safety_train_v1.json`. Không chép câu nào từ các tập đánh giá.
+
+**Lưu ý trung thực:**
+- Tập v3 và các từ khoá/câu huấn luyện mới do **cùng một người** viết trong cùng ngày, nên mức tăng là
+  **lạc quan**.
+- Các tập còn nhỏ (8–40 câu có hại). Mỗi câu sai làm thay đổi 2,5–12,5 điểm phần trăm.
+- Trước khi đưa số liệu cho trường vẫn cần một tập do bên thứ ba viết (AC-ML-11).
+- Ngưỡng chặn mới ở `thresholds.json`:
+  - `holdout3_safety_harmful_recall` ≥ 0,85;
+  - `holdout3_safety_false_flag_rate` ≤ 0,10;
+  - `long_answer_sentence_false_flag_rate` ≤ 0,05;
+  - `long_answer_blocked_count` = 0.
+
 **Dữ liệu học sinh thật** (`ml_real`, xem `datasets/uci_student/README.md`):
 - Bộ dữ liệu UCI Student Performance, 649 học sinh, giấy phép CC BY 4.0. Cảnh báo trượt khi G3 < 10
   (15,4% học sinh). Chạy 5 lần chia train/test khác nhau.

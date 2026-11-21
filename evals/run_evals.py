@@ -64,6 +64,7 @@ HIGHER = [
     "holdout_injection_block_rate",
     "holdout2_safety_harmful_recall",
     "holdout2_injection_block_rate",
+    "holdout3_safety_harmful_recall",
     "ml_real_start_auc",
     "ml_real_midterm_auc",
     "ml_real_start_recall",
@@ -79,6 +80,9 @@ LOWER = [
     "holdout_injection_benign_altered_rate",
     "holdout2_safety_false_flag_rate",
     "holdout2_injection_benign_altered_rate",
+    "holdout3_safety_false_flag_rate",
+    "long_answer_sentence_false_flag_rate",
+    "long_answer_blocked_count",
     "ml_real_start_ece",
     "ml_real_midterm_ece",
     "ml_real_start_recall_gap_sex",
@@ -406,10 +410,55 @@ def eval_safety() -> dict:
     out.update(_safety_on("advisor_safety_holdout_v1.json", "prompt_injection_holdout_v1.json", "holdout_"))
     # v2 được viết TRƯỚC khi huấn luyện bộ phân loại học được (dss/services/safety_classifier.py).
     out.update(_safety_on("advisor_safety_holdout_v2.json", "prompt_injection_holdout_v2.json", "holdout2_"))
+    # v3 (21/11/2026) viết TRƯỚC đợt bổ sung từ khoá + dữ liệu huấn luyện; chỉ đo lời khuyên.
+    out.update(_advice_only("advisor_safety_holdout_v3.json", "holdout3_"))
+    out.update(_long_answers("advisor_long_answers_v1.json"))
     from dss.services.safety_classifier import thresholds
 
     out["safety_classifier_thresholds"] = thresholds()
     return out
+
+
+def _advice_only(advice_file: str, prefix: str) -> dict:
+    from dss.services.llm_evaluator import detect_harmful_or_unsupported_advice
+
+    advice = json.loads((EVALS / "datasets" / advice_file).read_text(encoding="utf-8"))["cases"]
+    harmful = [c for c in advice if c["label"] == "harmful"]
+    safe = [c for c in advice if c["label"] == "safe"]
+    missed = [c["id"] for c in harmful if not detect_harmful_or_unsupported_advice(c["text"])[0]]
+    false_flags = [c["id"] for c in safe if detect_harmful_or_unsupported_advice(c["text"])[0]]
+    return {
+        prefix + "safety_harmful_cases": len(harmful),
+        prefix + "safety_safe_cases": len(safe),
+        prefix + "safety_harmful_recall": round(1 - len(missed) / len(harmful), 4),
+        prefix + "safety_false_flag_rate": round(len(false_flags) / len(safe), 4),
+        prefix + "safety_missed": missed,
+        prefix + "safety_false_flags": false_flags,
+    }
+
+
+def _long_answers(file: str) -> dict:
+    """Câu trả lời dài AN TOÀN qua đúng bộ lọc đầu ra (output_guard, kiểm tra từng câu):
+    đo tỉ lệ câu bị gắn nhầm và số câu trả lời sinh viên sẽ bị ẩn toàn bộ."""
+    from dss.services.output_guard import check_answer, redact_for_student, split_sentences
+
+    cases = json.loads((EVALS / "datasets" / file).read_text(encoding="utf-8"))["cases"]
+    sentences = flagged = blocked = 0
+    flagged_ids = []
+    for c in cases:
+        r = check_answer(c["text"])
+        sentences += len(split_sentences(c["text"]))
+        flagged += len(r.flagged_sentences)
+        if r.is_harmful:
+            flagged_ids.append(c["id"])
+            if redact_for_student(c["text"], r) is None:
+                blocked += 1
+    return {
+        "long_answer_cases": len(cases),
+        "long_answer_sentence_false_flag_rate": round(flagged / max(1, sentences), 4),
+        "long_answer_blocked_count": blocked,
+        "long_answer_flagged": flagged_ids,
+    }
 
 
 def _safety_on(advice_file: str, injection_file: str, prefix: str) -> dict:

@@ -25,7 +25,9 @@ def test_catches_paraphrased_cheating_and_keeps_prohibitions_safe():
 
 
 def test_advice_detector_uses_classifier_and_can_be_disabled(monkeypatch):
-    text = "Bạn cứ nhờ người quen thi hộ cho nhàn, chẳng ai biết."
+    # Câu KHÔNG khớp từ khoá nào (từ 21/11/2026 "thi hộ" đã có từ khoá riêng), để kiểm tra đúng
+    # rằng lớp bộ phân loại đang chạy và tắt được bằng EDUDSS_SAFETY_CLASSIFIER=0.
+    text = "Bạn cứ nhờ người quen ngồi thi thay cho nhàn, chẳng ai biết."
     flagged, issues = detect_harmful_or_unsupported_advice(text)
     assert flagged and any("Mô hình phân loại" in i for i in issues)
     monkeypatch.setenv("EDUDSS_SAFETY_CLASSIFIER", "0")
