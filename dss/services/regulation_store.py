@@ -14,15 +14,15 @@ Không có UI (`st.*`) ở đây — hàm thuần, gọi được trực tiếp 
 from __future__ import annotations
 
 import json
-import threading
 from dataclasses import asdict
 from pathlib import Path
 from typing import List, Optional
 
 from dss.core.data_root import get_data_root
+from dss.core.file_lock import InterProcessLock
 from dss.services.regulation_resolver import RegulationVersion
 
-_lock = threading.Lock()
+_lock = InterProcessLock.named("regulations")  # bước 9: khoá cả giữa các tiến trình
 
 
 def _store_path() -> Path:

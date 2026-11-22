@@ -26,11 +26,24 @@
 	}
 
 	# Caddy forwards WebSocket upgrades (Streamlit /_stcore/stream) automatically.
-	reverse_proxy app:8501 {
+	reverse_proxy {
+		# Bước 9 (22/11/2026): chạy nhiều bản app (EDUDSS_APP_REPLICAS trong docker-compose.prod.yml, mặc định 3).
+		# Một tiến trình Streamlit chỉ dùng được khoảng một nhân CPU (bước 8: 50 người đăng nhập cùng lúc phải chờ
+		# ~2 phút). Tên `app` trong DNS của Docker trả về IP của MỌI bản đang chạy; Caddy hỏi lại mỗi 10 giây.
+		dynamic a app 8501 {
+			refresh 10s
+		}
+		# Phiên Streamlit (WebSocket, trạng thái đăng nhập, tệp tải xuống) nằm trong bộ nhớ của MỘT tiến trình,
+		# nên mỗi trình duyệt phải luôn về đúng bản đã phục vụ nó: cookie `edudss_lb` ghi bản nào (dạng băm HMAC,
+		# không lộ IP). Bản đó dừng thì Caddy chọn bản khác và người dùng phải đăng nhập lại.
+		lb_policy cookie edudss_lb {$EDUDSS_LB_COOKIE_SECRET} {
+			fallback least_conn
+		}
+		lb_try_duration 5s
+		# Kiểm tra sức khoẻ thụ động: bản nào không nhận kết nối thì tạm bỏ qua 30 giây.
+		fail_duration 30s
 		# Bước 7 (21/11/2026): Caddy GHI ĐÈ X-Real-IP bằng IP thật của kết nối (client không giả được);
 		# app đọc nó qua EDUDSS_CLIENT_IP_HEADER để khoá đăng nhập theo từng máy, không theo IP proxy chung.
 		header_up X-Real-IP {remote_host}
-		health_uri /_stcore/health
-		health_interval 30s
 	}
 }

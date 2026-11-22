@@ -45,7 +45,8 @@ def test_production_app_runs_in_production_mode_with_required_secrets():
 
 def test_caddyfile_terminates_tls_and_sets_security_headers():
     caddy = (PROD / "Caddyfile").read_text(encoding="utf-8")
-    assert "{$EDUDSS_DOMAIN}" in caddy and "reverse_proxy app:8501" in caddy
+    # Bước 9: nhiều bản app — Caddy tìm qua DNS (`dynamic a app 8501`), không còn một upstream cố định.
+    assert "{$EDUDSS_DOMAIN}" in caddy and "dynamic a app 8501" in caddy
     for header in (
         "Strict-Transport-Security",
         "X-Content-Type-Options",

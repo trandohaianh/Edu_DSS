@@ -1,9 +1,9 @@
 # EduDSS — dedicated deployment for ONE university (C1.1 reference configuration).
 #
-#   Internet ──443/80──▶ proxy (Caddy: TLS, security headers, WebSocket)
+#   Internet ──443/80──▶ proxy (Caddy: TLS, security headers, WebSocket, sticky cookie)
 #                           │  network: edge
 #                           ▼
-#                        app (Streamlit, EDUDSS_ENV=production, no published port)
+#                        app × EDUDSS_APP_REPLICAS (Streamlit, EDUDSS_ENV=production, no published port)
 #                           │  network: backend (internal: true — no route to the outside)
 #                           ▼
 #                        postgres (pgvector) — NO published port, reachable only from backend
@@ -61,6 +61,12 @@ services:
   app:
     image: ${EDUDSS_IMAGE:?set EDUDSS_IMAGE}
     restart: always
+    # Bước 9 (22/11/2026): mỗi tiến trình Streamlit chỉ dùng ~1 nhân CPU, nên chạy nhiều bản; Caddy giữ mỗi
+    # trình duyệt ở đúng một bản (Caddyfile: lb_policy cookie). Các bản dùng chung PostgreSQL và volume appdata;
+    # kho JSON trong appdata đọc-sửa-ghi qua khoá tệp (dss/core/file_lock.py). Chọn số bản theo máy chủ:
+    # không quá số nhân CPU, và RAM còn đủ cho mỗi bản (xem docs/operations/SCALING.md).
+    deploy:
+      replicas: ${EDUDSS_APP_REPLICAS:-3}
     environment:
       EDUDSS_ENV: production
       EDUDSS_CLIENT_IP_HEADER: X-Real-IP  # do Caddy ghi đè (Caddyfile, header_up), dùng cho khoá đăng nhập
@@ -114,6 +120,7 @@ services:
       - "443:443"
     environment:
       EDUDSS_DOMAIN: ${EDUDSS_DOMAIN:?set EDUDSS_DOMAIN (DNS must point to this host)}
+      EDUDSS_LB_COOKIE_SECRET: ${EDUDSS_LB_COOKIE_SECRET:-}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data

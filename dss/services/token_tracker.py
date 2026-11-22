@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import json
 import os
-import threading
 import uuid
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
@@ -20,11 +19,12 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from dss.core.data_root import get_data_root
+from dss.core.file_lock import InterProcessLock
 from dss.core.logging_config import get_logger
 
 _logger = get_logger(__name__)
 
-_LOCK = threading.Lock()
+_LOCK = InterProcessLock.named("ai_token_usage")  # bước 9: nhiều tiến trình cùng ghi
 
 
 def _usage_file() -> Path:

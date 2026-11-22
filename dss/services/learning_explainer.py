@@ -23,7 +23,6 @@ from __future__ import annotations
 import json
 import os
 import re
-import threading
 import uuid
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
@@ -31,15 +30,16 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from dss.core.data_root import get_data_root
+from dss.core.file_lock import InterProcessLock
 from dss.core.target_utils import is_id_like
 from dss.services import citation_service, prompt_security
 from dss.services import cms_lecture_repository as cms_repository
 from dss.services import learning_explainer_policy as policy
 from dss.services.learning_explainer_policy import CMS_ONLY, CMS_PLUS_SUPPLEMENTARY, NO_CMS_CONTENT_MESSAGE
 
-_LOG_LOCK = threading.Lock()
-_QUIZ_LOCK = threading.Lock()
-_MISCONCEPTION_LOCK = threading.Lock()
+_LOG_LOCK = InterProcessLock.named("cms_interaction_log")  # bước 9: khoá cả giữa các tiến trình
+_QUIZ_LOCK = InterProcessLock.named("cms_quiz_review_queue")
+_MISCONCEPTION_LOCK = InterProcessLock.named("cms_misconception_records")
 
 
 def _interaction_log_path() -> Path:

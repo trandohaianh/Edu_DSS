@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import json
 import os
-import threading
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -17,11 +16,12 @@ from typing import Any, Dict, List, Optional, Tuple
 import streamlit as st
 
 from dss.core.data_root import get_data_root
+from dss.core.file_lock import InterProcessLock
 from dss.core.logging_config import get_logger
 from dss.core.persistence_config import is_postgres_enabled
 
 _logger = get_logger(__name__)
-_SUB_LOCK = threading.Lock()
+_SUB_LOCK = InterProcessLock.named("subscription")  # bước 9: nhiều tiến trình; RLock nên lồng nhau không treo
 
 
 def _sub_path() -> Path:

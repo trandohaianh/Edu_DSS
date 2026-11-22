@@ -5,7 +5,7 @@
 | `ai/` | Kiến trúc tầng AI: định tuyến 3 tầng (`AI_ROUTING_MATRIX.md`), điều phối agent, ngân sách token, nhật ký quyết định, khả năng chịu lỗi, kiểm toán cache. |
 | `architecture/` | Kiến trúc hiện hành (`ARCHITECTURE.md`, bản nháp), lộ trình và phác thảo kiến trúc quy mô lớn. |
 | `database/` | Schema PostgreSQL: danh sách bảng, sơ đồ quan hệ, RLS, chuỗi migration (`SCHEMA.md`, bản nháp). |
-| `operations/` | Vận hành: sao lưu/khôi phục, quy trình phát hành, khôi phục Streamlit, xử lý dữ liệu cá nhân trong lịch sử git. |
+| `operations/` | Vận hành: sao lưu/khôi phục, quy trình phát hành, khôi phục Streamlit, xử lý dữ liệu cá nhân trong lịch sử git, chạy nhiều tiến trình app (`SCALING.md`). |
 | `planning/` | Kế hoạch, danh sách việc cần làm (TODO) và ghi chép quá trình phát triển (lịch sử, không phải đặc tả hiện hành). |
 | `requirements/` | Yêu cầu sản phẩm (bản nháp): `PRD.md`, phạm vi bản đầu `MVP_SCOPE.md`, tiêu chí nghiệm thu `ACCEPTANCE_CRITERIA.md`. |
 | `security/` | Checklist bảo mật bước 7 và rủi ro còn tồn tại (`SECURITY_CHECKLIST.md`). |

@@ -23,18 +23,18 @@ from __future__ import annotations
 
 import json
 import os
-import threading
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from dss.core.data_root import get_data_root
+from dss.core.file_lock import InterProcessLock
 from dss.core.observability import observed
 from dss.services import document_ingestion, vector_store
 from dss.services.rag_namespaces import NAMESPACE_STUDENT_LEARNING
 
-_LOCK = threading.Lock()
+_LOCK = InterProcessLock.named("cms_lessons_registry")  # bước 9: khoá cả giữa các tiến trình
 
 
 def _current_organization_id() -> int:

@@ -26,9 +26,18 @@ fi
 "${COMPOSE[@]}" run --rm migrate
 "${COMPOSE[@]}" up -d --no-deps app
 "${COMPOSE[@]}" up -d proxy
+# Bước 9: có nhiều bản app; chỉ báo sẵn sàng khi MỌI bản đều qua /readyz.
+REPLICAS="$(grep -E '^EDUDSS_APP_REPLICAS=' "$ENV_FILE" | tail -1 | cut -d= -f2 | tr -d '\r"' || true)"
+REPLICAS="${REPLICAS:-3}"
 for attempt in $(seq 1 60); do
-  if "${COMPOSE[@]}" exec -T app python -m dss.core.health_server probe readyz > /tmp/edudss-readyz.json; then
-    echo "{\"event\":\"deploy_ready\",\"image\":\"$IMAGE\"}"; exit 0
+  ready=0
+  for i in $(seq 1 "$REPLICAS"); do
+    if "${COMPOSE[@]}" exec -T --index "$i" app python -m dss.core.health_server probe readyz > /tmp/edudss-readyz.json; then
+      ready=$((ready + 1))
+    fi
+  done
+  if [ "$ready" -eq "$REPLICAS" ]; then
+    echo "{\"event\":\"deploy_ready\",\"image\":\"$IMAGE\",\"replicas\":$REPLICAS}"; exit 0
   fi
   sleep 5
 done

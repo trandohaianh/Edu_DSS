@@ -16,6 +16,7 @@ import pandas as pd
 
 from dss.config import JOBLIB_AVAILABLE
 from dss.core.data_root import get_data_root
+from dss.core.file_lock import InterProcessLock
 from dss.core.logging_config import get_logger
 from dss.core.persistence_config import is_postgres_enabled
 
@@ -125,6 +126,10 @@ class DataWarehouse:
             self.embeddings_path,
         ]:
             os.makedirs(path, exist_ok=True)
+        # Bước 9 (22/11/2026): nhiều tiến trình Streamlit dùng chung thư mục này. Đọc-sửa-ghi tệp lịch sử
+        # và con trỏ Production phải khoá cả giữa các tiến trình, nếu không bản ghi của bên này bị bên kia ghi đè.
+        self._history_lock = InterProcessLock(os.path.join(self.history_path, ".history.lock"))
+        self._registry_lock = InterProcessLock(os.path.join(self.metadata_path, ".registry.lock"))
 
     def _atomic_json_write(self, filepath, data, indent=2):
         """Ghi file JSON an toàn nguyên tử (atomic write) qua file tạm .tmp để
@@ -624,6 +629,10 @@ class DataWarehouse:
         self._atomic_json_write(self._production_index_path(), index)
 
     def set_production_model(self, training_id, promoted_by=None, promotion_reason=None):
+        with self._registry_lock:
+            return self._set_production_model_locked(training_id, promoted_by, promotion_reason)
+
+    def _set_production_model_locked(self, training_id, promoted_by=None, promotion_reason=None):
         """Chốt 1 model đã lưu làm bản Production DUY NHẤT cho đúng (dataset_id, target_col)
         của nó — chỉ Admin được thực hiện (qua model_registry.promote/rollback).
         Bản Production cũ (nếu có) bị hạ xuống is_production=False, status='archived', không xoá.
@@ -711,18 +720,20 @@ class DataWarehouse:
     def _add_to_history(self, record_type, record):
         """Hàm nội bộ để thêm một bản ghi vào file lịch sử dạng JSON."""
         history_file = os.path.join(self.history_path, f"{record_type}_history.json")
-        if os.path.exists(history_file):
-            try:
-                with open(history_file, encoding='utf-8') as f:
-                    history = json.load(f)  # Handle corrupted JSON
-            except json.JSONDecodeError:
+        with self._history_lock:
+            if os.path.exists(history_file):
+                try:
+                    with open(history_file, encoding='utf-8') as f:
+                        history = json.load(f)  # Handle corrupted JSON
+                except json.JSONDecodeError:
+                    history = []
+            else:
                 history = []
-        else:
-            history = []
-        history.append(self._sanitize_for_json(record))
-        sanitized_history = [self._sanitize_for_json(item) for item in history]
-        with open(history_file, 'w', encoding='utf-8') as f:
-            json.dump(sanitized_history, f, indent=2, ensure_ascii=False)
+            history.append(self._sanitize_for_json(record))
+            sanitized_history = [self._sanitize_for_json(item) for item in history]
+            # Ghi nguyên tử: trước đây ghi thẳng, người đọc cùng lúc có thể thấy tệp dở dang (JSON hỏng) rồi
+            # coi lịch sử là rỗng và ghi đè mất toàn bộ.
+            self._atomic_json_write(history_file, sanitized_history)
 
     def log_activity(self, action_type, description, details=None):
         """Lưu lịch sử hoạt động vào activity_history.json và mirror vào activities.json (UI).
@@ -747,7 +758,12 @@ class DataWarehouse:
                 details=details or {},
             )
             return activity_record['activity_id']
-        self._add_to_history('activity', activity_record)
+        with self._history_lock:
+            self._add_to_history('activity', activity_record)
+            self._mirror_recent_activity(activity_record, action_type, description, details)
+        return activity_record['activity_id']
+
+    def _mirror_recent_activity(self, activity_record, action_type, description, details):
         try:
             activities = self.get_recent_activities(limit=100)
             if not isinstance(activities, list):
@@ -764,11 +780,9 @@ class DataWarehouse:
             )
             activities = activities[:100]
             activity_file = os.path.join(self.history_path, 'activities.json')
-            with open(activity_file, 'w', encoding='utf-8') as f:
-                json.dump(self._sanitize_for_json(activities), f, ensure_ascii=False, indent=2)
+            self._atomic_json_write(activity_file, self._sanitize_for_json(activities), indent=2)
         except Exception:
             pass
-        return activity_record['activity_id']
 
     def get_history(self, record_type='training', limit=50):
         """Lấy lịch sử của một loại bản ghi (training, prediction, activity) từ file JSON."""

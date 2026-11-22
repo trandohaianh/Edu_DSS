@@ -90,6 +90,7 @@ App chạy chế độ demo dữ liệu mô phỏng 20.000 sinh viên.
 **Đề xuất (cần chủ dự án duyệt, vì đổi cách triển khai):**
 - (a) **Chạy 3–4 tiến trình Streamlit sau Caddy, giữ phiên cố định (sticky session)**, trên máy chủ 4 nhân.
   Ước tính nâng sức chứa lên gấp 3–4 lần. Phải đo lại ở bước 9.
+  → **Đã duyệt và làm ở bước 9 (22/11/2026):** `docs/operations/SCALING.md`.
 - (b) Chỉ tính SHAP khi sinh viên mở phần "Yếu tố ảnh hưởng", để giảm thêm khoảng 1 giây ở lần đầu.
 - (c) Chốt ngưỡng AC-HN-04. Đề xuất: **khi 50 người dùng đồng thời thao tác bình thường** (không phải cùng đăng
   nhập một giây), p95 chuyển trang ≤ 3 giây và đăng nhập ≤ 10 giây.
