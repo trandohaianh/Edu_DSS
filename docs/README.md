@@ -10,6 +10,7 @@
 | `requirements/` | Yêu cầu sản phẩm (bản nháp): `PRD.md`, phạm vi bản đầu `MVP_SCOPE.md`, tiêu chí nghiệm thu `ACCEPTANCE_CRITERIA.md`. |
 | `security/` | Checklist bảo mật bước 7 và rủi ro còn tồn tại (`SECURITY_CHECKLIST.md`). |
 | `legal/` | Bản nháp thông báo xử lý dữ liệu cá nhân + câu hỏi cho luật sư (`PRIVACY_NOTICE_DRAFT.md`), **chưa được duyệt**. |
+| `testing/` | Báo cáo kiểm thử hệ thống bước 8 (`STEP8_SYSTEM_TEST_REPORT.md`): PostgreSQL thật, sao lưu/khôi phục, thử tải 50 phiên. |
 | `ux/` | Bản đồ màn hình theo vai trò (`SCREEN_MAP.md`, bản nháp). |
 | `CONVENTIONS.md` | Quy tắc đặt tên, lint/format, nhánh và commit. |
 

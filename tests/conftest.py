@@ -173,8 +173,20 @@ def clean_session_state():
     kiểm chứng cho "session isolation" — mỗi phiên (ở đây là mỗi test) phải bắt
     đầu từ trạng thái sạch."""
     st.session_state.clear()
+    _clear_cross_session_caches()
     yield
     st.session_state.clear()
+
+
+def _clear_cross_session_caches():
+    """Bộ nhớ đệm dùng chung giữa các phiên (bước 8) sống suốt tiến trình pytest; xoá để test không nhận kết
+    quả SHAP của test khác chạy trước với cùng mã mô hình."""
+    try:
+        from dss.tabs.home import _cached_student_shap
+
+        _cached_student_shap.clear()
+    except Exception:  # noqa: BLE001 - module chưa import được thì không có gì để xoá
+        pass
 
 
 @pytest.fixture

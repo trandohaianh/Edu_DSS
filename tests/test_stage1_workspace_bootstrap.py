@@ -23,6 +23,15 @@ def context(monkeypatch):
         },
     )
     st.session_state["current_dataset_id"] = "pilot"
+    # Bước 8: bootstrap tải artifact qua Model Registry (cache dùng chung giữa các phiên). Ở đây nối
+    # registry về warehouse giả để giữ nguyên các kiểm tra hành vi bên dưới.
+    from dss.services import model_registry
+
+    def _resolve(wh, dataset_id, target_col):
+        pipeline, metadata = wh.get_production_model(dataset_id, target_col)
+        return {"status": "ok" if pipeline else "empty", "pipeline": pipeline, "metadata": metadata}
+
+    monkeypatch.setattr(model_registry, "resolve_production", _resolve)
     return SimpleNamespace(
         role="Sinh viên",
         df=pd.DataFrame({"diem_ky_nay": [5, 6, 7], "diem_ky_sau": [6, 7, 8]}),
@@ -100,6 +109,26 @@ def test_empty_dataset_is_ready_without_artifact_access(context):
     initialize(context, lambda percent, stage: progress.append((percent, stage)))
     context.warehouse.get_production_model.assert_not_called()
     assert progress[-1] == (100, "workspace_ready")
+
+
+def test_login_reuses_the_cross_session_artifact_cache():
+    """Bước 8 (thử tải 25 phiên): mỗi lần đăng nhập không được đọc + băm lại .joblib."""
+    from pathlib import Path
+
+    src = Path(bootstrap_service.__file__).read_text(encoding="utf-8")
+    body = src[src.index("def _bootstrap_default_training") : src.index("def initialize_workspace")]
+    assert "resolve_production(wh, dataset_id, target_col)" in body
+    assert "wh.get_production_model(" not in body
+
+
+def test_student_home_shap_is_cached_per_model_version():
+    from pathlib import Path
+
+    from dss.tabs import home
+
+    assert hasattr(home._cached_student_shap, "clear")  # st.cache_resource
+    src = Path(home.__file__).read_text(encoding="utf-8")
+    assert '_cached_student_shap(\n                        resolved["pipeline"], resolved["training_id"]' in src
 
 
 def test_large_silhouette_uses_deterministic_bounded_sample(monkeypatch):

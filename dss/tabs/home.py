@@ -23,6 +23,17 @@ _POSITIVE_BAR = "#1E8E3E"
 _NEGATIVE_BAR = "#D93025"
 _NEUTRAL_BAR = "#2F5BD3"
 
+
+@__import__("streamlit").cache_resource(show_spinner=False, max_entries=5000, ttl=3600)
+def _cached_student_shap(_pipeline, training_id, input_df, background, feature_cols):
+    """Bước 8 (22/11/2026): SHAP của Trang chủ Sinh viên tốn ~1 giây CPU mỗi lần trang vẽ lại. Lưu theo
+    (bản mô hình Production, dòng dữ liệu đầu vào, nền so sánh) — đổi mô hình hoặc đổi dữ liệu là đổi khoá,
+    nên không bao giờ dùng nhầm kết quả cũ. Chỉ đọc kết quả, không sửa."""
+    return compute_shap_local_explanation(
+        _pipeline, input_df, background, list(feature_cols), problem_type="regression"
+    )
+
+
 _GPA_COLUMNS = ["diem_ky_sau", "diem_ky_nay", "final_score", "gpa_previous", "gpa", "score", "total_score"]
 
 
@@ -273,9 +284,14 @@ def _render_student_home_dashboard(wh, current_student_id, df=None, llm_integrat
                 predicted_gpa = None
             if predicted_gpa is not None:
                 background = df[feature_cols].dropna().head(100)
-                shap_val, _err = compute_shap_local_explanation(
-                    resolved["pipeline"], input_df, background, feature_cols, problem_type="regression"
-                )
+                if resolved.get("training_id"):
+                    shap_val, _err = _cached_student_shap(
+                        resolved["pipeline"], resolved["training_id"], input_df, background, tuple(feature_cols)
+                    )
+                else:  # không có mã bản mô hình thì không có khoá cache an toàn
+                    shap_val, _err = compute_shap_local_explanation(
+                        resolved["pipeline"], input_df, background, feature_cols, problem_type="regression"
+                    )
     # Mức rủi ro: CÙNG căn cứ và CÙNG định nghĩa với trang Tư vấn AI
     # (model_service.student_risk_profile) — dự đoán Production nếu có, nếu không
     # thì điểm hiện tại (ghi rõ là "theo điểm hiện tại", không gọi là dự đoán).

@@ -72,6 +72,14 @@ def _ensure_schema_and_rls():
 
     reset_engine_for_tests()
     engine = get_engine()
+    # Bảng nền tảng Lớp học (lp_*, migration d2e3a6102601) nằm trên metadata riêng — phải xoá cả chúng,
+    # nếu không lần migrate lại báo "relation lp_audit_events already exists" (phát hiện ở bước 8, 22/11/2026).
+    # Chính sách RLS của các bảng này tham chiếu chéo nhau nên phải DROP ... CASCADE.
+    from dss.platform.models import PlatformBase
+
+    with engine.begin() as conn:
+        for table in PlatformBase.metadata.sorted_tables:
+            conn.execute(sa_text(f'DROP TABLE IF EXISTS "{table.name}" CASCADE'))
     Base.metadata.drop_all(engine)
     with engine.begin() as conn:
         conn.execute(sa_text("DROP TABLE IF EXISTS alembic_version"))

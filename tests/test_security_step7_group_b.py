@@ -180,3 +180,63 @@ def test_lock_file_has_patched_versions():
     pins = {k.lower(): v.strip() for k, v in pins.items()}
     for name, minimum in {"tornado": "6.6.1", "pypdf": "6.21.4", "pyasn1": "0.6.5", "gitpython": "3.2.1"}.items():
         assert tuple(map(int, pins[name].split("."))) >= tuple(map(int, minimum.split("."))), name
+
+
+# ------------------------------------------------------------------ chạy thật trên PostgreSQL có RLS (bước 8)
+_PG_APP = __import__("os").getenv("EDUDSS_PLATFORM_TEST_APP_URL")
+_PG_OWNER = __import__("os").getenv("EDUDSS_PLATFORM_TEST_OWNER_URL")
+
+
+@pytest.mark.skipif(not _PG_APP or not _PG_OWNER, reason="Cần PostgreSQL cô lập (owner/app URL)")
+def test_consent_and_lecturer_scope_work_under_postgres_rls(monkeypatch, as_role):
+    from uuid import uuid4
+
+    from sqlalchemy import create_engine, text
+
+    from dss.db.session import reset_engine_for_tests
+    from dss.services import lecturer_scope, privacy_notice
+    from dss.services import program_allocation_service as programs
+
+    seed = int(uuid4().hex[:8], 16) * 10 + 20000
+    school, other = str(seed), str(seed + 1)
+    monkeypatch.setenv("DATABASE_URL", _PG_APP)
+    monkeypatch.setenv("EDUDSS_ENV", "test")
+    monkeypatch.setenv("EDUDSS_MODE", "REAL_LMS")
+    monkeypatch.setenv("EDUDSS_PLATFORM_STORE", "postgres")
+    monkeypatch.setenv("EDUDSS_REQUIRE_PROGRAM_ALLOCATION", "0")
+    monkeypatch.setenv("EDUDSS_PSEUDONYM_KEY", "isolated-step8-test-only-key-1234567890")
+    monkeypatch.setenv("EDUDSS_LECTURER_CLASS_SCOPE", "1")
+    reset_engine_for_tests()
+    store.reset_platform_engines()
+    operator = Actor(school, "operator", "Platform Admin")
+    admin, other_admin = Actor(school, "admin", "Admin"), Actor(other, "admin", "Admin")
+    try:
+        programs.register_school(operator, school, "Trường thử bước 8")
+        programs.register_school(operator, other, "Trường khác")
+        mine = classes.create_class(admin, "A1", "C1", "Lớp A1", "2026")
+        theirs = classes.create_class(other_admin, "Z1", "C1", "Lớp trường khác", "2026")
+        classes.import_enrollments(admin, mine["id"], ["SV001", "SV003"])
+        classes.import_enrollments(other_admin, theirs["id"], ["SV002"])
+        classes.assign_teacher(admin, mine["id"], "gv_a")
+        classes.assign_teacher(other_admin, theirs["id"], "gv_a")  # cùng tên đăng nhập ở trường khác
+
+        monkeypatch.setenv("EDUDSS_ORGANIZATION_ID", school)
+        as_role(LECTURER, username="gv_a")
+        res = lecturer_scope.scope_for_lecturer(_df(), "gv_a", LECTURER)
+        assert sorted(res.df["student_id"]) == ["SV001", "SV003"]  # không lẫn lớp của trường khác
+
+        as_role("Sinh viên", username="sv001", student_id="SV001")
+        assert privacy_notice.has_accepted("sv001") is False
+        privacy_notice.record_acceptance("sv001")
+        assert privacy_notice.has_accepted("sv001") is True
+        monkeypatch.setenv("EDUDSS_ORGANIZATION_ID", other)
+        assert privacy_notice.has_accepted("sv001") is False  # đồng ý ở trường này không tính cho trường khác
+    finally:
+        reset_engine_for_tests()
+        store.reset_platform_engines()
+        owner = create_engine(_PG_OWNER)
+        with owner.begin() as conn:
+            for table in ("lp_audit_events", "lp_teaching_assignments", "lp_enrollments", "lp_classes"):
+                conn.execute(text(f"DELETE FROM {table} WHERE school_id IN (:a, :b)"), {"a": school, "b": other})
+            conn.execute(text("DELETE FROM lp_schools WHERE id IN (:a, :b)"), {"a": school, "b": other})
+        owner.dispose()

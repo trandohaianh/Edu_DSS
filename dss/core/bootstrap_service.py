@@ -92,7 +92,13 @@ def _bootstrap_default_training(df, wh, classification_trainer, regression_train
     # Tái sử dụng mô hình Production từ Kho dữ liệu nếu đã có
     if wh and dataset_id:
         try:
-            prod_pipeline, prod_meta = wh.get_production_model(dataset_id, target_col)
+            # Bước 8 (22/11/2026): đi qua Model Registry để DÙNG CHUNG artifact đã tải + đã kiểm chữ ký giữa
+            # các phiên (cache theo training_id). Trước đây mỗi lần đăng nhập đọc lại .joblib và băm lại SHA-256
+            # (~1,6 giây CPU), khiến 25 người đăng nhập cùng lúc phải xếp hàng hàng chục giây.
+            from dss.services.model_registry import resolve_production
+
+            _resolved = resolve_production(wh, dataset_id, target_col)
+            prod_pipeline, prod_meta = _resolved.get("pipeline"), _resolved.get("metadata")
             if prod_pipeline and prod_meta:
                 model_name = prod_meta.get("model_name", "Production Model")
                 st.session_state.hub_pipelines = {model_name: prod_pipeline}
