@@ -43,11 +43,19 @@ def record_usage(organization_id: int, record: dict[str, Any]) -> None:
             output_tokens=record["output_tokens"],
             total_tokens=record["total_tokens"],
             estimated_cost=record["estimated_cost"],
+            cache_hit=bool(record.get("cache_hit", False)),
+            usage_source=record.get("usage_source") or "estimated",
+            thinking_tokens=int(record.get("thinking_tokens") or 0),
         )
         session.add(row)
 
 
-def load_all_records(organization_id: int, limit: Optional[int] = None) -> list[dict[str, Any]]:
+def load_all_records(
+    organization_id: int,
+    limit: Optional[int] = None,
+    since: Optional[Any] = None,
+    user_id: Optional[str] = None,
+) -> list[dict[str, Any]]:
     """Returns records in the exact dict shape `token_tracker._load_all_records()`
     produces locally, so every existing aggregation function
     (get_user_daily_token_usage / check_user_quota / get_system_budget_status /
@@ -58,6 +66,12 @@ def load_all_records(organization_id: int, limit: Optional[int] = None) -> list[
             .filter_by(organization_id=organization_id)
             .order_by(AiTokenUsage.timestamp.asc())
         )
+        # Bước 9: kiểm trần chi phí/hạn mức chỉ cần tháng hoặc ngày hiện tại (dùng index org + timestamp),
+        # không đọc cả bảng như trước.
+        if since is not None:
+            query = query.filter(AiTokenUsage.timestamp >= since)
+        if user_id is not None:
+            query = query.filter(AiTokenUsage.user_id == user_id)
         if limit is not None:
             query = query.limit(limit)
         rows = query.all()
@@ -74,6 +88,9 @@ def load_all_records(organization_id: int, limit: Optional[int] = None) -> list[
                 "output_tokens": r.output_tokens,
                 "total_tokens": r.total_tokens,
                 "estimated_cost": r.estimated_cost,
+                "cache_hit": r.cache_hit,
+                "usage_source": r.usage_source,
+                "thinking_tokens": r.thinking_tokens,
             }
             for r in rows
         ]

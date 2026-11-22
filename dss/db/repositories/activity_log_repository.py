@@ -28,11 +28,25 @@ def record_activity(
     description: str,
     details: Optional[dict] = None,
     user_id: Optional[int] = None,
+    username: Optional[str] = None,
 ) -> int:
     """Not idempotent by design — an activity entry is a point-in-time
     event, matching academic_records'/recommendations' append-only
-    semantics established in Phase 1B."""
+    semantics established in Phase 1B.
+
+    Bước 9: `username` (người đang đăng nhập) được đổi thành users.id trong cùng tổ chức, để
+    data_lifecycle.erase_student_data ẩn được nội dung hoạt động của sinh viên đó."""
     with tenant_session_scope(organization_id) as session:
+        if user_id is None and username:
+            from sqlalchemy import func
+
+            from dss.db.models import User
+
+            user_id = (
+                session.query(User.id)
+                .filter(User.organization_id == organization_id, func.lower(User.username) == str(username).lower())
+                .scalar()
+            )
         row = ActivityLog(
             organization_id=organization_id,
             user_id=user_id,
@@ -77,7 +91,8 @@ def import_from_local_history(organization_id: int, warehouse=None) -> dict[str,
 
         warehouse = DataWarehouse()
 
-    local_records = warehouse.get_history("activity", limit=10_000_000)
+    # Bước 9: đọc thẳng tệp — get_history("activity") trả dữ liệu PostgreSQL khi kho này đã bật postgres.
+    local_records = warehouse.read_history_file("activity", limit=10_000_000)
     with tenant_session_scope(organization_id) as session:
         already_imported = {
             row.details.get("_local_activity_id")

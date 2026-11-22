@@ -64,6 +64,32 @@ def upsert_student(organization_id: int, student_code: str, full_name: Optional[
         return student.id
 
 
+def resolve_or_create_student_id(session, organization_id: int, student_code: Optional[str]) -> Optional[int]:
+    """Bước 9 (22/11/2026): id sinh viên cho dự đoán/phiên tư vấn, TẠO dòng tối thiểu (tên = mã) khi sinh viên
+    chưa có trong `students` (ví dụ dữ liệu tải bằng tệp, chưa đồng bộ LMS). Trước đây trả None nên bản ghi mất mã SV
+    và yêu cầu xoá dữ liệu của sinh viên đó không tìm thấy nó. Chạy trong session của nơi gọi; SAVEPOINT để hai yêu
+    cầu cùng lúc cho cùng một mã không làm hỏng giao dịch chung (ràng buộc duy nhất organization_id + student_code)."""
+    from sqlalchemy.exc import IntegrityError
+
+    code = (student_code or "").strip()
+    if not code or code.lower() == "unknown" or len(code) > 32:
+        return None
+    for _ in range(3):
+        row = session.query(Student).filter_by(organization_id=organization_id, student_code=code).one_or_none()
+        if row is not None:
+            return row.id
+        savepoint = session.begin_nested()
+        try:
+            row = Student(organization_id=organization_id, student_code=code, full_name=code)
+            session.add(row)
+            session.flush()
+            savepoint.commit()
+            return row.id
+        except IntegrityError:
+            savepoint.rollback()
+    raise RuntimeError("could not resolve student row")
+
+
 def upsert_lecturer(organization_id: int, lecturer_code: str, full_name: Optional[str] = None) -> int:
     with tenant_session_scope(organization_id) as session:
         existing = (

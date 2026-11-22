@@ -63,4 +63,7 @@ nhà cung cấp. Dữ liệu chỉ được gửi khi người dùng dùng trợ
     Khôi phục từ bản sao lưu cũ sẽ đưa dữ liệu đã xoá quay lại, nên sau mỗi lần khôi phục Admin phải chạy lại các yêu
     cầu xoá đã nhận kể từ ngày của bản sao lưu đó.
   - Lần đồng bộ LMS sau có thể tạo lại sinh viên nếu không xoá cả ở hệ thống nguồn.
-  - Chức năng chỉ chạy trên PostgreSQL. 8 kho dữ liệu dạng tệp (xem bước 9) chưa nằm trong phạm vi xoá.
+  - Chức năng chỉ chạy trên PostgreSQL. Từ bước 9 (22/11/2026), lịch sử dự đoán, phiên tư vấn, nhật ký hoạt động và
+    sổ token AI đã nằm trong PostgreSQL nên được xoá/ẩn theo. Chưa phủ: 3 kho tương tác học bài của CMS
+    (`cms/*.json`) và các bộ dữ liệu điểm/chuyên cần tải lên dạng tệp
+    (`docs/architecture/STEP9_FILE_STORES_TO_POSTGRES.md` mục "Chưa làm").

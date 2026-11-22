@@ -1,6 +1,6 @@
 # Thiết kế: đưa các kho dữ liệu dạng tệp vào PostgreSQL (bước 9, BẢN NHÁP chờ duyệt)
 
-Ngày 22/11/2026. Trạng thái: **chờ chủ dự án duyệt, chưa viết code.**
+Ngày 22/11/2026. Trạng thái: **chủ dự án duyệt cả 3 đợt (22/11/2026), ĐÃ LÀM** (xem mục 7).
 
 ## 1. Vì sao cần
 
@@ -80,3 +80,33 @@ Kho **chưa có** bản PostgreSQL mà chứa dữ liệu sinh viên:
 2. Hạn mức lượt gọi AI/tháng mặc định cho một trường khi bật thuê bao?
 3. Bản Streamlit là portfolio công khai, còn bản đem bán là SaaS (FastAPI + Next.js). Có muốn dồn công sức "production
    thật" sang bản SaaS thay vì bản này không?
+
+## 7. Kết quả (22/11/2026)
+
+| Đợt | Đã làm |
+|---|---|
+| A | Bật `ADMIN_AI_CONFIG`, `SUBSCRIPTION`, `ACADEMIC`, `ML_PROVENANCE` trong `docker-compose.prod.yml`. Sửa 3 lỗi thuê bao trên PG: tạo mới không có ngày hết hạn; `update_status` bỏ qua `expires_at`; ngày trơn làm phép so sánh ném lỗi bị nuốt, nên thuê bao **không bao giờ hết hạn** |
+| B | Hoạt động ghi kèm người thực hiện (username → `users.id`). Token AI: thêm `cache_hit`, `usage_source`, `thinking_tokens`; kiểm trần tháng và hạn mức ngày chỉ đọc tháng/ngày hiện tại (lọc theo index `org + timestamp`). Kiểm lại: các trang AI đã ghi sổ token bằng bí danh `generate_pseudonym(mã SV)`, nên bộ xoá dữ liệu tìm đúng; bản khảo sát báo "không khớp" là sai |
+| C | Migration `7b9e2c4f1a30` (chỉ thêm cột). Dự đoán giữ metadata và mã bản ghi; tư vấn giữ người tư vấn, vai trò và đủ trường. Sinh viên chưa có trong `students` được tạo dòng tối thiểu, để bản ghi giữ được mã SV và bị xoá theo. `get_history("prediction"/"advisor")` đọc PG cùng dạng bản ghi, nên các trang không phải sửa. Bật `ACTIVITY`, `AI_TOKEN_USAGE`, `PREDICTIONS`, `CONSULTATIONS` |
+| Chuyển dữ liệu cũ | `python -m ops.migrate_file_stores`: mặc định chỉ đếm; `--execute` mới ghi; chạy lại không tạo bản trùng; không xoá tệp cũ |
+
+**Hạn mức lượt gọi AI/tháng khi bật thuê bao:** mặc định **không đặt** (NULL = không giới hạn thêm). Trần chi phí 5 USD/tháng
+vẫn chặn cho cả hệ thống. Admin đặt `subscriptions.max_ai_requests_month` nếu muốn giới hạn riêng.
+
+**Bằng chứng** (PostgreSQL 16 + pgvector thật, migrate tới head):
+- `tests/test_step9_file_stores_postgres.py` 9/9, chạy cả bằng role owner và role app (RLS bật).
+- Toàn bộ test có PostgreSQL: 304 đạt, chỉ còn 1 lỗi môi trường đã biết (`prometheus_client`).
+- `tests/test_db_schema.py` 9/9, gồm cả migration lên rồi xuống. Test này trước đây hỏng sẵn khi CSDL đã có bảng `lp_*`; đã sửa.
+
+**Hạn chế đã biết:**
+- `model_versions.training_id` là duy nhất cho **toàn CSDL**, không theo từng trường. Bản triển khai một trường không
+  ảnh hưởng. Với nhiều trường chung một CSDL, hai trường trùng `training_id` sẽ lỗi khi lưu dự đoán.
+- Chưa chuyển: 3 kho CMS (`cms/interaction_log.json`, `quiz_review_queue.json`, `misconception_records.json`), bộ dữ liệu
+  tải lên, quy chế học vụ.
+
+**Khi triển khai bản này lên máy chủ:**
+1. `scheduled_backup.sh` (sao lưu hiện trạng).
+2. `remote_deploy.sh` (migration `7b9e2c4f1a30` chạy tự động).
+3. `docker compose exec app python -m ops.migrate_file_stores`, xem số đếm.
+4. Thêm `--execute`.
+5. Mở lại cho người dùng.

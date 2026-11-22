@@ -117,7 +117,9 @@ def update_subscription_status(
 
         org_id = _current_organization_id()
         subscription_repository.get_or_create_subscription(org_id, defaults=DEFAULT_ORGANIZATION_SUBSCRIPTION)
-        subscription_repository.update_status(org_id, status=status, plan=plan, max_students=max_students)
+        subscription_repository.update_status(
+            org_id, status=status, plan=plan, max_students=max_students, expires_at=expires_at
+        )
         return True
 
     with _SUB_LOCK:
@@ -131,6 +133,17 @@ def update_subscription_status(
             sub["max_students"] = max_students
         sub["updated_at"] = datetime.now(UTC).isoformat()
         return _save_subscription(sub)
+
+
+def _parse_expiry(value: str) -> datetime:
+    """Bản tệp lưu ngày giờ có múi giờ; PostgreSQL lưu chỉ NGÀY (`end_date`). Ngày trơn = hết hạn cuối ngày đó (UTC).
+    Trước bước 9, ngày trơn tạo datetime không múi giờ, phép so sánh ném lỗi và bị nuốt nên thuê bao không hết hạn."""
+    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    if parsed.tzinfo is None:
+        if len(value) <= 10:
+            parsed = parsed.replace(hour=23, minute=59, second=59)
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed
 
 
 def check_entitlement(feature_key: Optional[str] = None) -> Tuple[bool, Optional[str]]:
@@ -157,7 +170,7 @@ def check_entitlement(feature_key: Optional[str] = None) -> Tuple[bool, Optional
     expires_str = sub.get("expires_at")
     if expires_str:
         try:
-            exp_date = datetime.fromisoformat(expires_str.replace("Z", "+00:00"))
+            exp_date = _parse_expiry(expires_str)
             if datetime.now(UTC) > exp_date:
                 # Tự động cập nhật thành EXPIRED
                 update_subscription_status("EXPIRED")

@@ -372,6 +372,8 @@ class DataWarehouse:
                 or (prediction_data.get('inputs') or {}).get('student_id'),
                 input_data=prediction_data.get('inputs', {}),
                 confidence=metadata.get('confidence'),
+                details=self._sanitize_for_json(metadata) if metadata else None,
+                local_prediction_id=prediction_id,
             )
         else:
             prediction_record = {
@@ -417,6 +419,15 @@ class DataWarehouse:
                 model=consultation_data.get("model_name") or None,
                 question=consultation_data.get("rag_query") or None,
                 answer=consultation_data.get("generated_plan") or None,
+                local_consultation_id=consultation_id,
+                # Bước 9: đủ trường như bản lưu tệp bên dưới (AC-GV-10 cần người tư vấn).
+                performed_by=consultation_data.get("performed_by") or _current_actor().get("username"),
+                performed_by_role=consultation_data.get("performed_by_role") or _current_actor().get("role"),
+                details=self._sanitize_for_json(
+                    consultation_repository.details_from_local(
+                        {**consultation_data, "top_documents": top_documents}
+                    )
+                ),
             )
         else:
             payload = {
@@ -756,6 +767,8 @@ class DataWarehouse:
                 action_type=action_type,
                 description=description,
                 details=details or {},
+                # Bước 9: gắn người thực hiện để yêu cầu xoá dữ liệu của sinh viên ẩn được nội dung của họ.
+                username=_current_actor().get("username"),
             )
             return activity_record['activity_id']
         with self._history_lock:
@@ -785,7 +798,22 @@ class DataWarehouse:
             pass
 
     def get_history(self, record_type='training', limit=50):
-        """Lấy lịch sử của một loại bản ghi (training, prediction, activity) từ file JSON."""
+        """Lấy lịch sử của một loại bản ghi (training, prediction, activity) từ file JSON.
+
+        Bước 9 (22/11/2026): dự đoán/tư vấn đọc từ PostgreSQL khi kho đó bật postgres, cùng dạng bản ghi,
+        nên dashboard, lịch sử tư vấn, báo cáo... không phải sửa."""
+        if record_type == 'prediction' and is_postgres_enabled("PREDICTIONS"):
+            from dss.db.repositories import prediction_repository
+
+            return prediction_repository.list_history(_current_organization_id(), limit=limit)
+        if record_type == 'advisor' and is_postgres_enabled("CONSULTATIONS"):
+            from dss.db.repositories import consultation_repository
+
+            return consultation_repository.list_history(_current_organization_id(), limit=limit)
+        return self.read_history_file(record_type, limit)
+
+    def read_history_file(self, record_type='training', limit=50):
+        """Đọc thẳng `history/<loại>_history.json` (lệnh chuyển dữ liệu cũ sang PostgreSQL dùng hàm này)."""
         history_file = os.path.join(self.history_path, f"{record_type}_history.json")
         if not os.path.exists(history_file):
             return []

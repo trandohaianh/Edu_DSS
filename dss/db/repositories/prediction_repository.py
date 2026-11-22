@@ -76,10 +76,9 @@ def _resolve_or_create_model_version_id(session, organization_id: int, training_
 
 
 def _resolve_student_id(session, organization_id: int, student_code: Optional[str]) -> Optional[int]:
-    if not student_code:
-        return None
-    s = session.query(Student).filter_by(organization_id=organization_id, student_code=student_code).one_or_none()
-    return s.id if s else None
+    from dss.db.repositories.academic_repository import resolve_or_create_student_id
+
+    return resolve_or_create_student_id(session, organization_id, student_code)
 
 
 def save_prediction(
@@ -90,6 +89,9 @@ def save_prediction(
     input_data: Optional[dict] = None,
     confidence: Optional[float] = None,
     input_schema_version: Optional[str] = None,
+    details: Optional[dict] = None,
+    local_prediction_id: Optional[str] = None,
+    predicted_at: Optional[str] = None,
 ) -> int:
     """Real Postgres write for one prediction record. `training_id` not
     resolving to a known model_version is a hard error (matches the FK
@@ -106,10 +108,67 @@ def save_prediction(
             input_data=input_data,
             prediction_value=str(prediction_value) if prediction_value is not None else None,
             confidence=confidence,
+            details=details,
+            local_prediction_id=local_prediction_id,
         )
+        if predicted_at:
+            record.predicted_at = _parse_ts(predicted_at)
         session.add(record)
         session.flush()
         return record.id
+
+
+def _parse_ts(value: str):
+    from datetime import UTC, datetime
+
+    parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
+
+
+def _as_number(value: Optional[str]):
+    if value is None:
+        return None
+    try:
+        number = float(value)
+    except ValueError:
+        return value
+    return int(number) if number.is_integer() and "." not in value else number
+
+
+def list_history(organization_id: int, limit: int = 50) -> list[dict[str, Any]]:
+    """Bước 9: lịch sử dự đoán theo ĐÚNG dạng bản ghi của prediction_history.json, để
+    `DataWarehouse.get_history("prediction")` và mọi trang đang đọc nó chạy không đổi khi
+    EDUDSS_PREDICTIONS_STORE=postgres."""
+    with tenant_session_scope(organization_id) as session:
+        rows = (
+            session.query(Prediction, ModelVersion.training_id, Student.student_code)
+            .join(ModelVersion, ModelVersion.id == Prediction.model_version_id)
+            .outerjoin(Student, Student.id == Prediction.student_id)
+            .filter(Prediction.organization_id == organization_id)
+            .order_by(Prediction.predicted_at.desc(), Prediction.id.desc())
+            .limit(limit)
+            .all()
+        )
+        out = []
+        for r, training_id, student_code in rows:
+            input_data = dict(r.input_data or {})
+            input_data.pop("_local_prediction_id", None)
+            if student_code and "student_id" not in input_data:
+                input_data["student_id"] = student_code
+            details = dict(r.details or {})
+            if r.confidence is not None:
+                details.setdefault("confidence", r.confidence)
+            out.append(
+                {
+                    "prediction_id": r.local_prediction_id or f"pg-{r.id}",
+                    "training_id": training_id,
+                    "predicted_at": r.predicted_at.isoformat() if r.predicted_at else None,
+                    "input_data": input_data,
+                    "prediction": _as_number(r.prediction_value),
+                    "metadata": details,
+                }
+            )
+        return out
 
 
 def import_from_local_history(organization_id: int, warehouse=None) -> dict[str, int]:
@@ -124,13 +183,15 @@ def import_from_local_history(organization_id: int, warehouse=None) -> dict[str,
 
         warehouse = DataWarehouse()
 
-    local_records = warehouse.get_history("prediction", limit=10_000_000)
+    # Bước 9: đọc thẳng tệp — get_history("prediction") trả dữ liệu PostgreSQL khi kho này đã bật postgres.
+    local_records = warehouse.read_history_file("prediction", limit=10_000_000)
     with tenant_session_scope(organization_id) as session:
-        already_imported = {
-            row.input_data.get("_local_prediction_id")
-            for row in session.query(Prediction).filter_by(organization_id=organization_id).all()
-            if row.input_data and row.input_data.get("_local_prediction_id")
-        }
+        already_imported = set()
+        for row in session.query(Prediction).filter_by(organization_id=organization_id).all():
+            if row.local_prediction_id:
+                already_imported.add(row.local_prediction_id)
+            elif row.input_data and row.input_data.get("_local_prediction_id"):
+                already_imported.add(row.input_data.get("_local_prediction_id"))
 
     imported = 0
     skipped = 0
@@ -140,15 +201,17 @@ def import_from_local_history(organization_id: int, warehouse=None) -> dict[str,
             skipped += 1
             continue
         input_data = dict(rec.get("input_data") or {})
-        input_data["_local_prediction_id"] = local_id
         metadata = rec.get("metadata") or {}
         save_prediction(
             organization_id=organization_id,
             training_id=rec.get("training_id", "unknown"),
             prediction_value=rec.get("prediction"),
-            student_code=(rec.get("input_data") or {}).get("student_id"),
+            student_code=input_data.get("student_id"),
             input_data=input_data,
             confidence=metadata.get("confidence"),
+            details=metadata,
+            local_prediction_id=local_id,
+            predicted_at=rec.get("predicted_at"),
         )
         imported += 1
 

@@ -521,6 +521,10 @@ class Prediction(Base, TimestampMixin):
     prediction_value: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     confidence: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     predicted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+    # Bước 9 (22/11/2026, migration 7b9e2c4f1a30): đủ trường của bản lưu tệp — tên mô hình, xác suất... (metadata)
+    # và mã bản ghi cũ khi chuyển từ prediction_history.json.
+    details: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    local_prediction_id: Mapped[Optional[str]] = mapped_column(String(128), nullable=True, index=True)
 
 
 class Recommendation(Base, TimestampMixin):
@@ -557,6 +561,11 @@ class Consultation(Base, TimestampMixin):
     # history via consultation_repository.import_from_local_history — lets
     # a repeat import skip records already migrated instead of duplicating.
     local_consultation_id: Mapped[Optional[str]] = mapped_column(String(128), nullable=True, index=True)
+    # Bước 9 (22/11/2026, migration 7b9e2c4f1a30): ai tư vấn (AC-GV-10) và các trường còn lại của bản lưu tệp
+    # (GPA dự đoán, điểm yếu, tài liệu tham khảo, mô hình nhúng, metadata).
+    performed_by: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
+    performed_by_role: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    details: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
 
 
 # ---------------------------------------------------------------------------
@@ -795,6 +804,10 @@ class AiTokenUsage(Base):
     output_tokens: Mapped[int] = mapped_column(Integer, nullable=False)
     total_tokens: Mapped[int] = mapped_column(Integer, nullable=False)
     estimated_cost: Mapped[float] = mapped_column(Float, nullable=False)
+    # Bước 9 (22/11/2026, migration 7b9e2c4f1a30): trước đây chỉ bản lưu tệp có 3 trường này.
+    cache_hit: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    usage_source: Mapped[str] = mapped_column(String(16), nullable=False, default="estimated", server_default="estimated")
+    thinking_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
 
 
 class AdminAiConfig(Base, TimestampMixin):

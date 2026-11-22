@@ -54,7 +54,7 @@ Tài liệu liên quan: [../requirements/PRD.md](../requirements/PRD.md) ·
 |---|---|---|---|
 | Văn bản thông báo chưa được luật sư duyệt; chưa rõ có cần hồ sơ chuyển dữ liệu ra nước ngoài (Nghị định 13/2023, Luật BVDLCN 2025) | Cao | Gửi `docs/legal/PRIVACY_NOTICE_DRAFT.md` §3 (5 câu hỏi) cho luật sư trước thí điểm | Chủ dự án + luật sư |
 | Pillow 12.3.0 còn 42 lỗ hổng đã biết | Trung bình | Nâng Streamlit lên bản cho phép Pillow 13, rồi kiểm lại toàn bộ giao diện (nhiều CSS tuỳ biến) | Chủ dự án |
-| Xoá dữ liệu chỉ phủ PostgreSQL; 8 kho dạng tệp và bản sao lưu chưa được xoá theo | Trung bình | Bản sao lưu: tự hết hạn sau 14 ngày (chủ dự án chốt 22/11/2026, `BACKUP_RECOVERY_RUNBOOK.md`), cần ghi thời hạn này vào thông báo bảo mật. Kho dạng tệp: vẫn còn mở | — |
+| Xoá dữ liệu chỉ phủ PostgreSQL; kho dạng tệp và bản sao lưu chưa được xoá theo | Trung bình | Bản sao lưu: tự hết hạn sau 14 ngày, đã ghi vào thông báo bảo mật. Dự đoán, tư vấn, hoạt động, token AI: **đã chuyển sang PostgreSQL** và được xoá/ẩn theo (bước 9, `tests/test_step9_file_stores_postgres.py`). Còn mở: 3 kho CMS (`cms/*.json`) và bộ dữ liệu tải lên dạng tệp | — |
 | Giảng viên chưa được gán lớp thì thấy 0 sinh viên (cố ý) | Thấp | Admin gán lớp ở trang Lớp học trước thí điểm | Nhà trường |
 | Giới hạn 60 yêu cầu/phút tính chung và trong bộ nhớ từng tiến trình | Thấp | Giới hạn theo từng người dùng | — |
 | CSP cho phép `'unsafe-inline' 'unsafe-eval'` (Streamlit cần) | Thấp | Giữ; XSS đã chặn bằng thoát ký tự | — |

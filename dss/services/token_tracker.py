@@ -178,17 +178,20 @@ def estimate_cost(provider: str, model: str, input_tokens: int, output_tokens: i
     return round(cost, 6)
 
 
-def _load_all_records() -> List[Dict[str, Any]]:
+def _load_all_records(since: Optional[datetime] = None, user_id: Optional[str] = None) -> List[Dict[str, Any]]:
     """Single read choke-point used by every aggregation function below
     (daily usage / quota / budget status / usage summary) — branching here
-    means none of them need their own PostgreSQL-awareness."""
+    means none of them need their own PostgreSQL-awareness.
+
+    Bước 9: `since`/`user_id` chỉ là bộ lọc thu hẹp cho PostgreSQL (truy vấn theo index); các hàm tổng hợp vẫn tự
+    lọc theo ngày/tháng như trước, nên kết quả giống hệt bản lưu tệp."""
     from dss.core.persistence_config import is_postgres_enabled
 
     if is_postgres_enabled("AI_TOKEN_USAGE"):
         from dss.core.warehouse import _current_organization_id
         from dss.db.repositories import ai_token_usage_repository
 
-        return ai_token_usage_repository.load_all_records(_current_organization_id())
+        return ai_token_usage_repository.load_all_records(_current_organization_id(), since=since, user_id=user_id)
 
     usage_file = _usage_file()
     if not usage_file.exists():
@@ -306,11 +309,12 @@ def get_user_daily_token_usage(user_id: str, date_str: Optional[str] = None) -> 
     if not date_str:
         date_str = datetime.now(UTC).strftime("%Y-%m-%d")
 
-    records = _load_all_records()
     total = 0
     safe_uid = str(user_id)
     if "@" in safe_uid:
         safe_uid = f"user_{safe_uid.split('@')[0]}"
+    day_start = datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=UTC)
+    records = _load_all_records(since=day_start, user_id=safe_uid)
 
     for r in records:
         ts = r.get("timestamp", "")
@@ -341,7 +345,7 @@ def get_system_budget_status() -> Dict[str, Any]:
     today_prefix = now_utc.strftime("%Y-%m-%d")
     month_prefix = now_utc.strftime("%Y-%m")
 
-    records = _load_all_records()
+    records = _load_all_records(since=now_utc.replace(day=1, hour=0, minute=0, second=0, microsecond=0))
     daily_cost = 0.0
     monthly_cost = 0.0
     daily_tokens = 0

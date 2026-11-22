@@ -36,8 +36,10 @@ Trình duyệt ──443──▶ Caddy ──cookie edudss_lb──▶ app #1 �
 | Con trỏ Production của mô hình | Không khoá | Khoá |
 | Tài khoản (`users.json`), khoá đăng nhập | Đã có khoá tệp từ trước | Giữ nguyên |
 
-Production dùng PostgreSQL cho tài khoản, kế hoạch học tập, nền tảng, CMS và RAG (`EDUDSS_*_STORE=postgres`), nên các
-kho đó không phụ thuộc phần khoá tệp này. Phần khoá tệp bảo vệ những kho vẫn nằm trong volume `appdata`.
+Production dùng PostgreSQL cho tài khoản, kế hoạch học tập, nền tảng, CMS, RAG và (từ bước 9) cả dự đoán, tư vấn,
+hoạt động, token AI, thuê bao, cấu hình AI (`EDUDSS_*_STORE=postgres`, `docs/architecture/STEP9_FILE_STORES_TO_POSTGRES.md`),
+nên các kho đó không phụ thuộc phần khoá tệp này. Phần khoá tệp bảo vệ những kho còn trong volume `appdata`
+(mô hình, bộ dữ liệu, 3 kho CMS, quy chế).
 
 **Bằng chứng:** `tests/test_step9_multiprocess_stores.py`. Test chạy 4 tiến trình, mỗi tiến trình ghi 25 lượt cùng lúc,
 và kiểm tra đủ 100/100 bản ghi. Khi thay lại khoá cũ (chỉ khoá trong một tiến trình), cùng kịch bản chỉ giữ được

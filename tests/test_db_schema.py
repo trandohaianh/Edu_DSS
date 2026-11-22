@@ -249,6 +249,13 @@ def test_migration_upgrade_downgrade_cycle():
     from dss.db.session import get_engine
 
     engine = get_engine()
+    # Bảng lp_* nằm trên metadata riêng (dss/platform/models.py): xoá cả chúng, giống test_db_row_level_security,
+    # nếu không lần migrate lại báo "relation lp_audit_events already exists" (bước 9, 22/11/2026).
+    from dss.platform.models import PlatformBase
+
+    with engine.begin() as conn:
+        for table in PlatformBase.metadata.sorted_tables:
+            conn.execute(text(f'DROP TABLE IF EXISTS "{table.name}" CASCADE'))
     Base.metadata.drop_all(engine)  # clean slate — alembic must create everything itself
     with engine.begin() as conn:
         conn.execute(text("DROP TABLE IF EXISTS alembic_version"))

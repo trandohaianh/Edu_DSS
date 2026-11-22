@@ -81,6 +81,16 @@ services:
       EDUDSS_PLATFORM_STORE: postgres
       EDUDSS_CMS_STORE: postgres
       EDUDSS_RAG_STORE: postgres
+      # Bước 9 (22/11/2026, docs/architecture/STEP9_FILE_STORES_TO_POSTGRES.md): các kho còn lại vào PostgreSQL để
+      # xoá dữ liệu sinh viên phủ đủ và không phụ thuộc khoá tệp. Chuyển dữ liệu cũ: python -m ops.migrate_file_stores.
+      EDUDSS_ADMIN_AI_CONFIG_STORE: postgres
+      EDUDSS_SUBSCRIPTION_STORE: postgres
+      EDUDSS_ACADEMIC_STORE: postgres
+      EDUDSS_ML_PROVENANCE_STORE: postgres
+      EDUDSS_ACTIVITY_STORE: postgres
+      EDUDSS_AI_TOKEN_USAGE_STORE: postgres
+      EDUDSS_PREDICTIONS_STORE: postgres
+      EDUDSS_CONSULTATIONS_STORE: postgres
       EDUDSS_REQUIRE_PROGRAM_ALLOCATION: ${EDUDSS_REQUIRE_PROGRAM_ALLOCATION:-1}
       EDUDSS_ORGANIZATION_NAME: ${EDUDSS_ORGANIZATION_NAME:-}
       EDUDSS_COURSE_ID: ${EDUDSS_COURSE_ID:-}
