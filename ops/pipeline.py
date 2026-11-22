@@ -44,7 +44,7 @@ if str(APP_ROOT) not in sys.path:
     sys.path.insert(0, str(APP_ROOT))
 
 JOBS = ("kpi_snapshot", "data_quality", "backup", "retention")
-_BACKUP_EXCLUDE_DIRS = {"logs", "backups", "ops", "security"}
+_BACKUP_EXCLUDE_DIRS = {"logs", "backups", "ops", "security", "locks"}  # locks: tệp khoá rỗng (bước 9)
 _SECRET_SUFFIXES = (".env", ".pem", ".key")
 SCORE_COLUMNS_0_10 = (
     "diem_ky_nay",
@@ -332,6 +332,8 @@ def _backup_filter(info: tarfile.TarInfo):
     if len(parts) > 1 and parts[1] in _BACKUP_EXCLUDE_DIRS:
         return None
     lowered = info.name.lower()
+    if lowered.endswith(".lock"):  # tệp khoá giữa các tiến trình (dss/core/file_lock.py), không chứa dữ liệu
+        return None
     if lowered.endswith(_SECRET_SUFFIXES) or "secret" in lowered or "credential" in lowered:
         return None
     if info.issym() or info.islnk():

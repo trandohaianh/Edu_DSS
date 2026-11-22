@@ -1,0 +1,14 @@
+# EduDSS — sao lưu hằng ngày (bước 9). Cài: docs/operations/BACKUP_RECOVERY_RUNBOOK.md, mục "Sao lưu hằng ngày".
+# Sửa /opt/edudss nếu thư mục triển khai khác.
+[Unit]
+Description=EduDSS daily backup (PostgreSQL + appdata) with restore drill
+Wants=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/edudss
+ExecStart=/usr/bin/env bash /opt/edudss/deploy/production/scheduled_backup.sh /opt/edudss
+Nice=10
+IOSchedulingClass=idle
+TimeoutStartSec=2h

@@ -1,0 +1,11 @@
+# 02:30 giờ Việt Nam mỗi đêm (ngoài giờ học). Persistent: máy tắt lúc 02:30 thì chạy bù khi bật lại.
+[Unit]
+Description=Run EduDSS daily backup at 02:30 Asia/Ho_Chi_Minh
+
+[Timer]
+OnCalendar=*-*-* 02:30:00 Asia/Ho_Chi_Minh
+Persistent=true
+RandomizedDelaySec=5min
+
+[Install]
+WantedBy=timers.target
