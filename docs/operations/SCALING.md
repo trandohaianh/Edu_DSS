@@ -80,7 +80,7 @@ Quy tắc: số bản ≤ số nhân − 1, và số bản × 2 GB + 1,5 GB (Pos
 ## Giới hạn còn lại
 
 - **Khi một bản dừng hoặc khởi động lại (cập nhật phiên bản), người dùng trên bản đó phải đăng nhập lại.** Nên triển
-  khai ngoài giờ học. `docs/operations/RELEASE_PROCESS.md` chưa ghi quy định này.
+  khai ngoài giờ học. Quy định thời điểm triển khai: `docs/operations/RELEASE_PROCESS.md` §6.
 - Giới hạn gọi AI trong `llm_gateway` (60 lượt/phút và số cuộc gọi đồng thời) nằm trong bộ nhớ của **từng tiến trình**.
   Với 3 bản, mức chung của cả hệ thống thành 180 lượt/phút. Bộ ngắt mạch khi nhà cung cấp AI lỗi cũng tính riêng
   từng bản. Trần chi phí AI theo ngày/tháng tính từ kho dùng chung, nên vẫn đúng cho cả hệ thống.

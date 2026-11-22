@@ -40,7 +40,7 @@ nhà cung cấp. Dữ liệu chỉ được gửi khi người dùng dùng trợ
 2. Căn cứ xử lý là **sự đồng ý** hay **nhiệm vụ đào tạo của nhà trường**? Nếu là đồng ý, sinh viên từ chối thì có còn
    dùng được các chức năng không dùng AI không? Thiết kế hiện tại: từ chối thì không vào được app. Có thể đổi thành
    "vào được nhưng tắt AI".
-3. Thời hạn lưu trữ ở §4 có phù hợp quy định lưu trữ hồ sơ đào tạo không?
+3. Thời hạn lưu trữ ở §4, gồm cả 14 ngày dữ liệu đã xoá còn trong bản sao lưu, có phù hợp quy định lưu trữ hồ sơ đào tạo không?
 4. Người dưới 18 tuổi (nếu có) có cần cha mẹ đồng ý không?
 5. Ai là bên kiểm soát dữ liệu, ai là bên xử lý? Có cần ký hợp đồng xử lý dữ liệu (DPA) với OpenAI/Google/Groq không?
 
@@ -58,6 +58,9 @@ nhà cung cấp. Dữ liệu chỉ được gửi khi người dùng dùng trợ
 - Admin thực hiện yêu cầu ở trang **Người dùng → "Yêu cầu về dữ liệu cá nhân của sinh viên"**: tải bản sao JSON,
   hoặc xoá (phải gõ lại mã SV và tick xác nhận). Mỗi lần xoá ghi một dòng kiểm toán, chỉ chứa số lượng bản ghi.
 - **Giới hạn đã biết:**
-  - Bản sao lưu vẫn chứa dữ liệu đã xoá cho tới khi bản sao lưu hết hạn.
+  - Bản sao lưu vẫn chứa dữ liệu đã xoá cho tới khi bản sao lưu hết hạn: **tối đa 14 ngày** (sao lưu hằng ngày, chủ dự án
+    chốt ngày 22/11/2026). Bản sao lưu chỉ nằm trên máy chủ của nhà trường, chưa gửi ra ngoài (chờ câu hỏi 1 ở §3).
+    Khôi phục từ bản sao lưu cũ sẽ đưa dữ liệu đã xoá quay lại, nên sau mỗi lần khôi phục Admin phải chạy lại các yêu
+    cầu xoá đã nhận kể từ ngày của bản sao lưu đó.
   - Lần đồng bộ LMS sau có thể tạo lại sinh viên nếu không xoá cả ở hệ thống nguồn.
   - Chức năng chỉ chạy trên PostgreSQL. 8 kho dữ liệu dạng tệp (xem bước 9) chưa nằm trong phạm vi xoá.

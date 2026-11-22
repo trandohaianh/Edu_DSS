@@ -128,6 +128,17 @@ On the host, `DEPLOY_PATH` contains `deploy/production/` and a filled `productio
 
 Status: **NOT_VERIFIED.** No staging or production hosts exist yet.
 
+### Khi nào được triển khai (bước 9, 22/11/2026)
+
+Production chạy nhiều bản app sau Caddy (`docs/operations/SCALING.md`). Phiên Streamlit nằm trong bộ nhớ của một bản,
+nên khi một bản khởi động lại, **người dùng trên bản đó phải đăng nhập lại** và mất phần đang nhập dở.
+
+- Triển khai và khôi phục **ngoài giờ học**: sau 22:00 hoặc cuối tuần, theo lịch của trường. Không triển khai trong tuần thi.
+- Không triển khai trong khoảng 02:00–03:30, vì sao lưu hằng ngày chạy lúc 02:30 (`edudss-backup.timer`).
+- Báo trước cho giảng viên và CVHT ít nhất 1 ngày nếu bản mới có migration, vì nếu phải quay lại thì dữ liệu từ lúc
+  sao lưu trước khi triển khai sẽ mất.
+- Sửa lỗi bảo mật nghiêm trọng được triển khai ngay, kèm thông báo ngắn trên trang đăng nhập.
+
 ## 7. Migration safety
 
 Tool: `python -m ops.migration_check status | precheck | verify | roundtrip`. It uses `DATABASE_URL` with the owner role.
@@ -188,7 +199,10 @@ Tool: `python -m ops.migration_check status | precheck | verify | roundtrip`. It
 - The manifest format is identical to `ops/backup_recovery.py`, so `verify` and `restore` work on it.
 - Routine backups, retention and restore drills: see `BACKUP_RECOVERY_RUNBOOK.md`.
 - **DB_BACKUP** and **DB_RESTORE** are verified (C1.2 report).
-- **FULL_DR** (host loss, off-site copy, volume restore, TLS, DNS) is **not verified**.
+- **Volume restore** (DB + `appdata` from a daily backup, one command `deploy/production/restore_daily.sh`) is verified
+  on the dev machine with the production image (22/11/2026, see `BACKUP_RECOVERY_RUNBOOK.md`).
+- **FULL_DR** (rebuilding a new host, off-site copy, TLS, DNS) is **not verified**: no pilot host yet, and backups
+  are not copied off the host (owner decision 22/11/2026).
 
 ## 11. Cold start
 
