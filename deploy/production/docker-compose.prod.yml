@@ -39,7 +39,9 @@ services:
       - ../../postgres-init:/docker-entrypoint-initdb.d:ro
     networks: [backend]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      # -h 127.0.0.1: khi volume còn rỗng, PostgreSQL chạy một bản tạm CHỈ nghe socket để chạy postgres-init rồi
+      # khởi động lại; kiểm qua socket sẽ báo "sẵn sàng" quá sớm (phát hiện khi diễn tập khôi phục, bước 9, 22/11/2026).
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 10

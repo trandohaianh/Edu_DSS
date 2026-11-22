@@ -38,7 +38,8 @@ services:
       - edudss_postgres_data:/var/lib/postgresql/data
       - ./postgres-init:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-edudss} -d ${DB_NAME:-edudss_db}"]
+      # -h 127.0.0.1: không báo sẵn sàng khi PostgreSQL mới chỉ chạy bản tạm để khởi tạo (xem deploy/production).
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U ${DB_USER:-edudss} -d ${DB_NAME:-edudss_db}"]
       interval: 10s
       timeout: 5s
       retries: 5

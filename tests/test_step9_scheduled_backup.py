@@ -130,3 +130,67 @@ def test_scheduled_backup_end_to_end(tmp_path, db_ok):
         assert proc.returncode != 0
         assert status["status"] == "failed" and status["step"] == "pg_dump"
         assert any(d.endswith(".FAILED") for d in days)
+
+
+def _file_backup(tmp_path, monkeypatch):
+    from ops import pipeline
+
+    root = tmp_path / "data"
+    for rel, body in {"models/m.joblib": "m", "history/activity_history.json": "[1]", "locks/x.lock": ""}.items():
+        (root / rel).parent.mkdir(parents=True, exist_ok=True)
+        (root / rel).write_text(body, encoding="utf-8")
+    monkeypatch.setenv("EDUDSS_DATA_ROOT", str(root))
+    monkeypatch.setenv("EDUDSS_BACKUP_DIR", str(tmp_path / "files"))
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    assert pipeline.job_backup()[0] == "ok"
+    return tmp_path / "files"
+
+
+def test_restore_appdata_refuses_existing_data_unless_replace(tmp_path, monkeypatch):
+    from ops import restore_appdata
+
+    files = _file_backup(tmp_path, monkeypatch)
+    target = tmp_path / "restored"
+    (target / "models").mkdir(parents=True)
+    (target / "models" / "old.joblib").write_text("old", encoding="utf-8")
+    with pytest.raises(restore_appdata.RestoreError, match="--replace"):
+        restore_appdata.restore(files, target)
+    assert (target / "models" / "old.joblib").exists()  # không đụng dữ liệu khi từ chối
+
+    result = restore_appdata.restore(files, target, replace=True)
+    assert result["event"] == "appdata_restored" and result["files"] == 2
+    assert not (target / "models" / "old.joblib").exists()
+    assert (target / "history" / "activity_history.json").read_text(encoding="utf-8") == "[1]"
+
+
+def test_restore_appdata_into_empty_volume_and_rejects_corrupt_archive(tmp_path, monkeypatch):
+    from ops import restore_appdata
+
+    files = _file_backup(tmp_path, monkeypatch)
+    target = tmp_path / "fresh"
+    (target / "logs").mkdir(parents=True)  # app vừa khởi động tạo logs/: vẫn coi là rỗng
+    assert restore_appdata.main([str(files), "--data-root", str(target)]) == 0
+    assert (target / "models" / "m.joblib").read_text(encoding="utf-8") == "m"
+
+    archive = next(files.rglob("data_root.tar.gz"))
+    archive.write_bytes(archive.read_bytes()[:-20])
+    with pytest.raises(restore_appdata.RestoreError, match="SHA-256"):
+        restore_appdata.restore(files, tmp_path / "other")
+
+
+def test_restore_script_guards_destructive_steps():
+    src = (APP / "deploy" / "production" / "restore_daily.sh").read_text(encoding="utf-8")
+    assert "set -euo pipefail" in src
+    assert "refusing a FAILED backup" in src
+    assert 'if [ "$tables" != "0" ] && [ "$REPLACE" != "--replace" ]' in src  # không xoá CSDL đang có bảng khi thiếu cờ
+    assert "pg_restore --no-owner --exit-on-error --single-transaction" in src
+    assert "python -m ops.restore_appdata /restore" in src
+    assert '"tables_rls": "$DST"' in SCRIPT.read_text(encoding="utf-8")  # sao lưu ghi lại để đối chiếu khi khôi phục
+
+
+def test_postgres_readiness_is_checked_over_tcp_not_the_init_socket():
+    # Diễn tập khôi phục 22/11/2026: trên volume rỗng, bản PostgreSQL tạm (chỉ nghe socket, đang chạy postgres-init)
+    # làm pg_isready qua socket báo sẵn sàng quá sớm -> lệnh kế tiếp gặp "the database system is starting up".
+    for compose in ("deploy/production/docker-compose.prod.yml", "docker-compose.yml"):
+        assert "pg_isready -h 127.0.0.1" in (APP / compose).read_text(encoding="utf-8"), compose
+    assert "pg_isready -h 127.0.0.1" in (APP / "deploy" / "production" / "restore_daily.sh").read_text(encoding="utf-8")

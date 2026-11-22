@@ -83,17 +83,6 @@ mv "$ARCHIVE.partial" "$ARCHIVE"
 SHA="$(sha256sum "$ARCHIVE" | cut -d' ' -f1)"
 SIZE="$(wc -c < "$ARCHIVE" | tr -d ' ')"
 REVISION="$("${PG_EXEC[@]}" psql -At -U "$DB_OWNER_USER" -d "$DB_NAME" -c 'SELECT version_num FROM alembic_version' 2>/dev/null || echo none)"
-cat > "$DAY_DIR/postgres/$NAME.backup.json" <<JSON
-{
-  "archive": "$NAME.dump",
-  "database": "$DB_NAME",
-  "format": "pg_dump_custom",
-  "sha256": "$SHA",
-  "size_bytes": $SIZE,
-  "timestamp_utc": "$STAMP",
-  "alembic_revision": "$REVISION"
-}
-JSON
 
 # 2. Diễn tập khôi phục CSDL vào CSDL nháp (xoá ngay sau khi kiểm).
 STEP="db_restore_drill"
@@ -106,6 +95,19 @@ SRC="$("${PG_EXEC[@]}" psql -At -U "$DB_OWNER_USER" -d "$DB_NAME" -c "$COUNTS_SQ
 DST="$("${PG_EXEC[@]}" psql -At -U "$DB_OWNER_USER" -d "$DRILL_DB" -c "$COUNTS_SQL")"
 drop_drill; DRILL_DB=""
 [ "$SRC" = "$DST" ] || { echo "restore drill mismatch: source tables/rls=$SRC restored=$DST" >&2; exit 1; }
+# Manifest ghi sau diễn tập: kèm số bảng/bảng có RLS để restore_daily.sh đối chiếu.
+cat > "$DAY_DIR/postgres/$NAME.backup.json" <<JSON
+{
+  "archive": "$NAME.dump",
+  "database": "$DB_NAME",
+  "format": "pg_dump_custom",
+  "sha256": "$SHA",
+  "size_bytes": $SIZE,
+  "timestamp_utc": "$STAMP",
+  "alembic_revision": "$REVISION",
+  "tables_rls": "$DST"
+}
+JSON
 
 # 3. Volume appdata (kèm diễn tập giải nén + kiểm SHA-256 trong ops.pipeline).
 STEP="files_backup"

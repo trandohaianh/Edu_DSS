@@ -178,23 +178,60 @@ Biến môi trường (trong `production.env`, đều có giá trị mặc đị
 - `EDUDSS_BACKUP_OFFSITE_CMD`: lệnh gửi bản sao ra ngoài. Để trống thì không gửi. Khi bật, lệnh nhận đường dẫn thư mục
   ngày làm tham số và **phải tự mã hoá** trước khi gửi.
 
-### Khôi phục
+### Khôi phục (một lệnh)
 
-1. **CSDL:** làm theo mục "Restore into a clean, separate database" ở trên, với `--manifest backups/daily/<giờ>/postgres/<tên>.backup.json`.
-2. **Thư mục tệp (volume `appdata`):** dừng app trước, rồi chạy:
-   ```sh
-   docker compose -f deploy/production/docker-compose.prod.yml --env-file deploy/production/production.env stop app
-   DAY=backups/daily/<giờ>
-   docker compose -f deploy/production/docker-compose.prod.yml --env-file deploy/production/production.env \
-     run --rm --no-deps -T -v "$PWD/$DAY/files:/restore:ro" --entrypoint sh app -c \
-     'tar -xzf /restore/*/data_root.tar.gz -C /tmp && cp -a /tmp/data_root/. /app/data_warehouse/'
-   docker compose -f deploy/production/docker-compose.prod.yml --env-file deploy/production/production.env up -d app
-   ```
-   `manifest.json` cạnh bản nén ghi SHA-256 từng tệp để đối chiếu sau khi chép. **Các lệnh ở bước này chưa chạy thử với image production thật** (máy dev chưa build image mới); cần diễn tập một lần trên máy chủ thí điểm.
-3. Khôi phục CSDL và thư mục tệp **của cùng một ngày**, vì metadata mô hình trong tệp phải khớp với dữ liệu trong CSDL.
+Dùng khi máy chủ mất dữ liệu (ổ hỏng, xoá nhầm volume, dữ liệu bị phá) và cần đưa **cả CSDL lẫn thư mục tệp** về
+cùng một ngày. Metadata mô hình trong tệp phải khớp với CSDL, nên không khôi phục lệch ngày.
 
-Đo trên máy dev ngày 22/11/2026:
-- CSDL đã migrate đủ 55 bảng (50 bảng có RLS): cả quy trình mất 25 giây.
-- CSDL cỡ thí điểm 124 MB (bước 8): khôi phục mất 17 giây.
+```sh
+cd /opt/edudss
+ls backups/daily/                                  # chọn ngày; bỏ qua thư mục *.FAILED
+bash deploy/production/restore_daily.sh /opt/edudss backups/daily/<giờ>             # máy chủ mới / volume rỗng
+bash deploy/production/restore_daily.sh /opt/edudss backups/daily/<giờ> --replace   # GHI ĐÈ dữ liệu đang có
+```
 
-Trên máy chủ thật, thời gian phụ thuộc vào ổ đĩa. Chưa diễn tập khôi phục trên máy chủ thí điểm.
+Script làm theo thứ tự:
+1. Kiểm SHA-256 bản dump và bản nén **trước** khi đụng vào dữ liệu đang chạy. Từ chối thư mục `*.FAILED`.
+2. Dừng proxy và app, để không ai ghi trong lúc khôi phục.
+3. CSDL: chỉ ghi vào CSDL rỗng. Nếu CSDL đang có bảng mà thiếu `--replace` thì dừng, không xoá gì. Có `--replace` thì
+   xoá CSDL rồi tạo lại. `pg_restore` chạy trong một giao dịch và dừng ở lỗi đầu tiên. Sau đó so số bảng và số bảng có
+   RLS với số ghi trong manifest lúc sao lưu.
+4. Tệp: `python -m ops.restore_appdata` (từ chối thư mục đang có dữ liệu nếu thiếu `--replace`), kiểm lại SHA-256
+   **từng tệp** sau khi chép.
+5. Chạy migrate (chỉ kiểm, CSDL đã ở đúng phiên bản), bật app và proxy, chờ **mọi** bản app qua `/readyz`.
+
+Mỗi bước in một dòng JSON có `elapsed_s`. Exit khác 0 thì **không** mở lại cho người dùng. Đọc dòng lỗi, sửa nguyên
+nhân, rồi chạy lại. Script không bao giờ xoá thư mục sao lưu.
+
+**Trước khi dùng `--replace`:** nếu dữ liệu hiện tại còn đọc được, chạy `scheduled_backup.sh` một lần để giữ lại hiện
+trạng. Mọi thay đổi sau thời điểm sao lưu được chọn sẽ mất (RPO tối đa 24 giờ).
+
+Muốn khôi phục sang một CSDL **khác tên** để so sánh mà không đụng bản đang chạy, dùng mục "Restore into a clean,
+separate database" ở trên với `--manifest backups/daily/<giờ>/postgres/<tên>.backup.json`.
+
+### Kết quả diễn tập khôi phục (máy dev, 22/11/2026)
+
+Chạy bằng image production build từ mã nguồn (`docker build`, cùng Dockerfile với bản phát hành), đúng
+`docker-compose.prod.yml` với 2 bản app và Caddy, dự án Docker riêng `edudss-drill`.
+
+Dữ liệu mẫu: 301 tài khoản, 1 tổ chức, 1 bộ dữ liệu 20.000 dòng, 50 bản ghi nhật ký AI và hoạt động, 1 tệp mô hình 5 MB.
+
+| Bước | Kết quả |
+|---|---|
+| Sao lưu thật (`scheduled_backup.sh`, không ở chế độ thử) khi app đang chạy | 30 giây, `status: ok`, 55 bảng / 50 RLS |
+| **Mất sạch** (xoá cả volume CSDL và volume tệp) → `restore_daily.sh` | **54 giây** đến khi cả 2 bản app qua `/readyz` |
+| **Dữ liệu bị phá** (xoá 100 tài khoản, ghi đè tệp mô hình) → `restore_daily.sh --replace` | **53 giây** |
+| Thiếu `--replace` khi CSDL đang có 55 bảng | Từ chối, không xoá gì |
+| So "dấu vân tay" trước/sau: số dòng + md5 từng bảng, RLS, SHA-256 từng tệp | **Khớp hoàn toàn** cả 2 lần (64 dòng) |
+| Đăng nhập bằng role app (RLS bật) sau khôi phục | Đúng mật khẩu: vào được, đúng vai trò. Sai mật khẩu: bị từ chối |
+| HTTPS qua Caddy (`/_stcore/health`) | 200 |
+
+**Lỗi tìm thấy nhờ diễn tập (đã sửa):** trên volume rỗng, PostgreSQL chạy một bản tạm chỉ nghe socket để chạy
+`postgres-init`, rồi mới khởi động lại. `pg_isready` qua socket báo "sẵn sàng" ngay khi bản tạm còn chạy, nên lệnh
+tiếp theo gặp lỗi `the database system is starting up`. Lỗi này cũng có trong healthcheck của cả hai tệp compose:
+**lần triển khai đầu tiên** trên máy chủ mới có thể hỏng ở bước migrate. Đã sửa bằng cách kiểm qua TCP
+(`pg_isready -h 127.0.0.1`).
+
+**Ước tính cho thí điểm:** CSDL cỡ thí điểm 124 MB (bước 8) khôi phục mất 17 giây. Cộng thời gian dựng máy chủ mới và
+chép thư mục sao lưu về máy đó, vẫn nằm trong mục tiêu **RTO 4 giờ**. Riêng việc dựng lại máy chủ khi mất cả máy chưa
+diễn tập được, vì chưa có máy chủ thí điểm, và vì bản sao lưu hiện chỉ nằm trên chính máy chủ đó.
