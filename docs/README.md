@@ -12,6 +12,7 @@
 | `legal/` | Bản nháp thông báo xử lý dữ liệu cá nhân + câu hỏi cho luật sư (`PRIVACY_NOTICE_DRAFT.md`), **chưa được duyệt**. |
 | `testing/` | Báo cáo kiểm thử hệ thống bước 8 (`STEP8_SYSTEM_TEST_REPORT.md`): PostgreSQL thật, sao lưu/khôi phục, thử tải 50 phiên. |
 | `ux/` | Bản đồ màn hình theo vai trò (`SCREEN_MAP.md`, bản nháp). |
+| `DECISIONS.md` | 8 quyết định kỹ thuật chính, mỗi quyết định gồm: vấn đề, phương án đã cân nhắc, lý do chọn, ưu và hạn chế, nếu làm tiếp sẽ đổi gì. |
 | `CONVENTIONS.md` | Quy tắc đặt tên, lint/format, nhánh và commit. |
 
 Báo cáo kiểm thử/nghiệm thu nằm ở `../reports/`. Các báo cáo đó là bản chụp tại thời điểm viết;

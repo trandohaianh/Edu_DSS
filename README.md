@@ -16,6 +16,8 @@ Phiên bản: xem tệp `VERSION`.
 > này không phản ánh sinh viên thật. Tích hợp LMS/SIS/CMS thật của một trường chưa được chứng minh
 > ngoài môi trường mô phỏng (xem [Giới hạn](#giới-hạn)).
 
+**Lý do các lựa chọn kỹ thuật** (vấn đề, phương án đã cân nhắc, đánh đổi, việc sẽ đổi): [docs/DECISIONS.md](docs/DECISIONS.md).
+
 ---
 
 ## Mục lục
