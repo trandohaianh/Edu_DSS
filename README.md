@@ -18,6 +18,19 @@ Phiên bản: xem tệp `VERSION`.
 
 **Lý do các lựa chọn kỹ thuật** (vấn đề, phương án đã cân nhắc, đánh đổi, việc sẽ đổi): [docs/DECISIONS.md](docs/DECISIONS.md).
 
+## Hình ảnh
+
+Ảnh chụp ngày 25/11/2026 trên **dữ liệu mô phỏng 20.000 sinh viên** (không phải sinh viên thật).
+
+| | |
+|---|---|
+| ![Giảng viên: sinh viên cần chú ý, xếp theo điểm dự đoán](docs/assets/screenshots/01-trang-chu-giang-vien.webp) | ![Phân tích rủi ro và yếu tố ảnh hưởng nhiều nhất](docs/assets/screenshots/02-phan-tich-rui-ro.webp) |
+| Giảng viên: sinh viên cần chú ý, xếp theo điểm dự đoán | Phân tích rủi ro và yếu tố ảnh hưởng nhiều nhất |
+| ![Tự bỏ các cột gần như trùng với cột cần dự đoán (chống rò rỉ)](docs/assets/screenshots/03-kiem-tra-ro-ri-dac-trung.webp) | ![Phân cụm K-Means, trực quan bằng PCA](docs/assets/screenshots/04-phan-cum.webp) |
+| Tự bỏ các cột gần như trùng với cột cần dự đoán (chống rò rỉ) | Phân cụm K-Means, trực quan bằng PCA |
+| ![Quản trị viên duyệt mô hình: Candidate → Production](docs/assets/screenshots/05-quan-tri-duyet-mo-hinh.webp) | ![Sinh viên: điểm dự báo, yếu tố kéo điểm lên/xuống, việc nên làm](docs/assets/screenshots/06-trang-sinh-vien.webp) |
+| Quản trị viên duyệt mô hình: Candidate → Production | Sinh viên: điểm dự báo, yếu tố kéo điểm lên/xuống, việc nên làm |
+
 ---
 
 ## Mục lục
