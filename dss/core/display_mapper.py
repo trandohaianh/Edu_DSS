@@ -204,11 +204,6 @@ def map_ml_metric(metric_key: str) -> Dict[str, str]:
     )
 
 
-def map_rag_namespace(namespace: str) -> str:
-    """Chuyển đổi namespace RAG kỹ thuật sang tên học liệu thân thiện."""
-    return RAG_NAMESPACE_TO_VIETNAMESE.get(str(namespace).strip(), "Tài liệu học tập tích hợp")
-
-
 def clean_display_dataframe(df, max_cols: Optional[int] = None):
     """Hàm tiện ích đổi tên toàn bộ columns của một DataFrame sang tiếng Việt
 

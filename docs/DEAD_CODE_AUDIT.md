@@ -42,3 +42,14 @@
 - In `dss/tabs/ai_advisor.py:1076`: Direct call `llm_integration.generate_personalized_advice` for HuggingFace.
 - In `dss/tabs/home.py:637`: Direct call `llm_integration.generate_personalized_advice`.
 - **Status**: Migrated to Centralized `LLMGateway` for unified token accounting, rate limiting, and fallback handling.
+
+---
+
+## 4. Cleanup pass 2026-11-26
+
+Each item below had exactly one occurrence in the repository (its own definition), checked with `git grep -w`.
+
+- Removed 26 unused functions and 10 unused classes (944 lines), e.g. `EnsembleTrainer`, `data_analysis_tab`, `balance_dataset`, the `pass` stubs `model_1_classification_tab` / `model_2_regression_tab`, four unused `ui_kit` cards, and helpers in `feature_utils`, `career_whatif`, `llm_service`, repositories.
+- Removed the imports those definitions left unused.
+- Removed files: `EduDSS_UI_Reference_Kit/` (duplicate of `ui_reference/`), `dss/requirements.txt` (legacy duplicate), `tools/exp_balance_compare.py`, 8 unused CSVs in `dữ liệu/`, the generated `reports/release_gate/*.json` (now gitignored) and one stray screenshot.
+- Kept on purpose: test-only modules that document features (`moodle_connector`, `token_budget`, `context_builder`, `tenant_service`), the ORM model `RolePermission` (removing it needs a migration).

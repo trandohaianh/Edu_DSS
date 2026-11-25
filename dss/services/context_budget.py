@@ -13,21 +13,7 @@ hệ thống chủ động cắt tỉa (trim) và tóm lược các phần ngữ
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
-
-
-@dataclass
-class TokenBudgetConfig:
-    system_prompt: int = 500
-    student_context: int = 300
-    rag_context: int = 1500
-    chat_history: int = 800
-    output_reserve: int = 1000
-
-    @property
-    def total_input_budget(self) -> int:
-        return self.system_prompt + self.student_context + self.rag_context + self.chat_history
 
 
 def approximate_token_count(text: str) -> int:

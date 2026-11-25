@@ -567,10 +567,6 @@ def render_training_config_ui(df, classification_trainer, regression_trainer, ke
     }
 
 
-def model_1_classification_tab(df, classification_trainer):
-    pass
-
-
 def render_shap_explanation(pipeline, input_df, background_data, feature_names, problem_type="classification"):
     """SHAP local explanation cho pipeline (classification/regression) — UI
     THUẦN TRÌNH BÀY: tính toán SHAP thật nằm ở `model_service.compute_shap_
@@ -1144,7 +1140,3 @@ def batch_prediction_tab(df, classification_trainer, regression_trainer, wh, tra
                         feature_names=feature_cols,
                         problem_type="classification" if hub_type_prod == "clf" else "regression",
                     )
-
-
-def model_2_regression_tab(df, regression_trainer):
-    """Placeholder tab hoi quy (logic o file_prediction / batch / personal)."""

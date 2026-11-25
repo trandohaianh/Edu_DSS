@@ -13,7 +13,6 @@ file này chỉ là UI/orchestration, đúng kiến trúc nhất quán của to�
 from __future__ import annotations
 
 from dss.config import *  # noqa: F403
-from dss.core.data_helpers import TOPIC_SCORE_COLUMNS
 from dss.core.logging_config import get_logger
 from dss.core.target_utils import is_id_like
 from dss.security.upload_security import UploadValidationError, read_upload_within_size_limit, safe_document_name
@@ -425,34 +424,6 @@ def _render_lecturer_view(df, role, llm_integration) -> None:
 # ============================================================================
 # SINH VIÊN
 # ============================================================================
-def _infer_topic_mastery(df, current_student_id: str, topic_id: str):
-    """Ước lượng mastery 0-1 từ CỘT ĐIỂM CHỦ ĐỀ thật nếu topic_id khớp — trung
-    thực trả về None (không đoán) nếu không có dữ liệu khớp. Dùng làm fallback
-    tier cuối cùng cho resolve_explanation_level() khi không có learning_profile."""
-    if not current_student_id or not topic_id:
-        return None
-    id_col = next((c for c in df.columns if is_id_like(c)), None)
-    if not id_col:
-        return None
-    matching_col = next(
-        (
-            c
-            for c in TOPIC_SCORE_COLUMNS
-            if topic_id.lower() in c.lower() or topic_id.lower() in TOPIC_SCORE_COLUMNS[c].lower()
-        ),
-        None,
-    )
-    if not matching_col or matching_col not in df.columns:
-        return None
-    rows = df[df[id_col].astype(str) == str(current_student_id)]
-    if rows.empty:
-        return None
-    try:
-        return float(rows.iloc[0][matching_col]) / 10.0
-    except (TypeError, ValueError):
-        return None
-
-
 def _resolve_level_for_student(df, current_student_id, course_id, lesson_id, topic_id):
     """Mục 1 — dùng resolve_explanation_level() thật thay vì so khớp cột đơn lẻ
     trực tiếp trong UI. UI chỉ hiển thị friendly_reason, KHÔNG hiện field kỹ thuật."""

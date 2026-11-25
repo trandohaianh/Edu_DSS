@@ -11,16 +11,16 @@ repos:
     rev: v5.0.0
     hooks:
       - id: check-yaml
-        exclude: ^(EduDSS_UI_Reference_Kit|ui_reference)/
+        exclude: ^ui_reference/
       - id: check-toml
       - id: check-merge-conflict
       - id: check-added-large-files
         args: [--maxkb=1024]
       - id: detect-private-key
       - id: end-of-file-fixer
-        exclude: ^(reports|EduDSS_UI_Reference_Kit|ui_reference|static)/
+        exclude: ^(reports|ui_reference|static)/
       - id: trailing-whitespace
-        exclude: ^(reports|EduDSS_UI_Reference_Kit|ui_reference|static)/|\.md$
+        exclude: ^(reports|ui_reference|static)/|\.md$
   - repo: local
     hooks:
       - id: secret-scan

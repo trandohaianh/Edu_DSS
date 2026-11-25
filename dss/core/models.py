@@ -7,8 +7,6 @@ import os
 from datetime import datetime
 from threading import Thread
 
-import numpy as np
-import pandas as pd
 import streamlit as st
 from scipy.spatial.distance import cosine
 from sklearn.metrics.pairwise import cosine_similarity
@@ -17,7 +15,6 @@ from tenacity import Retrying, retry_if_exception, stop_after_attempt, wait_expo
 import dss.config as dss_config
 from dss.core.logging_config import get_logger
 from dss.core.observability import observed
-from dss.core.utils import _make_safe_cv_strategy
 from dss.core.warehouse import VectorStore
 from dss.security.prompt_boundary import (
     AI_SYSTEM_POLICY,
@@ -43,129 +40,6 @@ from dss.config import (
     requests,
     xgb,
 )
-
-
-class EnsembleTrainer:
-    """Class này chịu trách nhiệm huấn luyện các mô hình ensemble (Stacking) nâng cao."""
-
-    def __init__(self):
-        self.models = {}
-
-    @st.cache_data
-    def train_ensemble_improved(_self, df, feature_cols, target_reg, target_clf, random_state=42):
-        """Hàm chính để huấn luyện các mô hình ensemble cho cả hồi quy và phân loại."""
-        if target_reg not in df.columns or target_clf not in df.columns:
-            raise KeyError(f"Cột mục tiêu '{target_reg}' hoặc '{target_clf}' không tìm thấy.")
-
-        X = df[feature_cols]
-        y_reg = df[target_reg]
-        y_clf = df[target_clf]
-
-        # Chia dữ liệu cho bài toán hồi quy
-        X_train_reg, X_test_reg, y_train_reg, y_test_reg = train_test_split(
-            X, y_reg, test_size=0.2, random_state=random_state
-        )
-        # Chia dữ liệu cho bài toán phân loại (với stratify để giữ nguyên tỉ lệ các lớp)
-        clf_counts = pd.Series(y_clf).value_counts(dropna=False)
-        stratify_clf = y_clf if (not clf_counts.empty and int(clf_counts.min()) >= 2) else None
-        X_train_clf, X_test_clf, y_train_clf, y_test_clf = train_test_split(
-            X, y_clf, test_size=0.2, random_state=random_state, stratify=stratify_clf
-        )
-
-        # Xác định các cột số và cột phân loại để xử lý riêng
-        numeric_features = X.select_dtypes(include=[np.number]).columns.tolist()
-        categorical_features = X.select_dtypes(include=['object', 'category']).columns.tolist()
-        from dss.core.data_helpers import (
-            create_shared_preprocessor,  # import trễ: tránh vòng lặp import models<->data_helpers<->trainers
-        )
-
-        preprocessor = create_shared_preprocessor(numeric_features, categorical_features)
-
-        # --- Xây dựng Pipeline cho Hồi quy (Stacking) ---
-        # Các mô hình cơ sở (base models)
-        rf_reg = RandomForestRegressor(n_jobs=-1, random_state=random_state)
-        gb_reg = GradientBoostingRegressor(random_state=random_state)
-        estimators_reg = [("rf", rf_reg), ("gb", gb_reg)]
-        # Mô hình Stacking: kết hợp các mô hình cơ sở và dùng một mô hình cuối (final_estimator) để đưa ra dự đoán cuối cùng
-        stack_reg = StackingRegressor(estimators=estimators_reg, final_estimator=Ridge(), passthrough=False)
-        regression_pipeline = SklearnPipeline(steps=[('preprocessor', preprocessor), ('regressor', stack_reg)])
-
-        # Tinh chỉnh tham số tự động bằng GridSearchCV
-        param_grid_reg = {
-            'regressor__rf__n_estimators': [100, 200, 300],
-            'regressor__rf__max_depth': [5, 10, 15],
-            'regressor__gb__n_estimators': [50, 100, 200],
-            'regressor__final_estimator__alpha': [0.1, 1.0, 10.0],
-        }
-        cv_reg = _make_safe_cv_strategy(y_train_reg, desired_folds=5, is_classification=False)
-        grid_search_reg = GridSearchCV(
-            regression_pipeline,
-            param_grid=param_grid_reg,
-            cv=cv_reg,
-            scoring="neg_mean_absolute_error",
-            n_jobs=-1,
-            verbose=0,
-        )
-        grid_search_reg.fit(X_train_reg, y_train_reg)
-        best_reg = grid_search_reg.best_estimator_
-
-        # --- Xây dựng Pipeline cho Phân loại (Stacking) ---
-        rf_clf = RandomForestClassifier(n_estimators=200, random_state=random_state)
-        gb_clf = RandomForestClassifier(n_estimators=200, random_state=random_state)
-        estimators_clf = [("rf_c", rf_clf), ("gb_c", gb_clf)]
-        stack_clf = StackingClassifier(
-            estimators=estimators_clf, final_estimator=LogisticRegression(max_iter=1000), passthrough=False
-        )
-        classification_pipeline = SklearnPipeline(steps=[('preprocessor', preprocessor), ('classifier', stack_clf)])
-
-        # Tinh chỉnh tham số tự động bằng GridSearchCV
-        param_grid_clf = {
-            'classifier__final_estimator__C': [0.1, 1.0, 10.0],
-            'classifier__rf_c__n_estimators': [100, 200, 300],
-        }
-        cv_clf = _make_safe_cv_strategy(y_train_clf, desired_folds=5, is_classification=True)
-        grid_search_clf = GridSearchCV(
-            classification_pipeline, param_grid=param_grid_clf, cv=cv_clf, scoring="f1_macro", n_jobs=-1, verbose=0
-        )
-        grid_search_clf.fit(X_train_clf, y_train_clf)
-        best_clf = grid_search_clf.best_estimator_
-
-        # Tạo SHAP explainer để giải thích mô hình (nếu thư viện SHAP có sẵn)
-        explainer = None
-        if SHAP_AVAILABLE:
-            try:
-                rf_model = best_reg.named_steps['regressor'].named_estimators_['rf']
-                explainer = shap.TreeExplainer(rf_model)
-            except Exception as e:
-                st.warning(f"Tạo SHAP explainer thất bại: {e}")
-
-        # Đánh giá mô hình trên tập test
-        y_pred_reg = best_reg.predict(X_test_reg)
-        y_pred_clf = best_clf.predict(X_test_clf)
-
-        # Tính toán các chỉ số cho mô hình hồi quy
-        metrics_reg = {
-            "RMSE": float(math.sqrt(mean_squared_error(y_test_reg, y_pred_reg))),
-            "MAE": float(mean_absolute_error(y_test_reg, y_pred_reg)),
-            "R2": float(r2_score(y_test_reg, y_pred_reg)),
-        }
-        # Tính toán các chỉ số cho mô hình phân loại
-        metrics_clf = {
-            "Accuracy": float(accuracy_score(y_test_clf, y_pred_clf)),
-            "F1_macro": float(f1_score(y_test_clf, y_pred_clf, average="macro")),
-            "classification_report": classification_report(y_test_clf, y_pred_clf, output_dict=True, zero_division=0),
-        }
-
-        # Trả về các mô hình, explainer, features và metrics đã huấn luyện
-        return {
-            "regressor": best_reg,
-            "classifier": best_clf,
-            "explainer": explainer,
-            "features": feature_cols,
-            "metrics_reg": metrics_reg,
-            "metrics_clf": metrics_clf,
-            "preprocessor": preprocessor,
-        }
 
 
 # Danh sách tên model theo THỨ TỰ ƯU TIÊN cho mỗi provider — NƠI DUY NHẤT cần sửa

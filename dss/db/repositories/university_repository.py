@@ -55,12 +55,6 @@ def get_organization(organization_id: int) -> Optional[dict[str, Any]]:
         return _org_to_dict(org) if org else None
 
 
-def get_organization_by_code(org_code: str) -> Optional[dict[str, Any]]:
-    with session_scope() as session:
-        org = session.query(Organization).filter_by(org_code=org_code).one_or_none()
-        return _org_to_dict(org) if org else None
-
-
 def list_organizations() -> list[dict[str, Any]]:
     with session_scope() as session:
         return [_org_to_dict(o) for o in session.query(Organization).order_by(Organization.id).all()]

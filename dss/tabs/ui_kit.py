@@ -339,95 +339,6 @@ def cold_start_aware_message(llm_integration, base_message: str) -> str:
     )
 
 
-def loading_state(message="Đang xử lý dữ liệu học tập..."):
-    """Trạng thái đang tải (tĩnh) cho khu vực chưa có dữ liệu trả về."""
-    st.markdown(
-        f"<div class='dss-loading' role='status' aria-live='polite'>"
-        f"<span class='dss-spinner' aria-hidden='true'></span><span>{strip_decoration(message)}</span></div>",
-        unsafe_allow_html=True,
-    )
-
-
-def recommendation_card(
-    issue: str,
-    evidence: str,
-    priority: str,
-    action: str,
-    timeframe: str,
-    expected_result: str,
-    recheck_condition: str = None,
-    source: str = None,
-):
-    """Thẻ khuyến nghị học tập có cấu trúc (vấn đề / bằng chứng / hành động)."""
-    priority_kind = (
-        "danger"
-        if priority in ("Cao", "Khẩn cấp", "HIGH")
-        else ("warning" if priority in ("Trung bình", "MEDIUM") else "info")
-    )
-    priority_label = (
-        "Ưu tiên cao"
-        if priority_kind == "danger"
-        else ("Ưu tiên trung bình" if priority_kind == "warning" else "Ưu tiên thông thường")
-    )
-
-    recheck_html = (
-        f"<div class='dss-recommendation-action'><b>Đánh giá lại:</b> {recheck_condition}</div>"
-        if recheck_condition
-        else ""
-    )
-    source_html = f"<div class='dss-recommendation-meta'>Cơ sở dữ liệu: {source}</div>" if source else ""
-
-    st.markdown(
-        f"<div class='dss-recommendation-card'>"
-        f"<div class='dss-recommendation-head'>"
-        f"<div class='dss-recommendation-title'>{strip_decoration(issue)}</div>"
-        f"<div>{badge_html(priority_label, priority_kind)}</div></div>"
-        f"<div class='dss-recommendation-evidence'><b>Bằng chứng:</b><br>{evidence}</div>"
-        f"<div class='dss-recommendation-action'><b>Hành động:</b> {action}</div>"
-        f"{recheck_html}"
-        f"<div class='dss-recommendation-footer'>"
-        f"<div><b>Thời gian:</b> {timeframe}</div>"
-        f"<div><b>Kỳ vọng:</b> {expected_result}</div></div>"
-        f"{source_html}</div>",
-        unsafe_allow_html=True,
-    )
-
-
-def diagnosis_card(
-    status_title: str,
-    summary: str = None,
-    evidences: list = None,
-    concerns: list = None,
-    recommendation: str = None,
-    kind: str = "info",
-):
-    """Thẻ chẩn đoán học tập — không lộ enum kỹ thuật."""
-    ev_list_html = ""
-    if evidences:
-        ev_items = "".join(f"<li>{ev}</li>" for ev in evidences)
-        ev_list_html = (
-            f"<div class='dss-diagnosis-evidence'><b>Bằng chứng:</b>"
-            f"<ul style='margin:4px 0 0;padding-left:20px;'>{ev_items}</ul></div>"
-        )
-    concern_html = ""
-    if concerns:
-        c_items = "".join(f"<li>{c}</li>" for c in concerns)
-        concern_html = (
-            f"<div class='dss-diagnosis-concern'><b>Điểm cần chú ý:</b>"
-            f"<ul style='margin:4px 0 0;padding-left:20px;'>{c_items}</ul></div>"
-        )
-    rec_html = (
-        f"<div class='dss-recommendation-action'><b>Khuyến nghị:</b> {recommendation}</div>" if recommendation else ""
-    )
-    summary_html = f"<div class='dss-diagnosis-desc'>{summary}</div>" if summary else ""
-    st.markdown(
-        f"<div class='dss-diagnosis-card'>"
-        f"<div class='dss-diagnosis-title'>{strip_decoration(status_title)}</div>"
-        f"{summary_html}{ev_list_html}{concern_html}{rec_html}</div>",
-        unsafe_allow_html=True,
-    )
-
-
 def source_citation_badge(source_name: str, section: str = None, page: str = None):
     """Nhãn trích dẫn nguồn (RAG/CMS)."""
     details = []
@@ -448,18 +359,6 @@ def markdown_keep_br_only(text: str) -> str:
 
     escaped = str(text or "").replace("&", "&amp;").replace("<", "&lt;")
     return _re.sub(r"&lt;br\s*/?>", "<br>", escaped, flags=_re.I)
-
-
-def coming_soon(title, description, icon=None):
-    """Khối đánh dấu rõ ràng chức năng CHƯA có service/dữ liệu thật đứng sau —
-    thay vì dựng số liệu giả. `icon` giữ để tương thích ngược — không render."""
-    st.markdown(
-        f"<div class='dss-notice dss-notice--info'>"
-        f"<div class='dss-notice-title'>{strip_decoration(title)} "
-        f"<span class='dss-status dss-status--pending dss-status--plain'>Chưa có trong phiên bản này</span></div>"
-        f"<div class='dss-notice-body'>{description}</div></div>",
-        unsafe_allow_html=True,
-    )
 
 
 # FINAL REMEDIATION PASS Mục 5 (K-2): mọi "Mức rủi ro" được tính bằng PHÂN VỊ

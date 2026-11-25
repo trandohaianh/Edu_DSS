@@ -173,13 +173,10 @@ Nguồn: `dss/tabs/university_onboarding_tab.py:65-151`. Luồng này "Để sau
 
 ## 4. So sánh mockup với code
 
-Có **2 bộ mockup**, cùng tên tệp nhưng nội dung khác nhau:
-
-- `ui_reference/`: chữ **không dấu** (ví dụ tiêu đề "Ket qua hoc tap"), biểu tượng menu là chữ cái. Có thêm
-  `lecturer_home.html` và `lecturer_dashboard.html` ở thư mục gốc.
-- `EduDSS_UI_Reference_Kit/EduDSS_UI_Reference/`: chữ **có dấu** ("Kết quả học tập"), biểu tượng là ký hiệu.
-- Cả 2 đều có cùng `README.md` ghi đây là "visual source-of-truth" (`ui_reference/README.md:11`).
-- Báo cáo bảo mật xếp cả 2 bộ là mockup thiết kế có số "Độ chính xác mô hình 0.875" giả, đã loại khỏi image
+Bộ mockup duy nhất là `ui_reference/`: chữ **không dấu** (ví dụ tiêu đề "Ket qua hoc tap"), biểu tượng menu là chữ cái,
+có thêm `lecturer_home.html` và `lecturer_dashboard.html` ở thư mục gốc. `ui_reference/README.md:11` ghi đây là
+"visual source-of-truth". (Bộ trùng `EduDSS_UI_Reference_Kit/` bản có dấu đã xoá ngày 26/11/2026.)
+- Báo cáo bảo mật xếp bộ này là mockup thiết kế có số "Độ chính xác mô hình 0.875" giả, đã loại khỏi image
   (`reports/final_acceptance/C1_1_SECURITY_PRIVACY_HARDENING.md:121`).
 
 | Mockup (cả 2 bộ trừ khi ghi khác) | Trang trong code | Mức khớp |
@@ -218,9 +215,7 @@ Có **2 bộ mockup**, cùng tên tệp nhưng nội dung khác nhau:
 
 > ✅ **ĐÃ CHỐT (21/11/2026): làm thêm 3 trang giảng viên theo mockup** (`reports`, `history`, `risk_analysis`).
 > - Mẫu dùng: `ui_reference/lecturer/reports.html`, `history.html`, `risk_analysis.html`. Bộ
->   `EduDSS_UI_Reference_Kit/` cũng có các file cùng tên; nếu hai bộ khác nhau thì lấy `ui_reference/`,
->   vì `ui_reference/README.md` tự ghi là "visual source-of-truth". *(Suy ra từ quyết định, chủ dự án xác
->   nhận lại nếu muốn khác.)*
+>   `ui_reference/README.md` tự ghi đây là "visual source-of-truth".
 > - Với các trang **đã có**, giao diện trong code là chuẩn. Trang nào chưa có mockup thì không cần vẽ thêm.
 > - Trước khi lập trình (bước 6) cần đặc tả nội dung từng trang và phân biệt với các trang gần giống:
 >   Dashboard "Sinh viên rủi ro cao", Kho dữ liệu — History, Lịch sử tư vấn.

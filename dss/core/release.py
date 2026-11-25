@@ -182,8 +182,3 @@ def runtime_state() -> Dict[str, Any]:
 def version_document() -> Dict[str, Any]:
     """Machine-readable document for /version and the release manifest check."""
     return {"release": release_identity(), "runtime": runtime_state()}
-
-
-def display_string() -> str:
-    ident = release_identity()
-    return f"EduDSS {ident['version']} · {str(ident['git_sha'])[:12]} · DB {','.join(ident['alembic_head'])}"

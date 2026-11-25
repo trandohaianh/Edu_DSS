@@ -35,30 +35,12 @@ MODE_REAL = "REAL_CONNECTOR"
 
 
 @dataclass
-class CMSCourseContent:
-    course_id: str
-    course_code: str
-    course_name: str
-    credits: int = 3
-    department: str = "Khoa CNTT"
-    description: str = ""
-
-
-@dataclass
 class CMSModule:
     module_id: str
     course_id: str
     module_name: str
     order: int
     target_competency: str
-
-
-@dataclass
-class CMSTopic:
-    topic_id: str
-    module_id: str
-    topic_name: str
-    difficulty: str = "Intermediate"  # "Beginner" | "Intermediate" | "Advanced"
 
 
 @dataclass
@@ -72,14 +54,6 @@ class CMSLesson:
 
 
 @dataclass
-class CMSLearningOutcome:
-    outcome_id: str
-    course_id: str
-    description: str
-    bloom_level: str = "Apply"  # Remember | Understand | Apply | Analyze | Evaluate | Create
-
-
-@dataclass
 class CMSSkillMapping:
     skill_name: str
     target_level: str  # "Basic" | "Intermediate" | "Advanced"
@@ -88,19 +62,6 @@ class CMSSkillMapping:
     topic_name: str
     competency_domain: str
     min_grade: float = 6.5
-
-
-@dataclass
-class CMSLearningResource:
-    resource_id: str
-    title: str
-    resource_type: str  # "interactive_lab" | "video_lecture" | "reading" | "practice_quiz" | "capstone_project"
-    url: str
-    provider: str  # "EduDSS CMS" | "Coursera" | "Kaggle" | "Học liệu CNTT" | "Microsoft Learn"
-    estimated_hours: float
-    difficulty: str  # "Beginner" | "Intermediate" | "Advanced"
-    for_skill: str
-    for_topic: Optional[str] = None
 
 
 @dataclass

@@ -302,27 +302,3 @@ def get_model_provenance(organization_id: int, training_id: str) -> Optional[dic
                 for d in drift_history
             ],
         }
-
-
-def list_drift_history(organization_id: int, model_version_id: int, limit: int = 50) -> list[dict[str, Any]]:
-    with tenant_session_scope(organization_id) as session:
-        rows = (
-            session.query(DriftEvaluation)
-            .filter_by(organization_id=organization_id, model_version_id=model_version_id)
-            .order_by(DriftEvaluation.evaluated_at.desc())
-            .limit(limit)
-            .all()
-        )
-        return [
-            {
-                "id": d.id,
-                "evaluation_type": d.evaluation_type,
-                "overall_status": d.overall_status,
-                "recommended_action": d.recommended_action,
-                "details": d.details,
-                "thresholds_used": d.thresholds_used,
-                "evaluated_at": d.evaluated_at.isoformat(),
-                "evaluated_by": d.evaluated_by,
-            }
-            for d in rows
-        ]

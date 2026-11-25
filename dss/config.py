@@ -460,13 +460,6 @@ except ImportError:
 # ============================================================================
 # CUSTOM EXCEPTIONS
 # ============================================================================
-class ConfigError(Exception):
-    """
-    Exception tùy chỉnh cho các lỗi cấu hình.
-    Được sử dụng khi có vấn đề với cấu hình hệ thống hoặc tham số không hợp lệ.
-    """
-
-
 def setup_page() -> None:
     """Streamlit page config — call once from main."""
     import streamlit as st

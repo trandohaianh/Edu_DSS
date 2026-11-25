@@ -5,7 +5,6 @@
 target-version = "py311"          # khớp image python:3.11.16 trong Dockerfile
 line-length = 120
 extend-exclude = [
-    "EduDSS_UI_Reference_Kit",
     "ui_reference",
     "dữ liệu",
     "data_warehouse",

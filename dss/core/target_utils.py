@@ -538,34 +538,3 @@ def temporal_train_test_split(
     test_idx = sorted_idx[split_point:]
 
     return X.loc[train_idx], X.loc[test_idx], y.loc[train_idx], y.loc[test_idx]
-
-
-def validate_evaluation_target(
-    df: pd.DataFrame,
-    target_col: str,
-    data_source_type: str = "real",
-) -> Tuple[bool, str]:
-    """Kiểm tra tính hợp lệ của target trong Real/Evaluation Mode.
-
-    Trong REAL / EVALUATION MODE:
-    - Target phải tồn tại và được quan sát trong dataset.
-    - Tuyệt đối không tự tạo/tính bằng công thức mô phỏng.
-    - Nếu không có target: báo rõ dataset không đủ điều kiện cho longitudinal evaluation.
-    """
-    if target_col not in df.columns:
-        # Check if alias exists
-        if target_col == CANONICAL_TARGET_REGRESSION and LEGACY_ALIAS_REGRESSION in df.columns:
-            return True, f"Target '{target_col}' có thể suy ra từ alias '{LEGACY_ALIAS_REGRESSION}'"
-        if target_col == CANONICAL_TARGET_CLASSIFICATION and LEGACY_ALIAS_CLASSIFICATION in df.columns:
-            return True, f"Target '{target_col}' có thể suy ra từ alias '{LEGACY_ALIAS_CLASSIFICATION}'"
-        return False, (
-            f"Dataset không đủ điều kiện cho longitudinal evaluation: "
-            f"Thiếu cột kết quả thực tế quan sát được '{target_col}'. "
-            "Hệ thống không tự tạo target để đảm bảo tính khách quan."
-        )
-
-    target_s = df[target_col].dropna()
-    if len(target_s) == 0:
-        return False, f"Cột target '{target_col}' hoàn toàn rỗng trong dataset."
-
-    return True, "Target hợp lệ"

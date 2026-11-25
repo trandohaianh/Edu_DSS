@@ -28,7 +28,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from dss.db.models import AcademicRecord, Course, Enrollment, Lecturer, Student
+from dss.db.models import AcademicRecord, Course, Enrollment, Student
 from dss.db.session import tenant_session_scope
 
 # Score-like columns in generate_data()/generate_lms_data()'s DataFrame that map
@@ -88,25 +88,6 @@ def resolve_or_create_student_id(session, organization_id: int, student_code: Op
         except IntegrityError:
             savepoint.rollback()
     raise RuntimeError("could not resolve student row")
-
-
-def upsert_lecturer(organization_id: int, lecturer_code: str, full_name: Optional[str] = None) -> int:
-    with tenant_session_scope(organization_id) as session:
-        existing = (
-            session.query(Lecturer)
-            .filter_by(organization_id=organization_id, lecturer_code=lecturer_code)
-            .one_or_none()
-        )
-        if existing:
-            return existing.id
-        lecturer = Lecturer(
-            organization_id=organization_id,
-            lecturer_code=lecturer_code,
-            full_name=full_name or lecturer_code,
-        )
-        session.add(lecturer)
-        session.flush()
-        return lecturer.id
 
 
 def upsert_course(

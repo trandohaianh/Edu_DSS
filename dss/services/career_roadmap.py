@@ -186,17 +186,6 @@ def generate_roadmap(
 # ============================================================================
 # CON ĐƯỜNG THAY THẾ (ALTERNATIVE PATHS)
 # ============================================================================
-@dataclass
-class AlternativePathsResult:
-    primary_role_id: str
-    primary_role_name: str
-    secondary_roles: List[Dict[str, str]]  # role_id, role_name, explanation
-    long_term_roles: List[Dict[str, str]]  # role_id, role_name, explanation
-
-    def to_dict(self) -> Dict[str, Any]:
-        return asdict(self)
-
-
 def suggest_alternative_paths(primary_role_id: str) -> Dict[str, Any]:
     """Mục XIX: Đề xuất Con đường Thay thế: Primary Path, Secondary Path và Long-term Path
     kèm lời giải thích nguyên nhân rõ ràng từ Knowledge Base."""

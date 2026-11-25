@@ -1820,16 +1820,6 @@ def ai_advisor_tab(df, llm_integration, role=None, current_student_id=None, wh=N
                 )
 
 
-def _mask_key(raw_key: str) -> str:
-    """Che gần hết ký tự của API key thật — CHỈ hiện 4 ký tự cuối để nhận diện
-    (vd. đổi key có bị dùng nhầm không), không bao giờ hiện đủ key gốc."""
-    if not raw_key:
-        return "—"
-    if len(raw_key) <= 4:
-        return "•" * len(raw_key)
-    return "•" * 10 + raw_key[-4:]
-
-
 @require_role("Admin")
 def ai_configuration_tab(llm_integration):
     """Cấu hình AI — trang riêng CHỈ Admin (đúng yêu cầu "role duy nhất được

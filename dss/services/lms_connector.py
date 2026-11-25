@@ -39,16 +39,6 @@ MODE_REAL = "REAL_CONNECTOR"
 
 
 @dataclass
-class LMSStudent:
-    student_id: str
-    pseudonym: str
-    cohort: str = "K2022"
-    major: str = "Công nghệ Thông tin / Khoa học Dữ liệu"
-    academic_status: str = "active"
-    created_at: str = field(default_factory=lambda: datetime.now().isoformat())
-
-
-@dataclass
 class LMSEnrollment:
     enrollment_id: str
     course_id: str

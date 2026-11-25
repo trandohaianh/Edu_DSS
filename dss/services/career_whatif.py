@@ -60,16 +60,6 @@ def apply_constraint_change(
     return hypothetical
 
 
-def apply_timeframe_change(
-    profile: StudentCareerProfile,
-    timeframe_months: int,
-) -> StudentCareerProfile:
-    """Giả lập: Đổi khung thời gian mong muốn đạt mục tiêu nghề nghiệp."""
-    hypothetical = profile.clone()
-    hypothetical.goal.target_timeframe_months = timeframe_months
-    return hypothetical
-
-
 def compare_scenarios(
     original_profile: StudentCareerProfile,
     hypothetical_profile: StudentCareerProfile,
@@ -111,20 +101,6 @@ def compare_scenarios(
         delta_readiness=delta_readiness,
         explanation=explanation,
     )
-
-
-def filter_roles_by_constraint(
-    roles: List[CareerRole], constraint_name: str, constraint_value: Any
-) -> List[CareerRole]:
-    """Giả lập: 'Nếu tôi không muốn làm ca thì nghề nào nên loại?'
-    Trả về danh sách nghề KHÔNG bị xung đột nghiêm trọng với ràng buộc mới."""
-    if constraint_name == "preferred_hours" and constraint_value == "office_hours":
-        return [r for r in roles if r.preferred_hours != "shift_ok"]
-    if constraint_name == "remote_preference" and constraint_value == "remote":
-        return [r for r in roles if r.remote_friendly != "on_site"]
-    if constraint_name == "english_level" and constraint_value in ("Beginner", "Intermediate"):
-        return [r for r in roles if r.minimum_english != "Advanced"]
-    return list(roles)
 
 
 def rank_roles_for_timeframe(

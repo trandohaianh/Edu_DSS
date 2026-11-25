@@ -106,11 +106,6 @@ class QuotaExceededError(GatewayError):
         super().__init__(message, provider=provider, error_code="QUOTA_EXCEEDED")
 
 
-class ModelUnavailableError(GatewayError):
-    def __init__(self, message: str, provider: str = "unknown"):
-        super().__init__(message, provider=provider, error_code="MODEL_UNAVAILABLE")
-
-
 class TimeoutError(GatewayError):
     def __init__(self, message: str, provider: str = "unknown"):
         super().__init__(message, provider=provider, error_code="TIMEOUT")

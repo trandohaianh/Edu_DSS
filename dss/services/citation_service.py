@@ -18,26 +18,6 @@ import re
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 
-def format_evidence_for_prompt(chunks: List[Dict[str, Any]]) -> str:
-    """Định dạng các đoạn tài liệu RAG kèm nhãn định danh chuẩn xác để LLM trích dẫn."""
-    if not chunks:
-        return "Không có tài liệu tham khảo nào."
-
-    formatted_items = []
-    for idx, c in enumerate(chunks, 1):
-        doc_id = c.get("document_id") or c.get("id") or f"doc_{idx}"
-        chunk_id = c.get("chunk_id") or f"{doc_id}_c1"
-        title = c.get("title", f"Tài liệu #{idx}")
-        source = c.get("source", "LMS Knowledge Base")
-        score = float(c.get("relevance_score", 0.0))
-        content = c.get("content", "").strip()
-
-        header = f"[Tài liệu #{idx} | ID: {doc_id} | Chunk: {chunk_id} | Tiêu đề: \"{title}\" | Nguồn: {source} | Độ khớp: {score:.2f}]"
-        formatted_items.append(f"{header}\n{content}")
-
-    return "\n\n".join(formatted_items)
-
-
 def verify_citations(
     llm_output: str,
     retrieved_chunks: List[Dict[str, Any]],

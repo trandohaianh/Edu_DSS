@@ -89,3 +89,6 @@ TAI-KHOAN*.md
 *.docx
 *.pptx
 ~$*
+
+# release_gate.py output (regenerated on every run)
+reports/release_gate/

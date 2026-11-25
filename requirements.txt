@@ -13,8 +13,7 @@
 # venv this codebase is developed and tested against (exact versions below,
 # captured via `pip list --format=freeze` on 2026-09-15) and is the ONE
 # file Dockerfile installs from (see Dockerfile fix, Issue DEPLOY-001).
-# dss/requirements.txt is kept only as a legacy duplicate — see the note at
-# its top; do not edit dependencies there, edit here.
+# (the old legacy duplicate dss/requirements.txt was removed on 2026-11-26).
 
 # --- Core Web & UI ---
 streamlit==1.54.0

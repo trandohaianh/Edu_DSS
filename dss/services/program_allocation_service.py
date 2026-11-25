@@ -137,20 +137,6 @@ def register_school(actor: Actor, school_id: str, name: str) -> dict:
         return dict(id=school.id, name=school.name, active=school.active)
 
 
-def set_school_status(actor: Actor, school_id: str, active: bool) -> dict:
-    _operator(actor)
-    school_id = _school(school_id)
-    if type(active) is not bool:
-        raise ValueError("active must be boolean")
-    with platform_session(school_id=school_id, write=True, actor=actor) as session:
-        school = session.get(School, school_id)
-        if school is None:
-            raise ValueError("School not found")
-        school.active = active
-        audit(session, actor, "school.status", school_id, school_id=school_id, details={"active": active})
-        return dict(id=school.id, name=school.name, active=school.active)
-
-
 def create_program(actor: Actor, code: str, name: str, seat_budget: int, ai_budget: int = 0) -> dict:
     _operator(actor)
     code, name = _text(code, "programme code"), _text(name, "programme name", 255)

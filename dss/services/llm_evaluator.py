@@ -13,7 +13,6 @@ Tuyệt đối KHÔNG chỉ đánh giá chất lượng AI qua việc gọi API 
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
 from dss.services.citation_service import verify_citations
@@ -81,19 +80,6 @@ _PROHIBITION_CUES = re.compile(
 
 def _is_prohibition_context(text: str, start: int, end: int) -> bool:
     return bool(_PROHIBITION_CUES.search(text[max(0, start - 60) : end + 60]))
-
-
-@dataclass
-class HumanLecturerRating:
-    rating_id: str
-    plan_id: str
-    lecturer_id: str
-    stars: int  # 1 - 5
-    clarity_score: int  # 1 - 5
-    feasibility_score: int  # 1 - 5: Tính khả thi của kế hoạch trong 4 tuần
-    pedagogical_tone: int  # 1 - 5: Văn phong sư phạm, động viên
-    comments: Optional[str] = None
-    tags: Optional[List[str]] = None
 
 
 def detect_harmful_or_unsupported_advice(text: str) -> Tuple[bool, List[str]]:

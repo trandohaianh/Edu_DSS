@@ -7,10 +7,7 @@ import pandas as pd
 import streamlit as st
 
 from dss.config import (
-    ADASYN,
     IMB_LEARN_AVAILABLE,
-    SMOTE,
-    BorderlineSMOTE,
     ColumnTransformer,
     ImbPipeline,
     KNNImputer,
@@ -345,55 +342,3 @@ def create_shared_preprocessor(numeric_features, categorical_features, scaler_ty
         transformers.append(('cat', categorical_transformer, categorical_features))
 
     return ColumnTransformer(transformers=transformers, remainder='passthrough')
-
-
-def balance_dataset(X, y, method="smote", random_state=42):
-    """
-    Cân bằng tập dữ liệu phân loại (chỉ dùng cho classification).
-    method: "smote", "borderline", "svm", "adasyn" hoặc "none"
-    Trả về: X_res, y_res (pandas DataFrame/Series)
-    Ghi chú:
-    - Yêu cầu imblearn cài đặt để dùng SMOTE biến thể. Nếu không, hàm trả về bản gốc và cảnh báo.
-    """
-    if method is None or method == "none":
-        return X, y
-
-    if not IMBLEARN_AVAILABLE:
-        # imblearn không cài -> fallback
-        try:
-            import warnings as _w
-
-            _w.warn("imblearn không có — bỏ qua bước cân bằng lớp. Cài đặt imbalanced-learn để bật SMOTE.")
-        except ImportError:
-            pass
-        return X, y
-
-    sampler = None
-    method = (method or "smote").lower()
-    if method == "smote":
-        sampler = SMOTE(random_state=random_state)
-    elif method == "borderline":
-        sampler = BorderlineSMOTE(random_state=random_state)
-    elif method == "svm":
-        sampler = SVMSMOTE(random_state=random_state)
-    elif method == "adasyn":
-        sampler = ADASYN(random_state=random_state)
-    else:
-        return X, y
-    try:
-        X_res, y_res = sampler.fit_resample(X, y)
-        # Return as same type (pandas) if input was DataFrame/Series
-        if isinstance(X, pd.DataFrame):
-            X_res = pd.DataFrame(X_res, columns=X.columns)
-        if isinstance(y, (pd.Series, pd.Index)):
-            y_res = pd.Series(y_res, name=getattr(y, "name", None))
-        return X_res, y_res
-    except Exception as e:
-        # Nếu lỗi, trả về bản gốc và log
-        try:
-            import streamlit as _st
-
-            _st.warning(f"⚠️ Cân bằng dữ liệu thất bại ({method}): {e}. Bỏ qua cân bằng.")
-        except ImportError:
-            pass
-        return X, y

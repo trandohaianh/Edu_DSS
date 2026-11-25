@@ -100,11 +100,6 @@ def display_label(tab_label: str) -> str:
     return _LEADING_ICON_RE.sub("", tab_label, count=1)
 
 
-def tab_icon(tab_label: str) -> str:
-    """Lấy icon emoji/ký hiệu của tab."""
-    return TAB_ICONS.get(tab_label, "📌")
-
-
 ROLE_INFO = {
     "Giảng viên / CVHT": {
         "icon": "👩‍🏫",

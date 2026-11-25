@@ -280,15 +280,3 @@ def resolve_auto_provider(llm_integration) -> Optional[dict]:
 
 
 _GATEWAY_INSTANCE = None
-
-
-def get_gateway(llm_integration=None):
-    """Lấy thể hiện LLMGateway singleton dùng chung cho hệ thống."""
-    global _GATEWAY_INSTANCE
-    if _GATEWAY_INSTANCE is None:
-        from dss.services.llm_gateway import LLMGateway
-
-        _GATEWAY_INSTANCE = LLMGateway(llm_integration=llm_integration)
-    elif llm_integration and _GATEWAY_INSTANCE.llm_integration is None:
-        _GATEWAY_INSTANCE.llm_integration = llm_integration
-    return _GATEWAY_INSTANCE
